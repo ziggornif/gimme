@@ -1,4 +1,4 @@
-module github.com/drouian-m/gimme.git
+module github.com/drouian-m/gimme
 
 go 1.17
 

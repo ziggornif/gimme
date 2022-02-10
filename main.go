@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/drouian-m/gimme.git/files"
+	"github.com/drouian-m/gimme/files"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
