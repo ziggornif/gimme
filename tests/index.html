@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test CDN</title>
+
+    <link rel="stylesheet" href="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome.min.css">
+</head>
+<body>
+    <h1>Welcome to the CDN test page</h1>
+
+    <div>
+        CDN JS test :
+        <pre id="log"></pre>
+
+        CSS Test :
+        <h3>H3 are blue</h3>
+        <p>P are red</p>
+    </div>
+
+    <script>
+      (function () {
+        const logger = document.getElementById('log');
+        console.log = function (message) {
+          if (typeof message == 'object') {
+            logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
+          } else {
+            logger.innerHTML += message + '<br />';
+          }
+        }
+      })();
+    </script>
+    <script src="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js" type="module"></script>
+
+</body>
+</html>
