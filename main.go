@@ -1,20 +1,18 @@
 package main
 
 import (
-	"archive/zip"
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 
-	"github.com/drouian-m/gimme/files"
-
+	"github.com/drouian-m/gimme/storage"
+	"github.com/drouian-m/gimme/upload"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	filesManager, err := files.NewFilesManager(files.MinioConfig{
+	objectStorageManager, err := storage.NewObjectStorageManager(storage.MinioConfig{
 		Endpoint:        "localhost:9000",
 		AccessKeyID:     "test",
 		SecretAccessKey: "golangtest",
@@ -24,7 +22,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = filesManager.CreateBucket("gimme", "eu-west-1")
+	err = objectStorageManager.CreateBucket("gimme", "eu-west-1")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -42,7 +40,7 @@ func main() {
 		} else {
 			filePath = c.Param("package")
 		}
-		object, err := filesManager.GetObject(filePath)
+		object, err := objectStorageManager.GetObject(filePath)
 		if err != nil {
 			fmt.Println(err)
 			c.Status(http.StatusInternalServerError)
@@ -62,36 +60,23 @@ func main() {
 		name := c.PostForm("name")
 		version := c.PostForm("version")
 
-		src, _ := file.Open()
-		defer src.Close()
+		err := upload.ValidateFile(file)
 
-		//IDEA: did I need to also support single file import ?
-		// we can detect file type here
-		// - js / css case => upload directly in the object storage in a new folder <package>@<version>/<file>
-		// - archive => unzip and upload each file in the object storage (same folder convention)
-
-		archive, err := zip.NewReader(src, file.Size)
 		if err != nil {
-			panic(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
 
-		folderName := fmt.Sprintf("%s@%s", name, version)
-
-		var re = regexp.MustCompile(fmt.Sprintf(`^%s`, name))
-
-		for _, f := range archive.File {
-
-			//TODO: improve this. I don't know if it's the safest solution
-			// because it's presume that project name and package name are equals
-			fileName := re.ReplaceAllString(f.FileHeader.Name, folderName)
-
-			filesManager.AddObject(fileName, f)
-			fmt.Println("unzipping file ", f.Name)
+		err = upload.ArchiveProcessor(name, version, objectStorageManager, file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
 
 		c.Status(http.StatusNoContent)
 		return
 	})
 
-	router.Run(":8080")
+	err = router.Run(":8080")
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
