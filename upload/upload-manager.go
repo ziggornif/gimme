@@ -53,17 +53,16 @@ func ArchiveProcessor(name string, version string, objectStorageManager *storage
 	var wg sync.WaitGroup
 	wg.Add(nbFiles)
 
-	for i := 0; i < nbFiles; i++ {
-		go func(i int) {
+	for _, currentFile := range archive.File {
+		go func(currentFile *zip.File) {
 			defer wg.Done()
-			currentFile := archive.File[i]
 			logrus.Debug("Unzipping file ", currentFile.Name)
 			fileName := re.ReplaceAllString(currentFile.FileHeader.Name, folderName)
 			err := objectStorageManager.AddObject(fileName, currentFile)
 			if err != nil {
 				logrus.Errorf("Error while processing file %s", fileName)
 			}
-		}(i)
+		}(currentFile)
 	}
 
 	wg.Wait()
