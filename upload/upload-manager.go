@@ -8,14 +8,18 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/drouian-m/gimme/utils"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/drouian-m/gimme/storage"
 )
 
+var validTypes = []string{"application/octet-stream", "application/zip"}
+
 func ValidateFile(file *multipart.FileHeader) error {
 	contentType := file.Header.Get("Content-Type")
-	if len(contentType) == 0 || contentType != "application/zip" {
+	if len(contentType) == 0 || !utils.ArrayContains(validTypes, contentType) {
 		return errors.New("Invalid input file type. (accepted types : application/zip)")
 	}
 
