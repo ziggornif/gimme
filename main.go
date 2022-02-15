@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/drouian-m/gimme/auth"
+	"github.com/drouian-m/gimme/config"
 	"github.com/drouian-m/gimme/storage"
 	"github.com/drouian-m/gimme/upload"
 	"github.com/gin-contrib/cors"
@@ -12,6 +14,11 @@ import (
 )
 
 func main() {
+	appConfig, err := config.NewConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	objectStorageManager, err := storage.NewObjectStorageManager(storage.MinioConfig{
 		Endpoint:        "localhost:9000",
 		AccessKeyID:     "test",
@@ -31,6 +38,23 @@ func main() {
 
 	router := gin.Default()
 	router.Use(cors.Default())
+
+	router.POST("/create-token", gin.BasicAuth(gin.Accounts{
+		appConfig.AdminUser: appConfig.AdminPassword,
+	}), func(c *gin.Context) {
+		var request auth.CreateTokenRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		token, err := auth.CreateToken(request.Name, request.ExpirationDate, appConfig)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
 
 	router.GET("/gimme/:package/*file", func(c *gin.Context) {
 		var filePath string
@@ -59,8 +83,18 @@ func main() {
 		file, _ := c.FormFile("file")
 		name := c.PostForm("name")
 		version := c.PostForm("version")
+		token := auth.ExtractToken(c.GetHeader("Authorization"))
+		valid, err := auth.ValidateToken(token, appConfig)
+		if !valid {
+			c.Status(http.StatusUnauthorized)
+			return
+		}
 
-		err := upload.ValidateFile(file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
+		err = upload.ValidateFile(file)
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
