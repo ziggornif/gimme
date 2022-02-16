@@ -13,18 +13,61 @@ docker run \
 
 ## Run application
 
+> **/!\ You must create the access key / secret from Minio admin console if you are using a local minio object storage.**
+
 ### From sources
 ```shell
 # /!\ Use your own values
 GIMME_ADMIN_USER=gimmeadmin \
 GIMME_ADMIN_PASSWORD=gimmeadmin \
 GIMME_SECRET=secret \
+GIMME_S3_URL=localhost:9000 \
+GIMME_S3_KEY=s3key \
+GIMME_S3_SECRET=s3secret \
+GIMME_S3_LOCATION=eu-west-1 \
+GIMME_S3_SSL=false \
 go run main.go
 ```
 
 ### With docker
 
-WIP...
+Execute the following command to run a gimme instance (adapt environment variables with your values).
+
+```shell
+docker run -e GIMME_ADMIN_USER=gimmeadmin \
+  -p 8080:8080 \
+  -e GIMME_ADMIN_PASSWORD=gimmeadmin -e GIMME_SECRET=secret \
+  -e GIMME_S3_URL=localhost:9000 -e GIMME_S3_KEY=s3key \
+  -e GIMME_S3_SECRET=s3secret -e GIMME_S3_LOCATION=eu-west-1 \
+  -e GIMME_S3_SSL=false ziggornif/gimme:latest
+```
+
+Or with docker compose :
+
+```yaml
+version: "3.9"
+services:
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+  gimme:
+    image: ziggornif/gimme:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - GIMME_ADMIN_USER=gimmeadmin
+      - GIMME_ADMIN_PASSWORD=gimmeadmin
+      - GIMME_SECRET=secret
+      - GIMME_S3_URL=minio:9000
+      - GIMME_S3_KEY=s3key
+      - GIMME_S3_SECRET=s3secret
+      - GIMME_S3_SSL=false
+      - GIMME_S3_BUCKET_NAME=gimme
+      - GIMME_S3_LOCATION=eu-west-1
+```
 
 ## How does it work ?
 
