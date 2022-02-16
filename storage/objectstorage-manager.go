@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/drouian-m/gimme/config"
+
 	fileutils "github.com/drouian-m/gimme/file"
 
 	"github.com/sirupsen/logrus"
@@ -27,10 +29,10 @@ type ObjectStorageManager struct {
 	location    string
 }
 
-func NewObjectStorageManager(config MinioConfig) (*ObjectStorageManager, error) {
-	minioClient, err := minio.New(config.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(config.AccessKeyID, config.SecretAccessKey, ""),
-		Secure: config.UseSSL,
+func NewObjectStorageManager(config *config.Config) (*ObjectStorageManager, error) {
+	minioClient, err := minio.New(config.S3Url, &minio.Options{
+		Creds:  credentials.NewStaticV4(config.S3Key, config.S3Secret, ""),
+		Secure: config.S3SSL,
 	})
 
 	if err != nil {

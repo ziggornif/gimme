@@ -21,17 +21,12 @@ func main() {
 
 	authManager := auth.NewAuthManager(appConfig)
 
-	objectStorageManager, err := storage.NewObjectStorageManager(storage.MinioConfig{
-		Endpoint:        "localhost:9000",
-		AccessKeyID:     "test",
-		SecretAccessKey: "golangtest",
-		UseSSL:          false,
-	})
+	objectStorageManager, err := storage.NewObjectStorageManager(appConfig)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	err = objectStorageManager.CreateBucket("gimme", "eu-west-1")
+	err = objectStorageManager.CreateBucket(appConfig.S3BucketName, appConfig.S3Location)
 	if err != nil {
 		log.Fatalln(err)
 	}
