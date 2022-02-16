@@ -13,6 +13,7 @@ docker run \
 
 ## Run application
 
+### From sources
 ```shell
 # /!\ Use your own values
 GIMME_ADMIN_USER=gimmeadmin \
@@ -20,6 +21,10 @@ GIMME_ADMIN_PASSWORD=gimmeadmin \
 GIMME_SECRET=secret \
 go run main.go
 ```
+
+### With docker
+
+WIP...
 
 ## How does it work ?
 
