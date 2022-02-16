@@ -19,6 +19,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	authManager := auth.NewAuthManager(appConfig)
+
 	objectStorageManager, err := storage.NewObjectStorageManager(storage.MinioConfig{
 		Endpoint:        "localhost:9000",
 		AccessKeyID:     "test",
@@ -48,7 +50,7 @@ func main() {
 			return
 		}
 
-		token, err := auth.CreateToken(request.Name, request.ExpirationDate, appConfig)
+		token, err := authManager.CreateToken(request.Name, request.ExpirationDate)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
@@ -79,20 +81,10 @@ func main() {
 		c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
 	})
 
-	router.POST("/packages", func(c *gin.Context) {
+	router.POST("/packages", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 		file, _ := c.FormFile("file")
 		name := c.PostForm("name")
 		version := c.PostForm("version")
-		token := auth.ExtractToken(c.GetHeader("Authorization"))
-		valid, err := auth.ValidateToken(token, appConfig)
-		if !valid {
-			c.Status(http.StatusUnauthorized)
-			return
-		}
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
 
 		err = upload.ValidateFile(file)
 

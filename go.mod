@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.7
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/minio/minio-go/v7 v7.0.21
 	github.com/sirupsen/logrus v1.8.1
 )

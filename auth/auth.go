@@ -2,19 +2,32 @@ package auth
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/drouian-m/gimme/config"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 )
+
+type AuthManager struct {
+	config *config.Config
+}
+
+func NewAuthManager(config *config.Config) *AuthManager {
+	return &AuthManager{
+		config,
+	}
+}
 
 type CreateTokenRequest struct {
 	Name           string `json:"name"`
 	ExpirationDate string `json:"expirationDate"`
 }
 
-func CreateToken(name string, expirationDate string, config *config.Config) (string, error) {
+func (am *AuthManager) CreateToken(name string, expirationDate string) (string, error) {
 	var expiration time.Duration
 	if len(expirationDate) > 0 {
 		format := "2006-01-02"
@@ -28,20 +41,20 @@ func CreateToken(name string, expirationDate string, config *config.Config) (str
 		return "", errors.New("Expiration date must be greater than the current date.")
 	}
 
-	claims := &jwt.StandardClaims{
-		Id:        name,
-		ExpiresAt: time.Now().Add(expiration).Unix(),
+	claims := &jwt.RegisteredClaims{
+		ID:        name,
+		ExpiresAt: &jwt.NumericDate{time.Now().Add(expiration)},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signedToken, err := token.SignedString([]byte(config.Secret))
+	signedToken, err := token.SignedString([]byte(am.config.Secret))
 	if err != nil {
 		return "", err
 	}
 	return signedToken, nil
 }
 
-func ExtractToken(authHeader string) string {
+func (am *AuthManager) extractToken(authHeader string) string {
 	strArr := strings.Split(authHeader, " ")
 	if len(strArr) == 2 {
 		return strArr[1]
@@ -49,14 +62,42 @@ func ExtractToken(authHeader string) string {
 	return ""
 }
 
-func ValidateToken(token string, config *config.Config) (bool, error) {
+func (am *AuthManager) decodeToken(token string, config *config.Config) (*jwt.Token, error) {
 	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.Secret), nil
 	})
 
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return decoded.Valid, nil
+	return decoded, nil
+}
+
+func (am *AuthManager) getClaimsFromJWT(token *jwt.Token) jwt.MapClaims {
+	claims := jwt.MapClaims{}
+	for key, value := range token.Claims.(jwt.MapClaims) {
+		claims[key] = value
+	}
+
+	return claims
+}
+
+func (am *AuthManager) AuthenticateMiddleware(c *gin.Context) {
+	tokenString := am.extractToken(c.GetHeader("Authorization"))
+	token, err := am.decodeToken(tokenString, am.config)
+	if err != nil || !token.Valid {
+		c.Status(http.StatusUnauthorized)
+		c.Abort()
+		return
+	}
+
+	tokenClaims := am.getClaimsFromJWT(token)
+	if tokenClaims["exp"] == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing exp field"})
+		c.Abort()
+		return
+	}
+
+	c.Next()
 }
