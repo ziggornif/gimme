@@ -89,7 +89,7 @@ services:
 
 The CDN core is based on a S3 object storage.
 
-Each package will be stored in a bucket as a folder named <package>@<version> to manage packages versioning.
+Each package will be stored in a bucket as a folder named `<package>@<version>` to manage packages versioning.
 
 The project use the Minio SDK to be compatible with all S3 providers (Amazon, OVH, Clevercloud ...)
 
