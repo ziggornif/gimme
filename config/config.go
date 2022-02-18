@@ -2,12 +2,13 @@ package config
 
 import (
 	"errors"
-	"os"
-	"strconv"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/spf13/viper"
 )
 
-//TODO: improve this later
-type Config struct {
+type Configuration struct {
 	AdminUser     string
 	AdminPassword string
 	Secret        string
@@ -19,66 +20,70 @@ type Config struct {
 	S3SSL         bool
 }
 
-func NewConfig() (*Config, error) {
-	adminUser, ok := os.LookupEnv("GIMME_ADMIN_USER")
-	if !ok {
-		return nil, errors.New("GIMME_ADMIN_USER is not set")
-	}
+func NewConfig() (*Configuration, error) {
+	viper.SetConfigName("gimme")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")       // local path
+	viper.AddConfigPath("/config") // docker path
+	viper.AutomaticEnv()
 
-	adminPassword, ok := os.LookupEnv("GIMME_ADMIN_PASSWORD")
-	if !ok {
-		return nil, errors.New("GIMME_ADMIN_PASSWORD is not set")
-	}
+	viper.SetDefault("s3.bucketName", "gimme")
+	viper.SetDefault("s3.ssl", true)
 
-	secret, ok := os.LookupEnv("GIMME_SECRET")
-	if !ok {
-		return nil, errors.New("GIMME_SECRET is not set")
-	}
-
-	s3Url, ok := os.LookupEnv("GIMME_S3_URL")
-	if !ok {
-		return nil, errors.New("GIMME_S3_URL is not set")
-	}
-
-	s3key, ok := os.LookupEnv("GIMME_S3_KEY")
-	if !ok {
-		return nil, errors.New("GIMME_S3_KEY is not set")
-	}
-
-	s3Secret, ok := os.LookupEnv("GIMME_S3_SECRET")
-	if !ok {
-		return nil, errors.New("GIMME_S3_SECRET is not set")
-	}
-
-	var s3SSL bool
-	strS3SSL, ok := os.LookupEnv("GIMME_S3_SSL")
-	if !ok {
-		s3SSL = true
-	}
-	s3SSL, err := strconv.ParseBool(strS3SSL)
+	err := viper.ReadInConfig()
 	if err != nil {
-		return nil, errors.New("Invalid GIMME_S3_SSL value (boolean needed)")
+		logrus.Errorf("Unable to read the config file: %s", err)
+		return nil, err
 	}
 
-	s3BucketName, ok := os.LookupEnv("GIMME_S3_BUCKET_NAME")
-	if !ok {
-		s3BucketName = "gimme"
+	config := Configuration{}
+	config.AdminUser = viper.GetString("admin.user")
+	config.AdminPassword = viper.GetString("admin.password")
+	config.Secret = viper.GetString("secret")
+	config.S3Url = viper.GetString("s3.url")
+	config.S3Key = viper.GetString("s3.key")
+	config.S3Secret = viper.GetString("s3.secret")
+	config.S3BucketName = viper.GetString("s3.bucketName")
+	config.S3Location = viper.GetString("s3.location")
+	config.S3SSL = viper.GetBool("s3.ssl")
+
+	err = validateConfig(&config)
+	if err != nil {
+		logrus.Errorf("Configuration is not valid: %s", err)
+		return nil, err
 	}
 
-	s3Location, ok := os.LookupEnv("GIMME_S3_LOCATION")
-	if !ok {
-		return nil, errors.New("GIMME_S3_LOCATION is not set")
+	return &config, nil
+}
+
+func validateConfig(config *Configuration) error {
+	if len(config.AdminUser) == 0 {
+		return errors.New("AdminUser is not set")
 	}
 
-	return &Config{
-		adminUser,
-		adminPassword,
-		secret,
-		s3Url,
-		s3key,
-		s3Secret,
-		s3BucketName,
-		s3Location,
-		s3SSL,
-	}, nil
+	if len(config.AdminPassword) == 0 {
+		return errors.New("AdminPassword is not set")
+	}
+
+	if len(config.Secret) == 0 {
+		return errors.New("Secret is not set")
+	}
+
+	if len(config.S3Url) == 0 {
+		return errors.New("S3Url is not set")
+	}
+
+	if len(config.S3Key) == 0 {
+		return errors.New("S3Key is not set")
+	}
+
+	if len(config.S3Secret) == 0 {
+		return errors.New("S3Secret is not set")
+	}
+
+	if len(config.S3Location) == 0 {
+		return errors.New("S3Location is not set")
+	}
+
+	return nil
 }

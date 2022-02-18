@@ -13,10 +13,10 @@ import (
 )
 
 type AuthManager struct {
-	config *config.Config
+	config *config.Configuration
 }
 
-func NewAuthManager(config *config.Config) *AuthManager {
+func NewAuthManager(config *config.Configuration) *AuthManager {
 	return &AuthManager{
 		config,
 	}
@@ -43,7 +43,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 
 	claims := &jwt.RegisteredClaims{
 		ID:        name,
-		ExpiresAt: &jwt.NumericDate{time.Now().Add(expiration)},
+		ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(expiration)},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
@@ -62,9 +62,9 @@ func (am *AuthManager) extractToken(authHeader string) string {
 	return ""
 }
 
-func (am *AuthManager) decodeToken(token string, config *config.Config) (*jwt.Token, error) {
+func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
 	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.Secret), nil
+		return []byte(am.config.Secret), nil
 	})
 
 	if err != nil {
@@ -85,7 +85,7 @@ func (am *AuthManager) getClaimsFromJWT(token *jwt.Token) jwt.MapClaims {
 
 func (am *AuthManager) AuthenticateMiddleware(c *gin.Context) {
 	tokenString := am.extractToken(c.GetHeader("Authorization"))
-	token, err := am.decodeToken(tokenString, am.config)
+	token, err := am.decodeToken(tokenString)
 	if err != nil || !token.Valid {
 		c.Status(http.StatusUnauthorized)
 		c.Abort()

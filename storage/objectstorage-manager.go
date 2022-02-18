@@ -29,7 +29,7 @@ type ObjectStorageManager struct {
 	location    string
 }
 
-func NewObjectStorageManager(config *config.Config) (*ObjectStorageManager, error) {
+func NewObjectStorageManager(config *config.Configuration) (*ObjectStorageManager, error) {
 	minioClient, err := minio.New(config.S3Url, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.S3Key, config.S3Secret, ""),
 		Secure: config.S3SSL,

@@ -11,35 +11,57 @@ docker run \
   minio/minio server /data --console-address ":9001"
 ```
 
+## Configuration
+
+Gimme configuration is stored in a yaml file.
+
+You need to created it before running the application.
+
+| Parameter      | Description             |
+|----------------|-------------------------|
+| secret         | Application secret      |
+| admin.user     | Administration user     |
+| admin.password | Administration password |
+| s3.url         | Object storage url      |
+| s3.key         | Object storage key      |
+| s3.secret      | Object storage secret   |
+| s3.bucketName  | Bucket name             |
+| s3.location    | Object storage location |
+| ssl            | Enable SSL              |
+
+### Example
+
+```yaml
+admin:
+  user: gimmeadmin
+  password: gimmeadmin
+secret: secret
+s3:
+  url: localhost:9000
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: false
+```
+
+
 ## Run application
 
 > **/!\ You must create the access key / secret from Minio admin console if you are using a local minio object storage.**
 
 ### From sources
 ```shell
-# /!\ Use your own values
-GIMME_ADMIN_USER=gimmeadmin \
-GIMME_ADMIN_PASSWORD=gimmeadmin \
-GIMME_SECRET=secret \
-GIMME_S3_URL=localhost:9000 \
-GIMME_S3_KEY=s3key \
-GIMME_S3_SECRET=s3secret \
-GIMME_S3_LOCATION=eu-west-1 \
-GIMME_S3_SSL=false \
 go run main.go
 ```
 
 ### With docker
 
-Execute the following command to run a gimme instance (adapt environment variables with your values).
+Execute the following command to run a gimme instance.
 
 ```shell
-docker run -e GIMME_ADMIN_USER=gimmeadmin \
-  -p 8080:8080 \
-  -e GIMME_ADMIN_PASSWORD=gimmeadmin -e GIMME_SECRET=secret \
-  -e GIMME_S3_URL=localhost:9000 -e GIMME_S3_KEY=s3key \
-  -e GIMME_S3_SECRET=s3secret -e GIMME_S3_LOCATION=eu-west-1 \
-  -e GIMME_S3_SSL=false ziggornif/gimme:latest
+docker run -p 8080:8080 -v `pwd`/gimme.yml:/config/gimme.yml \
+  ziggornif/gimme:latest
 ```
 
 Or with docker compose :
@@ -57,16 +79,8 @@ services:
     image: ziggornif/gimme:latest
     ports:
       - "8080:8080"
-    environment:
-      - GIMME_ADMIN_USER=gimmeadmin
-      - GIMME_ADMIN_PASSWORD=gimmeadmin
-      - GIMME_SECRET=secret
-      - GIMME_S3_URL=minio:9000
-      - GIMME_S3_KEY=s3key
-      - GIMME_S3_SECRET=s3secret
-      - GIMME_S3_SSL=false
-      - GIMME_S3_BUCKET_NAME=gimme
-      - GIMME_S3_LOCATION=eu-west-1
+    volumes:
+      - ./gimme.yml:/config/gimme.yml
 ```
 
 ## How does it work ?
