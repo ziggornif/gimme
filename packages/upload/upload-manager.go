@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/drouian-m/gimme/packages/storage"
+
 	"github.com/drouian-m/gimme/utils"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/drouian-m/gimme/storage"
 )
 
 var validTypes = []string{"application/octet-stream", "application/zip"}

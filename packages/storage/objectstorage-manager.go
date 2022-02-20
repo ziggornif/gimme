@@ -5,9 +5,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/drouian-m/gimme/config"
+	fileutils "github.com/drouian-m/gimme/utils"
 
-	fileutils "github.com/drouian-m/gimme/file"
+	"github.com/drouian-m/gimme/config"
 
 	"github.com/sirupsen/logrus"
 
@@ -77,7 +77,7 @@ func (osm *ObjectStorageManager) AddObject(objectName string, file *zip.File) er
 		}
 	}(src)
 
-	contentType, _ := fileutils.GetFileContentType(file)
+	contentType := fileutils.GetFileContentType(file)
 	if len(contentType) == 0 {
 		contentType = "text/plain"
 	}

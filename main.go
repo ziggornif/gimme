@@ -5,10 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/drouian-m/gimme/auth"
+	"github.com/drouian-m/gimme/packages/auth"
+	"github.com/drouian-m/gimme/packages/storage"
+	"github.com/drouian-m/gimme/packages/upload"
+
 	"github.com/drouian-m/gimme/config"
-	"github.com/drouian-m/gimme/storage"
-	"github.com/drouian-m/gimme/upload"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -35,24 +36,6 @@ func main() {
 
 	router := gin.Default()
 	router.Use(cors.Default())
-
-	router.POST("/create-token", gin.BasicAuth(gin.Accounts{
-		appConfig.AdminUser: appConfig.AdminPassword,
-	}), func(c *gin.Context) {
-		var request auth.CreateTokenRequest
-		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		token, err := authManager.CreateToken(request.Name, request.ExpirationDate)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"token": token})
-	})
 
 	router.GET("/gimme/:package/*file", func(c *gin.Context) {
 		var filePath string

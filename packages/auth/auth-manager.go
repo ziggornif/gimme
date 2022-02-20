@@ -13,12 +13,12 @@ import (
 )
 
 type AuthManager struct {
-	config *config.Configuration
+	secret string
 }
 
 func NewAuthManager(config *config.Configuration) *AuthManager {
 	return &AuthManager{
-		config,
+		secret: config.Secret,
 	}
 }
 
@@ -47,7 +47,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signedToken, err := token.SignedString([]byte(am.config.Secret))
+	signedToken, err := token.SignedString([]byte(am.secret))
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func (am *AuthManager) extractToken(authHeader string) string {
 
 func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
 	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return []byte(am.config.Secret), nil
+		return []byte(am.secret), nil
 	})
 
 	if err != nil {

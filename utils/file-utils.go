@@ -1,4 +1,4 @@
-package file
+package utils
 
 import (
 	"archive/zip"
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func GetFileContentType(file *zip.File) (string, error) {
+func GetFileContentType(file *zip.File) string {
 	contentType := mime.TypeByExtension(filepath.Ext(file.FileHeader.Name))
-	return contentType, nil
+	return contentType
 }
