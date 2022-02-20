@@ -37,6 +37,24 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
 
+	router.POST("/create-token", gin.BasicAuth(gin.Accounts{
+		appConfig.AdminUser: appConfig.AdminPassword,
+	}), func(c *gin.Context) {
+		var request auth.CreateTokenRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		token, err := authManager.CreateToken(request.Name, request.ExpirationDate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+
 	router.GET("/gimme/:package/*file", func(c *gin.Context) {
 		var filePath string
 		file := c.Param("file")
