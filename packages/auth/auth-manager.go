@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/drouian-m/gimme/config"
+	"github.com/gimme-cli/gimme/config"
 	"github.com/golang-jwt/jwt/v4"
 )
 

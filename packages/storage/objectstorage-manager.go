@@ -5,9 +5,9 @@ import (
 	"context"
 	"io"
 
-	fileutils "github.com/drouian-m/gimme/utils"
+	fileutils "github.com/gimme-cli/gimme/utils"
 
-	"github.com/drouian-m/gimme/config"
+	"github.com/gimme-cli/gimme/config"
 
 	"github.com/sirupsen/logrus"
 

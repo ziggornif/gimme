@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/drouian-m/gimme/packages/auth"
-	"github.com/drouian-m/gimme/packages/storage"
-	"github.com/drouian-m/gimme/packages/upload"
+	"github.com/gimme-cli/gimme/packages/auth"
+	"github.com/gimme-cli/gimme/packages/storage"
+	"github.com/gimme-cli/gimme/packages/upload"
 
-	"github.com/drouian-m/gimme/config"
+	"github.com/gimme-cli/gimme/config"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )

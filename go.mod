@@ -1,4 +1,4 @@
-module github.com/drouian-m/gimme
+module github.com/gimme-cli/gimme
 
 go 1.17
 

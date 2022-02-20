@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/drouian-m/gimme/packages/storage"
+	"github.com/gimme-cli/gimme/packages/storage"
 
-	"github.com/drouian-m/gimme/utils"
+	"github.com/gimme-cli/gimme/utils"
 
 	"github.com/sirupsen/logrus"
 )
