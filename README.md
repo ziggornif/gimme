@@ -83,7 +83,7 @@ services:
       - ./gimme.yml:/config/gimme.yml
 ```
 
-## How does it work ?
+## Architecture
 
 ![schema](./schema.png)
 
@@ -92,6 +92,8 @@ The CDN core is based on a S3 object storage.
 Each package will be stored in a bucket as a folder named `<package>@<version>` to manage packages versioning.
 
 The project use the Minio SDK to be compatible with all S3 providers.
+
+**💡NOTE : A caching system in front of the CDN is strongly recommended to improve performance.**
 
 ## Usage
 
@@ -158,4 +160,52 @@ You can try it with your favourite http server tool.
 ```shell
 cd tests
 npx http-server --cors .
+```
+
+## Setup a basic cache system with Nginx
+
+Here is a docker-compose deployment file with a simple Nginx cache system.
+
+The following configuration will cache all called CDN files during 10 minutes.
+
+```yaml
+version: "3.9"
+services:
+  front:
+    image: nginx
+    volumes:
+      - ./default.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+  gimme:
+    image: ziggornif/gimme:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gimme-conf/gimme.yml:/config/gimme.yml
+```
+
+And the Nginx `default.conf` config file :
+```text
+events {
+
+}
+http {
+  proxy_cache_path  /cache  levels=1:2 keys_zone=STATIC:10m inactive=24h  max_size=1g;
+  server {
+    listen 80;
+
+    location ~* \.(?:jpg|jpeg|gif|png|ico|woff2|css|js)$ {
+		proxy_pass http://gimme:8080;
+		proxy_set_header       Host $host;
+        proxy_buffering        on;
+        proxy_cache            STATIC;
+        proxy_cache_valid      200  10m;
+	}
+
+    location / {
+      proxy_pass http://gimme:8080;
+    }
+  }
+}
 ```
