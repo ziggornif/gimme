@@ -25,3 +25,15 @@ jobs:
         goarch: ${{ matrix.goarch }}
         goversion: latest
         extra_files: LICENSE README.md
+  release-docker:
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ secrets.DOCKER_REPO }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Docker login
+        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+      - name: Build the Docker image
+        run: docker build -t $REPO:${{steps.tag.outputs.tag}} .
+      - name: Publish Docker image
+        run: docker push $REPO:${{steps.tag.outputs.tag}}
