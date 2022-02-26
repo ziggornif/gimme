@@ -35,14 +35,15 @@ You need to created it before running the application.
 admin:
   user: gimmeadmin
   password: gimmeadmin
+port: 8080 # (default 8080)
 secret: secret
 s3:
-  url: localhost:9000
+  url: your.s3.url.cloud
   key: s3key
   secret: s3secret
-  bucketName: gimme
+  bucketName: gimme (default gimme)
   location: eu-west-1
-  ssl: false
+  ssl: true (default true)
 ```
 
 

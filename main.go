@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/gimme-cli/gimme/packages/auth"
 	"github.com/gimme-cli/gimme/packages/storage"
 	"github.com/gimme-cli/gimme/packages/upload"
@@ -32,10 +34,28 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	gin.SetMode(gin.ReleaseMode)
-
 	router := gin.Default()
 	router.Use(cors.Default())
+
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Welcome to the Gimme CDN API. Here are the available API endpoints :",
+			"routes": []gin.H{
+				{
+					"url":         "<host>/create-token",
+					"method":      "POST",
+					"description": "Create access tokens",
+				}, {
+					"url":         "<host>/packages",
+					"method":      "POST",
+					"description": "Add a package to the CDN",
+				}, {
+					"url":         "<host>/gimme",
+					"method":      "GET",
+					"description": "Get a package from the CDN",
+				}},
+		})
+	})
 
 	router.POST("/create-token", gin.BasicAuth(gin.Accounts{
 		appConfig.AdminUser: appConfig.AdminPassword,
@@ -98,8 +118,10 @@ func main() {
 		return
 	})
 
-	err = router.Run(":8080")
+	logrus.Infof("🚀 server started and available on http://localhost:%s", appConfig.AppPort)
+	err = router.Run(fmt.Sprintf(":%s", appConfig.AppPort))
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 }

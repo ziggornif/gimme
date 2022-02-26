@@ -9,6 +9,7 @@ import (
 )
 
 type Configuration struct {
+	AppPort       string
 	AdminUser     string
 	AdminPassword string
 	Secret        string
@@ -27,6 +28,7 @@ func NewConfig() (*Configuration, error) {
 	viper.AddConfigPath("/config") // docker path
 	viper.AutomaticEnv()
 
+	viper.SetDefault("port", "8080s")
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
 
@@ -37,6 +39,7 @@ func NewConfig() (*Configuration, error) {
 	}
 
 	config := Configuration{}
+	config.AppPort = viper.GetString("port")
 	config.AdminUser = viper.GetString("admin.user")
 	config.AdminPassword = viper.GetString("admin.password")
 	config.Secret = viper.GetString("secret")
