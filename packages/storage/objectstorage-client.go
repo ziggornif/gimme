@@ -2,7 +2,10 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/gimme-cli/gimme/config"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -25,7 +28,8 @@ func NewObjectStorageClient(config *config.Configuration) (ObjectStorageClient, 
 	})
 
 	if err != nil {
-		return nil, err
+		logrus.Error("[ObjectStorageClient] NewObjectStorageClient - Error while create object storage client", err)
+		return nil, fmt.Errorf("Error while create object storage client")
 	}
 
 	return minioClient, nil

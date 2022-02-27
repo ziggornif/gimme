@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -111,7 +112,14 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
 
-		err = upload.ArchiveProcessor(name, version, objectStorageManager, file)
+		reader, _ := file.Open()
+		defer func(src multipart.File) {
+			err := src.Close()
+			if err != nil {
+				logrus.Error("Fail to close file")
+			}
+		}(reader)
+		err = upload.ArchiveProcessor(name, version, objectStorageManager, reader, file.Size)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
