@@ -1,12 +1,11 @@
 # This is a sample config file
 admin:
-  user: gimmeadmin
-  password: gimmeadmin
+  user: test
+  password: test
 port: 8080
 secret: secret
 s3:
-  url: your.s3.url.cloud
-  key: s3key
+  url: test.s3.url.cloud
   secret: s3secret
   bucketName: gimme
   location: eu-west-1

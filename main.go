@@ -22,7 +22,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	authManager := auth.NewAuthManager(appConfig)
+	authManager := auth.NewAuthManager(appConfig.Secret)
 
 	objectStorageManager, err := storage.NewObjectStorageManager(appConfig)
 	if err != nil {

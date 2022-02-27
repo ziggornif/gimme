@@ -1,8 +1,7 @@
 # This is a sample config file
 admin:
   user: gimmeadmin
-  password: gimmeadmin
-port: 8080
+port: 8082
 secret: secret
 s3:
   url: your.s3.url.cloud

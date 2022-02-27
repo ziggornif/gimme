@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/gimme-cli/gimme/config"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -16,9 +15,9 @@ type AuthManager struct {
 	secret string
 }
 
-func NewAuthManager(config *config.Configuration) *AuthManager {
+func NewAuthManager(secret string) *AuthManager {
 	return &AuthManager{
-		secret: config.Secret,
+		secret,
 	}
 }
 
@@ -38,7 +37,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	}
 
 	if expiration <= 0 {
-		return "", errors.New("Expiration date must be greater than the current date.")
+		return "", errors.New("CreateToken - Expiration date must be greater than the current date.")
 	}
 
 	claims := &jwt.RegisteredClaims{
