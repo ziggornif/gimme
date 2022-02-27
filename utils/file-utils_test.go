@@ -14,7 +14,7 @@ func TestGetFileContentType(t *testing.T) {
 		},
 	}
 	contentType := GetFileContentType(&file)
-	assert.Equal(t, "application/javascript", contentType)
+	assert.Contains(t, contentType, "javascript")
 }
 
 func TestGetFileContentTypeNil(t *testing.T) {
