@@ -1,10 +1,12 @@
 package auth
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
 
@@ -15,17 +17,19 @@ type AuthManager struct {
 	secret string
 }
 
+type CreateTokenRequest struct {
+	Name           string `json:"name"`
+	ExpirationDate string `json:"expirationDate"`
+}
+
+// NewAuthManager create a auth manager instance
 func NewAuthManager(secret string) *AuthManager {
 	return &AuthManager{
 		secret,
 	}
 }
 
-type CreateTokenRequest struct {
-	Name           string `json:"name"`
-	ExpirationDate string `json:"expirationDate"`
-}
-
+// CreateToken create access token
 func (am *AuthManager) CreateToken(name string, expirationDate string) (string, error) {
 	var expiration time.Duration
 	if len(expirationDate) > 0 {
@@ -37,7 +41,8 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	}
 
 	if expiration <= 0 {
-		return "", errors.New("CreateToken - Expiration date must be greater than the current date.")
+		logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date.")
+		return "", fmt.Errorf("Expiration date must be greater than the current date.")
 	}
 
 	claims := &jwt.RegisteredClaims{
@@ -48,11 +53,13 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 
 	signedToken, err := token.SignedString([]byte(am.secret))
 	if err != nil {
-		return "", err
+		logrus.Error("[AuthManager] CreateToken - Error while signing token.")
+		return "", fmt.Errorf("Error while signing token.")
 	}
 	return signedToken, nil
 }
 
+// extractToken extract token from authentication header
 func (am *AuthManager) extractToken(authHeader string) string {
 	strArr := strings.Split(authHeader, " ")
 	if len(strArr) == 2 {
@@ -61,6 +68,7 @@ func (am *AuthManager) extractToken(authHeader string) string {
 	return ""
 }
 
+// decodeToken decode token from input token string
 func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
 	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return []byte(am.secret), nil
@@ -73,6 +81,7 @@ func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
 	return decoded, nil
 }
 
+// getClaimsFromJWT extract claims from token
 func (am *AuthManager) getClaimsFromJWT(token *jwt.Token) jwt.MapClaims {
 	claims := jwt.MapClaims{}
 	for key, value := range token.Claims.(jwt.MapClaims) {
@@ -82,6 +91,7 @@ func (am *AuthManager) getClaimsFromJWT(token *jwt.Token) jwt.MapClaims {
 	return claims
 }
 
+// AuthenticateMiddleware authenticate query with a token
 func (am *AuthManager) AuthenticateMiddleware(c *gin.Context) {
 	tokenString := am.extractToken(c.GetHeader("Authorization"))
 	token, err := am.decodeToken(tokenString)

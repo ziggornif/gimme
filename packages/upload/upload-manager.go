@@ -26,7 +26,7 @@ func ValidateFile(file *multipart.FileHeader) error {
 	return nil
 }
 
-func ArchiveProcessor(name string, version string, objectStorageManager *storage.ObjectStorageManager, file *multipart.FileHeader) error {
+func ArchiveProcessor(name string, version string, objectStorageManager storage.ObjectStorageManager, file *multipart.FileHeader) error {
 	src, _ := file.Open()
 	defer func(src multipart.File) {
 		err := src.Close()

@@ -24,10 +24,12 @@ func main() {
 
 	authManager := auth.NewAuthManager(appConfig.Secret)
 
-	objectStorageManager, err := storage.NewObjectStorageManager(appConfig)
+	osmClient, err := storage.NewObjectStorageClient(appConfig)
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	objectStorageManager := storage.NewObjectStorageManager(osmClient)
 
 	err = objectStorageManager.CreateBucket(appConfig.S3BucketName, appConfig.S3Location)
 	if err != nil {

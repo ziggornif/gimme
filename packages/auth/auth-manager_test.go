@@ -15,7 +15,7 @@ func TestCreateTokenError(t *testing.T) {
 
 	_, err := authManager.CreateToken("test", "2022-02-17")
 
-	assert.Equal(t, "CreateToken - Expiration date must be greater than the current date.", err.Error())
+	assert.Equal(t, "Expiration date must be greater than the current date.", err.Error())
 }
 
 func TestCreateTokenDefault(t *testing.T) {

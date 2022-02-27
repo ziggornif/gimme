@@ -41,7 +41,7 @@ func init() {
 
 func TestNewConfigFileErr(t *testing.T) {
 	_, err := NewConfig()
-	assert.Equal(t, "NewConfig - Unable to read the config file", err.Error())
+	assert.Equal(t, "Unable to read the config file", err.Error())
 }
 
 func TestNewConfig(t *testing.T) {
@@ -68,7 +68,7 @@ func TestNewConfigValidationErrAdmUsr(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: AdminUser is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: AdminUser is not set", err.Error())
 }
 
 func TestNewConfigValidationErrAdmPass(t *testing.T) {
@@ -76,7 +76,7 @@ func TestNewConfigValidationErrAdmPass(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: AdminPassword is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: AdminPassword is not set", err.Error())
 }
 
 func TestNewConfigValidationErrSecret(t *testing.T) {
@@ -84,7 +84,7 @@ func TestNewConfigValidationErrSecret(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: Secret is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: Secret is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Url(t *testing.T) {
@@ -92,7 +92,7 @@ func TestNewConfigValidationErrS3Url(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: S3Url is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: S3Url is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Key(t *testing.T) {
@@ -100,7 +100,7 @@ func TestNewConfigValidationErrS3Key(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: S3Key is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: S3Key is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Secret(t *testing.T) {
@@ -108,7 +108,7 @@ func TestNewConfigValidationErrS3Secret(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: S3Secret is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: S3Secret is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Location(t *testing.T) {
@@ -116,5 +116,5 @@ func TestNewConfigValidationErrS3Location(t *testing.T) {
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
-	assert.Equal(t, "NewConfig - Configuration is not valid: S3Location is not set", err.Error())
+	assert.Equal(t, "Configuration is not valid: S3Location is not set", err.Error())
 }
