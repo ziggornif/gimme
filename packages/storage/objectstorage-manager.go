@@ -31,6 +31,7 @@ type ObjectStorageManager interface {
 	GetObject(objectName string) (*minio.Object, error)
 }
 
+// NewObjectStorageManager create a new object storage manager
 func NewObjectStorageManager(client ObjectStorageClient) ObjectStorageManager {
 	return &objectStorageManager{
 		client: client,
@@ -38,6 +39,7 @@ func NewObjectStorageManager(client ObjectStorageClient) ObjectStorageManager {
 	}
 }
 
+// CreateBucket create a new bucket
 func (osm *objectStorageManager) CreateBucket(bucketName string, location string) error {
 	err := osm.client.MakeBucket(osm.ctx, bucketName, minio.MakeBucketOptions{Region: location})
 	if err != nil {
@@ -57,6 +59,7 @@ func (osm *objectStorageManager) CreateBucket(bucketName string, location string
 	return nil
 }
 
+// CreateBucket add object into the bucket
 func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) error {
 	// Skip dir
 	if file.FileInfo().IsDir() {
@@ -91,6 +94,7 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) er
 	return nil
 }
 
+// GetObject get object from the bucket
 func (osm *objectStorageManager) GetObject(objectName string) (*minio.Object, error) {
 	object, err := osm.client.GetObject(osm.ctx, osm.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {

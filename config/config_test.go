@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func copy(src string, dst string) (int64, error) {
+func copyFile(src string, dst string) (int64, error) {
 	source, err := os.Open(src)
 	if err != nil {
 		return 0, err
@@ -45,7 +45,7 @@ func TestNewConfigFileErr(t *testing.T) {
 }
 
 func TestNewConfig(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	confObj, err := NewConfig()
 	assert.Equal(t, &Configuration{
@@ -64,7 +64,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestNewConfigValidationErrAdmUsr(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-adm-usr.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-adm-usr.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -72,7 +72,7 @@ func TestNewConfigValidationErrAdmUsr(t *testing.T) {
 }
 
 func TestNewConfigValidationErrAdmPass(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-adm-pass.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-adm-pass.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -80,7 +80,7 @@ func TestNewConfigValidationErrAdmPass(t *testing.T) {
 }
 
 func TestNewConfigValidationErrSecret(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-secret.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-secret.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -88,7 +88,7 @@ func TestNewConfigValidationErrSecret(t *testing.T) {
 }
 
 func TestNewConfigValidationErrS3Url(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-s3-url.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-url.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -96,7 +96,7 @@ func TestNewConfigValidationErrS3Url(t *testing.T) {
 }
 
 func TestNewConfigValidationErrS3Key(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-s3-key.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-key.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -104,7 +104,7 @@ func TestNewConfigValidationErrS3Key(t *testing.T) {
 }
 
 func TestNewConfigValidationErrS3Secret(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-s3-secret.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-secret.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 
@@ -112,7 +112,7 @@ func TestNewConfigValidationErrS3Secret(t *testing.T) {
 }
 
 func TestNewConfigValidationErrS3Location(t *testing.T) {
-	copy(fmt.Sprintf("%v/%v", confDir, "no-s3-location.yml"), "./gimme.yml")
+	copyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-location.yml"), "./gimme.yml")
 	defer remove("./gimme.yml")
 	_, err := NewConfig()
 

@@ -22,9 +22,9 @@ type CreateTokenRequest struct {
 	ExpirationDate string `json:"expirationDate"`
 }
 
-// NewAuthManager create a auth manager instance
-func NewAuthManager(secret string) *AuthManager {
-	return &AuthManager{
+// NewAuthManager create an auth manager instance
+func NewAuthManager(secret string) AuthManager {
+	return AuthManager{
 		secret,
 	}
 }
@@ -35,7 +35,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	if len(expirationDate) > 0 {
 		format := "2006-01-02"
 		end, _ := time.Parse(format, expirationDate)
-		expiration = time.Minute * time.Duration(end.Sub(time.Now()).Minutes())
+		expiration = time.Minute * time.Duration(time.Until(end).Minutes())
 	} else {
 		expiration = time.Minute * 15
 	}

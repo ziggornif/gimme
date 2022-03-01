@@ -1,6 +1,6 @@
 # gimme
 
-A self hosted CDN solution written in Go
+A self-hosted CDN solution written in Go
 
 ## Run a local object storage
 

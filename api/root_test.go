@@ -1,0 +1,18 @@
+package api
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/gimme-cli/gimme/resources/tests/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewRootController(t *testing.T) {
+	router := gin.New()
+	NewRootController(router)
+
+	w := utils.PerformRequest(router, "GET", "/", "")
+	assert.Equal(t, http.StatusOK, w.Code)
+}
