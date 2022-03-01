@@ -120,5 +120,5 @@ func TestPackageControllerGet(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 	assert.Equal(t, http.StatusOK, w2.Code)
-	assert.Equal(t, "application/javascript", w2.Header().Get("Content-Type"))
+	assert.Contains(t, w2.Header().Get("Content-Type"), "javascript")
 }
