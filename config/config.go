@@ -29,7 +29,7 @@ func NewConfig() (*Configuration, error) {
 	viper.AddConfigPath("/config") // docker path
 	viper.AutomaticEnv()
 
-	viper.SetDefault("port", "8080s")
+	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
 
