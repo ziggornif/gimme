@@ -13,6 +13,6 @@ func TestNewRootController(t *testing.T) {
 	router := gin.New()
 	NewRootController(router)
 
-	w := utils.PerformRequest(router, "GET", "/", "")
+	w := utils.PerformRequest(router, "GET", "/", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
 }

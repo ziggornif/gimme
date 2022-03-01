@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gimme-cli/gimme/packages/auth"
@@ -20,7 +21,7 @@ func TestNewAuthControllerAuthErr(t *testing.T) {
 		AdminUser: "test", AdminPassword: "test",
 	})
 
-	w := utils.PerformRequest(router, "POST", "/create-token", "")
+	w := utils.PerformRequest(router, "POST", "/create-token", nil)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -32,7 +33,7 @@ func TestNewAuthControllerBadRequest(t *testing.T) {
 		AdminUser: "test", AdminPassword: "test",
 	})
 
-	w := utils.PerformRequest(router, "POST", "/create-token", "", utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
+	w := utils.PerformRequest(router, "POST", "/create-token", nil, utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -46,7 +47,7 @@ func TestNewAuthController(t *testing.T) {
 
 	body := `{"name": "test"}`
 
-	w := utils.PerformRequest(router, "POST", "/create-token", body, utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
+	w := utils.PerformRequest(router, "POST", "/create-token", strings.NewReader(body), utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
@@ -60,7 +61,7 @@ func TestNewAuthControllerExpired(t *testing.T) {
 
 	body := `{"name": "test", "expirationDate": "2021-12-10"}`
 
-	w := utils.PerformRequest(router, "POST", "/create-token", body, utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
+	w := utils.PerformRequest(router, "POST", "/create-token", strings.NewReader(body), utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

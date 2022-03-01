@@ -59,7 +59,7 @@ func (osm *objectStorageManager) CreateBucket(bucketName string, location string
 	return nil
 }
 
-// CreateBucket add object into the bucket
+// AddObject add object into the bucket
 func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) error {
 	// Skip dir
 	if file.FileInfo().IsDir() {

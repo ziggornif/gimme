@@ -48,7 +48,7 @@ func TestAuthManager_AuthenticateMiddlewareErr(t *testing.T) {
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", "")
+	w := utils.PerformRequest(router, "GET", "/", nil)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -59,7 +59,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid(t *testing.T) {
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", "", utils.Header{Key: "Authorization", Value: "invalid"})
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: "invalid"})
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -70,7 +70,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid2(t *testing.T) {
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", "", utils.Header{Key: "Authorization", Value: "Bearer invalid"})
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: "Bearer invalid"})
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -81,7 +81,7 @@ func TestAuthManager_AuthenticateMiddlewareExpired(t *testing.T) {
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", "", utils.Header{Key: "Authorization", Value: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDU5ODcwNTIsImp0aSI6InppZyJ9.q9NbUVV6egGlZBLMbvRBO_-VnWy_edDT4VNU6g8GIxQ"})
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NDU5ODcwNTIsImp0aSI6InppZyJ9.q9NbUVV6egGlZBLMbvRBO_-VnWy_edDT4VNU6g8GIxQ"})
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -93,7 +93,7 @@ func TestAuthManager_AuthenticateMiddlewareOK(t *testing.T) {
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", "", utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
