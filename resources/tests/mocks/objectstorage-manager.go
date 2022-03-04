@@ -17,3 +17,7 @@ func (osc *MockOSManager) AddObject(objectName string, file *zip.File) error {
 func (osc *MockOSManager) GetObject(objectName string) (*minio.Object, error) {
 	return &minio.Object{}, nil
 }
+
+func (osc *MockOSManager) ObjectExists(objectName string) bool {
+	return false
+}

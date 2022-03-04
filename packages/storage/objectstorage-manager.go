@@ -29,6 +29,7 @@ type ObjectStorageManager interface {
 	CreateBucket(bucketName string, location string) error
 	AddObject(objectName string, file *zip.File) error
 	GetObject(objectName string) (*minio.Object, error)
+	ObjectExists(objectName string) bool
 }
 
 // NewObjectStorageManager create a new object storage manager
@@ -102,4 +103,22 @@ func (osm *objectStorageManager) GetObject(objectName string) (*minio.Object, er
 		return nil, fmt.Errorf("Fail to get object %s from the object storage", objectName)
 	}
 	return object, nil
+}
+
+// ObjectExists return if object exists in bucket or not
+func (osm *objectStorageManager) ObjectExists(objectName string) bool {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
+		Prefix:    objectName,
+		Recursive: true,
+	})
+
+	for object := range objectCh {
+		if len(object.ETag) > 0 {
+			return true
+		}
+	}
+	return false
 }

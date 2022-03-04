@@ -18,6 +18,7 @@ type ObjectStorageClient interface {
 	BucketExists(ctx context.Context, bucketName string) (bool, error)
 	PutObject(ctx context.Context, bucketName string, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
 	GetObject(ctx context.Context, bucketName string, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
+	ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo
 }
 
 // NewObjectStorageClient create a new object storage client

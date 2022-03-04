@@ -23,10 +23,10 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 	name := c.PostForm("name")
 	version := c.PostForm("version")
 
-	err := upload.ValidateFile(file)
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	validationErr := upload.ValidateFile(file)
+	if validationErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.String()})
+		return
 	}
 
 	reader, _ := file.Open()
@@ -36,9 +36,11 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 			logrus.Error("Fail to close file")
 		}
 	}(reader)
-	err = upload.ArchiveProcessor(name, version, ctrl.objectStorageManager, reader, file.Size)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+	uploadErr := upload.ArchiveProcessor(name, version, ctrl.objectStorageManager, reader, file.Size)
+	if uploadErr != nil {
+		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.String()})
+		return
 	}
 
 	c.Status(http.StatusNoContent)
