@@ -1,9 +1,11 @@
 package api
 
 import (
-	"fmt"
 	"mime/multipart"
 	"net/http"
+	"strings"
+
+	"github.com/gimme-cdn/gimme/packages"
 
 	"github.com/gimme-cdn/gimme/packages/storage"
 
@@ -48,11 +50,10 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 }
 
 func (ctrl *PackageController) getPackage(c *gin.Context) {
-	var filePath string
 	file := c.Param("file")
-	filePath += fmt.Sprintf("%v%v", c.Param("package"), file)
 
-	object, err := ctrl.objectStorageManager.GetObject(filePath)
+	slice := strings.Split(c.Param("package"), "@")
+	object, err := packages.GetFile(ctrl.objectStorageManager, slice[0], slice[1], file)
 	if err != nil {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
 		return
