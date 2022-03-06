@@ -10,12 +10,14 @@ const (
 	Unauthorized  ErrorKindEnum = "Unauthorized"
 	InternalError               = "InternalError"
 	BadRequest                  = "BadRequest"
+	Conflict                    = "Conflict"
 )
 
 var httpCodes = map[ErrorKindEnum]int{
-	Unauthorized:  http.StatusUnauthorized,
-	InternalError: http.StatusInternalServerError,
 	BadRequest:    http.StatusBadRequest,
+	Conflict:      http.StatusConflict,
+	InternalError: http.StatusInternalServerError,
+	Unauthorized:  http.StatusUnauthorized,
 }
 
 type GimmeError struct {

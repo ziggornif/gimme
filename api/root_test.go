@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gimme-cli/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/resources/tests/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )

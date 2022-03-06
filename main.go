@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gimme-cdn/gimme/errors"
+
 	"github.com/gimme-cdn/gimme/api"
 
 	"github.com/sirupsen/logrus"
@@ -17,23 +19,23 @@ import (
 )
 
 func main() {
-	appConfig, err := config.NewConfig()
-	if err != nil {
-		log.Fatalln(err)
+	var bootErr *errors.GimmeError
+	appConfig, bootErr := config.NewConfig()
+	if bootErr != nil {
+		log.Fatalln(bootErr)
 	}
 
 	authManager := auth.NewAuthManager(appConfig.Secret)
 
-	osmClient, err := storage.NewObjectStorageClient(appConfig)
-	if err != nil {
-		log.Fatalln(err)
+	osmClient, bootErr := storage.NewObjectStorageClient(appConfig)
+	if bootErr != nil {
+		log.Fatalln(bootErr)
 	}
-
 	objectStorageManager := storage.NewObjectStorageManager(osmClient)
 
-	err = objectStorageManager.CreateBucket(appConfig.S3BucketName, appConfig.S3Location)
-	if err != nil {
-		log.Fatalln(err)
+	bootErr = objectStorageManager.CreateBucket(appConfig.S3BucketName, appConfig.S3Location)
+	if bootErr != nil {
+		log.Fatalln(bootErr)
 	}
 
 	router := gin.Default()
@@ -44,7 +46,7 @@ func main() {
 	api.NewPackageController(router, authManager, objectStorageManager)
 
 	logrus.Infof("🚀 server started and available on http://localhost:%s", appConfig.AppPort)
-	err = router.Run(fmt.Sprintf(":%s", appConfig.AppPort))
+	err := router.Run(fmt.Sprintf(":%s", appConfig.AppPort))
 	if err != nil {
 		log.Fatalln(err)
 	}

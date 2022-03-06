@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gimme-cli/gimme/packages/auth"
-	"github.com/gimme-cli/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/packages/auth"
+	"github.com/gimme-cdn/gimme/resources/tests/utils"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -63,5 +63,19 @@ func TestNewAuthControllerExpired(t *testing.T) {
 
 	w := utils.PerformRequest(router, "POST", "/create-token", strings.NewReader(body), utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestNewAuthControllerInvalid(t *testing.T) {
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	NewAuthController(router, authManager, &config.Configuration{
+		AdminUser: "test", AdminPassword: "test",
+	})
+
+	body := `{}`
+
+	w := utils.PerformRequest(router, "POST", "/create-token", strings.NewReader(body), utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }

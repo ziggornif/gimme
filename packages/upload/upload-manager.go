@@ -22,13 +22,13 @@ var validTypes = []string{"application/octet-stream", "application/zip"}
 func ValidateFile(file *multipart.FileHeader) *errors.GimmeError {
 	if file == nil {
 		logrus.Errorf("[UploadManager] ValidateFile - Empty input file")
-		return errors.NewError(errors.BadRequest, fmt.Errorf("Input file is required. (accepted types : application/zip)"))
+		return errors.NewError(errors.BadRequest, fmt.Errorf("input file is required. (accepted types : application/zip)"))
 	}
 
 	contentType := file.Header.Get("Content-Type")
 	if len(contentType) == 0 || !utils.ArrayContains(validTypes, contentType) {
 		logrus.Errorf("[UploadManager] ValidateFile - Invalid input file type. Content type : %s", contentType)
-		return errors.NewError(errors.BadRequest, fmt.Errorf("Invalid input file type. (accepted types : application/zip)"))
+		return errors.NewError(errors.BadRequest, fmt.Errorf("invalid input file type. (accepted types : application/zip)"))
 	}
 
 	return nil
@@ -44,13 +44,13 @@ func ArchiveProcessor(name string, version string, objectStorageManager storage.
 	archive, err := zip.NewReader(file, fileSize)
 	if err != nil {
 		logrus.Error("[UploadManager] ArchiveProcessor - Error while reading zip file", err)
-		return errors.NewError(errors.InternalError, fmt.Errorf("Error while reading zip file"))
+		return errors.NewError(errors.InternalError, fmt.Errorf("error while reading zip file"))
 	}
 
 	folderName := fmt.Sprintf("%s@%s", name, version)
 
 	if exists := objectStorageManager.ObjectExists(folderName); exists {
-		return errors.NewError(errors.Unauthorized, fmt.Errorf("The package %v already exists", folderName))
+		return errors.NewError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
 
 	var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)

@@ -26,5 +26,7 @@ func (osc *MockOSClient) GetObject(ctx context.Context, bucketName string, objec
 
 func (osc *MockOSClient) ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
 	ch := make(chan minio.ObjectInfo, 1)
+	defer close(ch)
+	ch <- minio.ObjectInfo{ETag: "test"}
 	return ch
 }

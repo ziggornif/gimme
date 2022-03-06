@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gimme-cdn/gimme/errors"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
@@ -17,11 +19,6 @@ type AuthManager struct {
 	secret string
 }
 
-type CreateTokenRequest struct {
-	Name           string `json:"name"`
-	ExpirationDate string `json:"expirationDate"`
-}
-
 // NewAuthManager create an auth manager instance
 func NewAuthManager(secret string) AuthManager {
 	return AuthManager{
@@ -30,7 +27,7 @@ func NewAuthManager(secret string) AuthManager {
 }
 
 // CreateToken create access token
-func (am *AuthManager) CreateToken(name string, expirationDate string) (string, error) {
+func (am *AuthManager) CreateToken(name string, expirationDate string) (string, *errors.GimmeError) {
 	var expiration time.Duration
 	if len(expirationDate) > 0 {
 		format := "2006-01-02"
@@ -41,8 +38,8 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	}
 
 	if expiration <= 0 {
-		logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date.")
-		return "", fmt.Errorf("Expiration date must be greater than the current date.")
+		logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date")
+		return "", errors.NewError(errors.BadRequest, fmt.Errorf("expiration date must be greater than the current date"))
 	}
 
 	claims := &jwt.RegisteredClaims{
@@ -53,8 +50,8 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 
 	signedToken, err := token.SignedString([]byte(am.secret))
 	if err != nil {
-		logrus.Error("[AuthManager] CreateToken - Error while signing token.")
-		return "", fmt.Errorf("Error while signing token.")
+		logrus.Error("[AuthManager] CreateToken - Error while signing token")
+		return "", errors.NewError(errors.InternalError, fmt.Errorf("error while signing token"))
 	}
 	return signedToken, nil
 }

@@ -50,20 +50,15 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	var filePath string
 	file := c.Param("file")
-	if len(file) == 0 {
-		c.Status(http.StatusNotFound)
-		return
-	}
 	filePath += fmt.Sprintf("%v%v", c.Param("package"), file)
 
 	object, err := ctrl.objectStorageManager.GetObject(filePath)
 	if err != nil {
-		fmt.Println(err)
-		c.Status(http.StatusInternalServerError)
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
 		return
 	}
-	infos, _ := object.Stat()
 
+	infos, _ := object.Stat()
 	if infos.Size == 0 {
 		c.Status(http.StatusNotFound)
 		return

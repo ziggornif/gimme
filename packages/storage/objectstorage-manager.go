@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gimme-cdn/gimme/errors"
+
 	fileutils "github.com/gimme-cdn/gimme/utils"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
@@ -26,9 +28,9 @@ type objectStorageManager struct {
 }
 
 type ObjectStorageManager interface {
-	CreateBucket(bucketName string, location string) error
-	AddObject(objectName string, file *zip.File) error
-	GetObject(objectName string) (*minio.Object, error)
+	CreateBucket(bucketName string, location string) *errors.GimmeError
+	AddObject(objectName string, file *zip.File) *errors.GimmeError
+	GetObject(objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(objectName string) bool
 }
 
@@ -41,7 +43,7 @@ func NewObjectStorageManager(client ObjectStorageClient) ObjectStorageManager {
 }
 
 // CreateBucket create a new bucket
-func (osm *objectStorageManager) CreateBucket(bucketName string, location string) error {
+func (osm *objectStorageManager) CreateBucket(bucketName string, location string) *errors.GimmeError {
 	err := osm.client.MakeBucket(osm.ctx, bucketName, minio.MakeBucketOptions{Region: location})
 	if err != nil {
 		// Check to see if we already own this bucket (which happens if you run this twice)
@@ -50,7 +52,7 @@ func (osm *objectStorageManager) CreateBucket(bucketName string, location string
 			logrus.Infof("We already own %s\n", bucketName)
 		} else {
 			logrus.Error("[ObjectStorageManager] CreateBucket - Fail to create bucket", err)
-			return fmt.Errorf("Fail to create bucket %v in location %v", bucketName, location)
+			return errors.NewError(errors.InternalError, fmt.Errorf("fail to create bucket %v in location %v", bucketName, location))
 		}
 	}
 
@@ -61,7 +63,7 @@ func (osm *objectStorageManager) CreateBucket(bucketName string, location string
 }
 
 // AddObject add object into the bucket
-func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) error {
+func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) *errors.GimmeError {
 	// Skip dir
 	if file.FileInfo().IsDir() {
 		return nil
@@ -70,7 +72,7 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) er
 	src, err := file.Open()
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] AddObject - Fail to open input file", err)
-		return fmt.Errorf("AddObject - Fail to open input file")
+		return errors.NewError(errors.InternalError, fmt.Errorf("addObject - Fail to open input file"))
 	}
 
 	defer func(src io.ReadCloser) {
@@ -88,7 +90,7 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) er
 	info, err := osm.client.PutObject(osm.ctx, osm.bucketName, objectName, src, file.FileInfo().Size(), minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] AddObject - Fail to put object in the object storage", err)
-		return fmt.Errorf("Fail to put object %s in the object storage", objectName)
+		return errors.NewError(errors.InternalError, fmt.Errorf("fail to put object %s in the object storage", objectName))
 	}
 
 	logrus.Debugf("Successfully uploaded %s of size %d\n", objectName, info.Size)
@@ -96,21 +98,18 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) er
 }
 
 // GetObject get object from the bucket
-func (osm *objectStorageManager) GetObject(objectName string) (*minio.Object, error) {
+func (osm *objectStorageManager) GetObject(objectName string) (*minio.Object, *errors.GimmeError) {
 	object, err := osm.client.GetObject(osm.ctx, osm.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] GetObject - Fail to get object from the object storage", err)
-		return nil, fmt.Errorf("Fail to get object %s from the object storage", objectName)
+		return nil, errors.NewError(errors.InternalError, fmt.Errorf("fail to get object %s from the object storage", objectName))
 	}
 	return object, nil
 }
 
 // ObjectExists return if object exists in bucket or not
 func (osm *objectStorageManager) ObjectExists(objectName string) bool {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
+	objectCh := osm.client.ListObjects(osm.ctx, osm.bucketName, minio.ListObjectsOptions{
 		Prefix:    objectName,
 		Recursive: true,
 	})

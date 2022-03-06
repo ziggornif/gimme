@@ -4,19 +4,20 @@ import (
 	"archive/zip"
 	"fmt"
 
+	"github.com/gimme-cdn/gimme/errors"
 	"github.com/minio/minio-go/v7"
 )
 
 type MockOSManagerErr struct{}
 
-func (osc *MockOSManagerErr) CreateBucket(bucketName string, location string) error {
-	return fmt.Errorf("boom")
+func (osc *MockOSManagerErr) CreateBucket(bucketName string, location string) *errors.GimmeError {
+	return errors.NewError(errors.InternalError, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerErr) AddObject(objectName string, file *zip.File) error {
-	return fmt.Errorf("boom")
+func (osc *MockOSManagerErr) AddObject(objectName string, file *zip.File) *errors.GimmeError {
+	return errors.NewError(errors.InternalError, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerErr) GetObject(objectName string) (*minio.Object, error) {
-	return nil, fmt.Errorf("boom")
+func (osc *MockOSManagerErr) GetObject(objectName string) (*minio.Object, *errors.GimmeError) {
+	return nil, errors.NewError(errors.InternalError, fmt.Errorf("boom"))
 }
 
 func (osc *MockOSManagerErr) ObjectExists(objectName string) bool {

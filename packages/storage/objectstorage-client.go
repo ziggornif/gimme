@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/gimme-cdn/gimme/errors"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/gimme-cdn/gimme/config"
@@ -22,7 +24,7 @@ type ObjectStorageClient interface {
 }
 
 // NewObjectStorageClient create a new object storage client
-func NewObjectStorageClient(config *config.Configuration) (ObjectStorageClient, error) {
+func NewObjectStorageClient(config *config.Configuration) (ObjectStorageClient, *errors.GimmeError) {
 	minioClient, err := minio.New(config.S3Url, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.S3Key, config.S3Secret, ""),
 		Secure: config.S3SSL,
@@ -30,7 +32,7 @@ func NewObjectStorageClient(config *config.Configuration) (ObjectStorageClient, 
 
 	if err != nil {
 		logrus.Error("[ObjectStorageClient] NewObjectStorageClient - Error while create object storage client", err)
-		return nil, fmt.Errorf("Error while create object storage client")
+		return nil, errors.NewError(errors.InternalError, fmt.Errorf("error while create object storage client"))
 	}
 
 	return minioClient, nil

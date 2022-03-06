@@ -10,15 +10,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 
-	"github.com/gimme-cli/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/packages/storage"
 
-	"github.com/gimme-cli/gimme/packages/auth"
+	"github.com/gimme-cdn/gimme/packages/auth"
 
-	"github.com/gimme-cli/gimme/resources/tests/mocks"
+	"github.com/gimme-cdn/gimme/resources/tests/mocks"
 
-	"github.com/gimme-cli/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/resources/tests/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -99,4 +99,79 @@ func TestPackageControllerGet(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
+}
+
+func TestPackageControllerCreateConflictErr(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	token, _ := authManager.CreateToken("test", "")
+	NewPackageController(router, authManager, objectStorageManager)
+
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	filePath := "../resources/tests/test.zip"
+
+	file, _ := os.Open(filePath)
+	defer file.Close()
+
+	formFile,
+		_ := writer.CreateFormFile("file", filepath.Base(filePath))
+	io.Copy(formFile, file)
+	writer.WriteField("name", "awesome-lib")
+	writer.WriteField("version", "1.0.0")
+	writer.Close()
+
+	w := utils.PerformRequest(router, "POST", "/packages", payload,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{
+			Key: "Content-Type", Value: writer.FormDataContentType(),
+		})
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestPackageControllerGetEmpty(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	NewPackageController(router, authManager, objectStorageManager)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPackageControllerGetNotFound(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	NewPackageController(router, authManager, objectStorageManager)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/invalid@1.0.0/invalid.js", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPackageControllerPOSTEmptyFile(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	token, _ := authManager.CreateToken("test", "")
+	NewPackageController(router, authManager, objectStorageManager)
+
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+
+	writer.WriteField("name", "awesome-lib")
+	writer.WriteField("version", "1.0.0")
+	writer.Close()
+
+	w := utils.PerformRequest(router, "POST", "/packages", payload,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{
+			Key: "Content-Type", Value: writer.FormDataContentType(),
+		})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }

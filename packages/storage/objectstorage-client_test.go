@@ -8,13 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 )
 
 func TestNewObjectStorageClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte(""))
 	}))
 	defer srv.Close()
 
@@ -32,5 +31,5 @@ func TestNewObjectStorageClient(t *testing.T) {
 
 func TestNewObjectStorageClientErr(t *testing.T) {
 	_, err := NewObjectStorageClient(&config.Configuration{})
-	assert.Equal(t, "Error while create object storage client", err.Error())
+	assert.Equal(t, "error while create object storage client", err.String())
 }

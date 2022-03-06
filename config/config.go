@@ -1,8 +1,9 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/gimme-cdn/gimme/errors"
 
 	"github.com/sirupsen/logrus"
 
@@ -22,7 +23,7 @@ type Configuration struct {
 	S3SSL         bool
 }
 
-func NewConfig() (*Configuration, error) {
+func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetConfigName("gimme")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")       // local path
@@ -36,7 +37,7 @@ func NewConfig() (*Configuration, error) {
 	err := viper.ReadInConfig()
 	if err != nil {
 		logrus.Errorf("Unable to read the config file: %s", err)
-		return nil, fmt.Errorf("Unable to read the config file")
+		return nil, errors.NewError(errors.InternalError, fmt.Errorf("unable to read the config file"))
 	}
 
 	config := Configuration{}
@@ -54,7 +55,7 @@ func NewConfig() (*Configuration, error) {
 	err = validateConfig(&config)
 	if err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
-		return nil, fmt.Errorf("Configuration is not valid: %s", err)
+		return nil, errors.NewError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
 	}
 
 	return &config, nil
@@ -62,31 +63,31 @@ func NewConfig() (*Configuration, error) {
 
 func validateConfig(config *Configuration) error {
 	if len(config.AdminUser) == 0 {
-		return errors.New("AdminUser is not set")
+		return fmt.Errorf("AdminUser is not set")
 	}
 
 	if len(config.AdminPassword) == 0 {
-		return errors.New("AdminPassword is not set")
+		return fmt.Errorf("AdminPassword is not set")
 	}
 
 	if len(config.Secret) == 0 {
-		return errors.New("Secret is not set")
+		return fmt.Errorf("Secret is not set")
 	}
 
 	if len(config.S3Url) == 0 {
-		return errors.New("S3Url is not set")
+		return fmt.Errorf("S3Url is not set")
 	}
 
 	if len(config.S3Key) == 0 {
-		return errors.New("S3Key is not set")
+		return fmt.Errorf("S3Key is not set")
 	}
 
 	if len(config.S3Secret) == 0 {
-		return errors.New("S3Secret is not set")
+		return fmt.Errorf("S3Secret is not set")
 	}
 
 	if len(config.S3Location) == 0 {
-		return errors.New("S3Location is not set")
+		return fmt.Errorf("S3Location is not set")
 	}
 
 	return nil
