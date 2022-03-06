@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/gimme-cli/gimme/errors"
+	"github.com/gimme-cdn/gimme/errors"
 
-	"github.com/gimme-cli/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/packages/storage"
 
-	"github.com/gimme-cli/gimme/utils"
+	"github.com/gimme-cdn/gimme/utils"
 
 	"github.com/sirupsen/logrus"
 )

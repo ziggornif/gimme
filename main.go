@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gimme-cli/gimme/api"
+	"github.com/gimme-cdn/gimme/api"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/gimme-cli/gimme/packages/auth"
-	"github.com/gimme-cli/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/packages/auth"
+	"github.com/gimme-cdn/gimme/packages/storage"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )

@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 
-	"github.com/gimme-cli/gimme/packages/auth"
+	"github.com/gimme-cdn/gimme/packages/auth"
 	"github.com/gin-gonic/gin"
 )
 

@@ -5,10 +5,10 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"github.com/gimme-cli/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/packages/storage"
 
-	"github.com/gimme-cli/gimme/packages/auth"
-	"github.com/gimme-cli/gimme/packages/upload"
+	"github.com/gimme-cdn/gimme/packages/auth"
+	"github.com/gimme-cdn/gimme/packages/upload"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )

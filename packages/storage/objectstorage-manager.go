@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	fileutils "github.com/gimme-cli/gimme/utils"
+	fileutils "github.com/gimme-cdn/gimme/utils"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 )

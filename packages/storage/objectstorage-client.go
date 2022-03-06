@@ -7,7 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/gimme-cli/gimme/config"
+	"github.com/gimme-cdn/gimme/config"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/minio/minio-go/v7"

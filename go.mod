@@ -1,4 +1,4 @@
-module github.com/gimme-cli/gimme
+module github.com/gimme-cdn/gimme
 
 go 1.17
 
