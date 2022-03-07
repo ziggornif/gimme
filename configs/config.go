@@ -1,9 +1,9 @@
-package config
+package configs
 
 import (
 	"fmt"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
 	"github.com/sirupsen/logrus"
 

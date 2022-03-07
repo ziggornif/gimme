@@ -10,21 +10,23 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/config"
+	"github.com/gimme-cdn/gimme/internal/gimme"
 
-	"github.com/gimme-cdn/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/internal/auth"
 
-	"github.com/gimme-cdn/gimme/packages/auth"
+	storage2 "github.com/gimme-cdn/gimme/internal/storage"
 
-	"github.com/gimme-cdn/gimme/resources/tests/mocks"
+	"github.com/gimme-cdn/gimme/configs"
 
-	"github.com/gimme-cdn/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/test/mocks"
+
+	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func initObjectStorage() storage.ObjectStorageManager {
-	client, _ := storage.NewObjectStorageClient(&config.Configuration{
+func initObjectStorage() storage2.ObjectStorageManager {
+	client, _ := storage2.NewObjectStorageClient(&configs.Configuration{
 		S3Url:        "localhost:9000",
 		S3Key:        "minioadmin",
 		S3Secret:     "minioadmin",
@@ -32,7 +34,7 @@ func initObjectStorage() storage.ObjectStorageManager {
 		S3Location:   "eu-west-1",
 		S3SSL:        false,
 	})
-	objectStorageManager := storage.NewObjectStorageManager(client)
+	objectStorageManager := storage2.NewObjectStorageManager(client)
 	objectStorageManager.CreateBucket("gimme", "eu-west-1")
 	return objectStorageManager
 }
@@ -41,7 +43,8 @@ func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	mockOSManager := mocks.MockOSManagerErr{}
-	NewPackageController(router, authManager, &mockOSManager)
+	service := gimme.NewGimmeService(&mockOSManager)
+	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0/file.js", nil)
 
@@ -52,7 +55,8 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	mockOSManager := mocks.MockOSManagerErr{}
-	NewPackageController(router, authManager, &mockOSManager)
+	service := gimme.NewGimmeService(&mockOSManager)
+	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0", nil)
 
@@ -64,11 +68,12 @@ func TestPackageControllerCreate(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
-	filePath := "../resources/tests/test.zip"
+	filePath := "../test/test.zip"
 
 	file, _ := os.Open(filePath)
 	defer file.Close()
@@ -93,7 +98,8 @@ func TestPackageControllerGet(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0/awesome-lib.min.js", nil)
 
@@ -106,11 +112,12 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
-	filePath := "../resources/tests/test.zip"
+	filePath := "../test/test.zip"
 
 	file, _ := os.Open(filePath)
 	defer file.Close()
@@ -135,7 +142,8 @@ func TestPackageControllerGetEmpty(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
 
@@ -146,7 +154,8 @@ func TestPackageControllerGetNotFound(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/invalid@1.0.0/invalid.js", nil)
 
@@ -158,7 +167,8 @@ func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	NewPackageController(router, authManager, objectStorageManager)
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)

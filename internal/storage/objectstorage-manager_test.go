@@ -6,7 +6,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"github.com/gimme-cdn/gimme/resources/tests/mocks"
+	"github.com/gimme-cdn/gimme/test/mocks"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +30,7 @@ func TestObjectStorageManager_CreateBucketErr(t *testing.T) {
 }
 
 func TestObjectStorageManager_AddObject(t *testing.T) {
-	archive, err := zip.OpenReader("../../resources/tests/test.zip")
+	archive, err := zip.OpenReader("../../test/test.zip")
 	assert.Nil(t, err)
 	defer archive.Close()
 
@@ -46,7 +46,7 @@ func TestObjectStorageManager_AddObject(t *testing.T) {
 }
 
 func TestObjectStorageManager_AddObjectErr(t *testing.T) {
-	archive, err := zip.OpenReader("../../resources/tests/test.zip")
+	archive, err := zip.OpenReader("../../test/test.zip")
 	assert.Nil(t, err)
 	defer archive.Close()
 

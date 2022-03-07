@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
-	fileutils "github.com/gimme-cdn/gimme/utils"
+	fileutils "github.com/gimme-cdn/gimme/pkg/file-utils"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 )

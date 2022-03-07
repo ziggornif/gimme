@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gimme-cdn/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/test/utils"
 
 	"github.com/gin-gonic/gin"
 

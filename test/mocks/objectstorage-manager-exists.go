@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"fmt"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -23,4 +23,8 @@ func (osc *MockOSManagerExists) GetObject(objectName string) (*minio.Object, *er
 
 func (osc *MockOSManagerExists) ObjectExists(objectName string) bool {
 	return true
+}
+
+func (osc *MockOSManagerExists) ListObjects(objectName string) []minio.ObjectInfo {
+	return []minio.ObjectInfo{}
 }

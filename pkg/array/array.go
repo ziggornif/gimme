@@ -1,4 +1,4 @@
-package utils
+package array
 
 // ArrayContains - Return if the array contains the input value
 // Could be improved with generics later

@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/configs"
+	"github.com/gimme-cdn/gimme/internal/auth"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
-	"github.com/gimme-cdn/gimme/config"
-
-	"github.com/gimme-cdn/gimme/packages/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,7 +49,7 @@ func (ctrl *AuthController) createToken(c *gin.Context) {
 }
 
 // NewAuthController - Create controller
-func NewAuthController(router *gin.Engine, authManager auth.AuthManager, appConfig *config.Configuration) {
+func NewAuthController(router *gin.Engine, authManager auth.AuthManager, appConfig *configs.Configuration) {
 	controller := AuthController{
 		authManager,
 	}
