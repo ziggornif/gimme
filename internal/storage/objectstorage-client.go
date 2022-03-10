@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/gimme-cdn/gimme/config"
+	"github.com/gimme-cdn/gimme/configs"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/minio/minio-go/v7"
@@ -24,7 +24,7 @@ type ObjectStorageClient interface {
 }
 
 // NewObjectStorageClient create a new object storage client
-func NewObjectStorageClient(config *config.Configuration) (ObjectStorageClient, *errors.GimmeError) {
+func NewObjectStorageClient(config *configs.Configuration) (ObjectStorageClient, *errors.GimmeError) {
 	minioClient, err := minio.New(config.S3Url, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.S3Key, config.S3Secret, ""),
 		Secure: config.S3SSL,

@@ -1,11 +1,11 @@
-package config
+package configs
 
 import (
 	"fmt"
 	"os"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/test/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -18,7 +18,7 @@ func remove(src string) error {
 	return nil
 }
 
-var confDir = "../resources/tests/config"
+var confDir = "../test/config"
 
 func init() {
 	_ = remove("./gimme.yml")

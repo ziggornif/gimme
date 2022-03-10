@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/storage"
 
-	"github.com/gimme-cdn/gimme/packages/storage"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
-	"github.com/gimme-cdn/gimme/utils"
+	"github.com/gimme-cdn/gimme/pkg/array"
 
 	"github.com/sirupsen/logrus"
 )
@@ -26,7 +26,7 @@ func ValidateFile(file *multipart.FileHeader) *errors.GimmeError {
 	}
 
 	contentType := file.Header.Get("Content-Type")
-	if len(contentType) == 0 || !utils.ArrayContains(validTypes, contentType) {
+	if len(contentType) == 0 || !array.ArrayContains(validTypes, contentType) {
 		logrus.Errorf("[UploadManager] ValidateFile - Invalid input file type. Content type : %s", contentType)
 		return errors.NewError(errors.BadRequest, fmt.Errorf("invalid input file type. (accepted types : application/zip)"))
 	}

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/resources/tests/mocks"
+	"github.com/gimme-cdn/gimme/test/mocks"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -34,7 +34,7 @@ func TestValidateFileErr(t *testing.T) {
 }
 
 func TestArchiveProcessor(t *testing.T) {
-	fileName := "../../resources/tests/test.zip"
+	fileName := "../../test/test.zip"
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
@@ -50,7 +50,7 @@ func TestArchiveProcessorZipErr(t *testing.T) {
 }
 
 func TestArchiveProcessorUploadErr(t *testing.T) {
-	fileName := "../../resources/tests/test.zip"
+	fileName := "../../test/test.zip"
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
@@ -59,7 +59,7 @@ func TestArchiveProcessorUploadErr(t *testing.T) {
 }
 
 func TestArchiveProcessorUploadExists(t *testing.T) {
-	fileName := "../../resources/tests/test.zip"
+	fileName := "../../test/test.zip"
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)

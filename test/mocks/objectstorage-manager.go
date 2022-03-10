@@ -3,7 +3,7 @@ package mocks
 import (
 	"archive/zip"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
 	"github.com/minio/minio-go/v7"
 )
@@ -22,4 +22,8 @@ func (osc *MockOSManager) GetObject(objectName string) (*minio.Object, *errors.G
 
 func (osc *MockOSManager) ObjectExists(objectName string) bool {
 	return false
+}
+
+func (osc *MockOSManager) ListObjects(objectName string) []minio.ObjectInfo {
+	return []minio.ObjectInfo{}
 }

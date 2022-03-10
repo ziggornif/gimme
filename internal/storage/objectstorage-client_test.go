@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gimme-cdn/gimme/config"
+	"github.com/gimme-cdn/gimme/configs"
 )
 
 func TestNewObjectStorageClient(t *testing.T) {
@@ -17,7 +17,7 @@ func TestNewObjectStorageClient(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client, err := NewObjectStorageClient(&config.Configuration{
+	client, err := NewObjectStorageClient(&configs.Configuration{
 		S3Url:      strings.Split(srv.URL, "http://")[1],
 		S3SSL:      false,
 		S3Key:      "test",
@@ -30,6 +30,6 @@ func TestNewObjectStorageClient(t *testing.T) {
 }
 
 func TestNewObjectStorageClientErr(t *testing.T) {
-	_, err := NewObjectStorageClient(&config.Configuration{})
+	_, err := NewObjectStorageClient(&configs.Configuration{})
 	assert.Equal(t, "error while create object storage client", err.String())
 }

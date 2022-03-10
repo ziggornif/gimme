@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gimme-cdn/gimme/errors"
+	"github.com/gimme-cdn/gimme/internal/errors"
 
 	"github.com/sirupsen/logrus"
 

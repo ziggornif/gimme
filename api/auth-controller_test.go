@@ -5,11 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/packages/auth"
-	"github.com/gimme-cdn/gimme/resources/tests/utils"
+	"github.com/gimme-cdn/gimme/internal/auth"
+
+	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gimme-cdn/gimme/config"
+	"github.com/gimme-cdn/gimme/configs"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +18,7 @@ import (
 func TestNewAuthControllerAuthErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &config.Configuration{
+	NewAuthController(router, authManager, &configs.Configuration{
 		AdminUser: "test", AdminPassword: "test",
 	})
 
@@ -29,7 +30,7 @@ func TestNewAuthControllerAuthErr(t *testing.T) {
 func TestNewAuthControllerBadRequest(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &config.Configuration{
+	NewAuthController(router, authManager, &configs.Configuration{
 		AdminUser: "test", AdminPassword: "test",
 	})
 
@@ -41,7 +42,7 @@ func TestNewAuthControllerBadRequest(t *testing.T) {
 func TestNewAuthController(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &config.Configuration{
+	NewAuthController(router, authManager, &configs.Configuration{
 		AdminUser: "test", AdminPassword: "test",
 	})
 
@@ -55,7 +56,7 @@ func TestNewAuthController(t *testing.T) {
 func TestNewAuthControllerExpired(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &config.Configuration{
+	NewAuthController(router, authManager, &configs.Configuration{
 		AdminUser: "test", AdminPassword: "test",
 	})
 
@@ -69,7 +70,7 @@ func TestNewAuthControllerExpired(t *testing.T) {
 func TestNewAuthControllerInvalid(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &config.Configuration{
+	NewAuthController(router, authManager, &configs.Configuration{
 		AdminUser: "test", AdminPassword: "test",
 	})
 
