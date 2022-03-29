@@ -80,7 +80,6 @@ func (gimme *GimmeService) UploadPackage(name string, version string, archive *m
 
 func (gimme *GimmeService) GetFile(pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
-	fmt.Println(valid)
 	if !valid {
 		return nil, errors.NewError(errors.BadRequest, fmt.Errorf("invalid version"))
 	}
