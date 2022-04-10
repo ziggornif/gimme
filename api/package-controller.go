@@ -82,6 +82,9 @@ func NewPackageController(router *gin.Engine, authManager auth.AuthManager, gimm
 		gimmeService,
 	}
 
+	router.GET("/gimme", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/")
+	})
 	router.GET("/gimme/:package", controller.getPackageFolder)
 	router.GET("/gimme/:package/*file", controller.getPackage)
 	router.POST("/packages", authManager.AuthenticateMiddleware, controller.createPackage)

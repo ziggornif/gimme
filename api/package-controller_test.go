@@ -47,6 +47,18 @@ func TestPackageControllerGETErr(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func TestPackageControllerRedirect(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, "GET", "/gimme", nil)
+
+	assert.Equal(t, http.StatusFound, w.Code)
+}
+
 func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
@@ -119,6 +131,20 @@ func TestPackageControllerGetUI(t *testing.T) {
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
+}
+
+func TestPackageControllerGetUIAlter(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	router.LoadHTMLGlob("../templates/*.tmpl")
+	authManager := auth.NewAuthManager("secret")
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0/", nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
