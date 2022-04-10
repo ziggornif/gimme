@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>{{ .packageName }} content</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+</head>
+<body>
+<main class="container">
+    <h1>{{ .packageName }} content</h1>
+    <div>
+        <table>
+            <thead>
+            <tr>
+                <th scope="col">File</th>
+                <th scope="col">Size (bytes)</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .files }}
+            <tr>
+                <td><a href="/gimme/{{.Name}}">{{.Name}}</a></td>
+                <td>{{.Size}}</td>
+            </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

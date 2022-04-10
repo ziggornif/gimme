@@ -67,6 +67,7 @@ func (app *Application) loadModules() {
 func (app *Application) setupServer() {
 	router := gin.Default()
 	router.Use(cors.Default())
+	router.LoadHTMLGlob("templates/*.tmpl")
 
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)

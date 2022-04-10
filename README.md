@@ -163,6 +163,18 @@ cd tests
 npx http-server --cors .
 ```
 
+### Show package content
+
+The root package URL package allows to view the list of available files.
+
+Example :
+```text
+<base_url>/gimme/awesome-lib@3.0.0
+```
+
+![interface](./examples/interface.png)
+
+
 ## Setup a basic cache system with Nginx
 
 Here is a docker-compose deployment file with a simple Nginx cache system.

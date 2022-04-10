@@ -19,6 +19,12 @@ type GimmeService struct {
 	objectStorageManager storage.ObjectStorageManager
 }
 
+type File struct {
+	Name   string
+	Size   int64
+	Folder bool
+}
+
 func NewGimmeService(objectStorageManager storage.ObjectStorageManager) GimmeService {
 	return GimmeService{
 		objectStorageManager,
@@ -93,4 +99,18 @@ func (gimme *GimmeService) GetFile(pkg string, version string, fileName string) 
 	}
 
 	return gimme.objectStorageManager.GetObject(objectPath)
+}
+
+func (gimme *GimmeService) GetFiles(pkg string, version string) ([]File, *errors.GimmeError) {
+	objs := gimme.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+
+	var files []File
+	for _, obj := range objs {
+		files = append(files, File{
+			Name:   obj.Key,
+			Size:   obj.Size,
+			Folder: false,
+		})
+	}
+	return files, nil
 }
