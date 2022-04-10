@@ -98,10 +98,6 @@ The project use the Minio SDK to be compatible with all S3 providers.
 
 ## Usage
 
-> There is no frontend to use the CDN at the moment.
-> 
-> I will work on it once the backend part will finish
-
 ### Create access token
 
 Use your `GIMME_ADMIN_USER` and `GIMME_ADMIN_PASSWORD` as a basic authentication to create a new access token.
