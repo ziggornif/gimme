@@ -10,22 +10,22 @@ import (
 
 type MockOSClientBucketExists struct{}
 
-func (osc *MockOSClientBucketExists) MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error {
+func (osc *MockOSClientBucketExists) MakeBucket(_ context.Context, _ string, _ minio.MakeBucketOptions) error {
 	return fmt.Errorf("boom")
 }
 
-func (osc *MockOSClientBucketExists) BucketExists(ctx context.Context, bucketName string) (bool, error) {
+func (osc *MockOSClientBucketExists) BucketExists(_ context.Context, _ string) (bool, error) {
 	return true, nil
 }
 
-func (osc *MockOSClientBucketExists) PutObject(ctx context.Context, bucketName string, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+func (osc *MockOSClientBucketExists) PutObject(_ context.Context, _ string, _ string, _ io.Reader, _ int64, _ minio.PutObjectOptions) (minio.UploadInfo, error) {
 	return minio.UploadInfo{Size: 10}, nil
 }
-func (osc *MockOSClientBucketExists) GetObject(ctx context.Context, bucketName string, objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
+func (osc *MockOSClientBucketExists) GetObject(_ context.Context, _ string, _ string, _ minio.GetObjectOptions) (*minio.Object, error) {
 	return &minio.Object{}, nil
 }
 
-func (osc *MockOSClientBucketExists) ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
+func (osc *MockOSClientBucketExists) ListObjects(_ context.Context, _ string, _ minio.ListObjectsOptions) <-chan minio.ObjectInfo {
 	ch := make(chan minio.ObjectInfo, 1)
 	defer close(ch)
 	return ch

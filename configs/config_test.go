@@ -31,7 +31,10 @@ func TestNewConfigFileErr(t *testing.T) {
 
 func TestNewConfig(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	confObj, err := NewConfig()
 	assert.Equal(t, &Configuration{
 		AdminUser:     "test",
@@ -50,7 +53,10 @@ func TestNewConfig(t *testing.T) {
 
 func TestNewConfigValidationErrAdmUsr(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-adm-usr.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: AdminUser is not set", err.String())
@@ -58,7 +64,10 @@ func TestNewConfigValidationErrAdmUsr(t *testing.T) {
 
 func TestNewConfigValidationErrAdmPass(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-adm-pass.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: AdminPassword is not set", err.String())
@@ -66,7 +75,10 @@ func TestNewConfigValidationErrAdmPass(t *testing.T) {
 
 func TestNewConfigValidationErrSecret(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-secret.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: Secret is not set", err.String())
@@ -74,7 +86,10 @@ func TestNewConfigValidationErrSecret(t *testing.T) {
 
 func TestNewConfigValidationErrS3Url(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-url.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: S3Url is not set", err.String())
@@ -82,7 +97,10 @@ func TestNewConfigValidationErrS3Url(t *testing.T) {
 
 func TestNewConfigValidationErrS3Key(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-key.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: S3Key is not set", err.String())
@@ -90,7 +108,10 @@ func TestNewConfigValidationErrS3Key(t *testing.T) {
 
 func TestNewConfigValidationErrS3Secret(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-secret.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: S3Secret is not set", err.String())
@@ -98,7 +119,10 @@ func TestNewConfigValidationErrS3Secret(t *testing.T) {
 
 func TestNewConfigValidationErrS3Location(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "no-s3-location.yml"), "./gimme.yml")
-	defer remove("./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: S3Location is not set", err.String())

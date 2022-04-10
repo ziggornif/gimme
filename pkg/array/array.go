@@ -1,9 +1,9 @@
 package array
 
 // ArrayContains - Return if the array contains the input value
-func ArrayContains[T comparable](arr []T, input T) bool {
-	for _, val := range arr {
-		if val == input {
+func ArrayContains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
 			return true
 		}
 	}

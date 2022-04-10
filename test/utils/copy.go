@@ -1,23 +1,36 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"os"
 )
 
 // CopyFile - copy source file to dest
-func CopyFile(src string, dst string) (int64, error) {
+func CopyFile(src string, dst string) {
 	source, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		fmt.Println("Error while opening src file")
 	}
-	defer source.Close()
+	defer func(source *os.File) {
+		err := source.Close()
+		if err != nil {
+			fmt.Println("Error while closing file")
+		}
+	}(source)
 
 	destination, err := os.Create(dst)
 	if err != nil {
-		return 0, err
+		fmt.Println("Error while creating file")
 	}
-	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	return nBytes, err
+	defer func(destination *os.File) {
+		err := destination.Close()
+		if err != nil {
+			fmt.Println("Error while creating file")
+		}
+	}(destination)
+	_, err = io.Copy(destination, source)
+	if err != nil {
+		fmt.Println("Error during file copy")
+	}
 }

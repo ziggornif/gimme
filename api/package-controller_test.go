@@ -72,14 +72,21 @@ func TestPackageControllerCreate(t *testing.T) {
 	filePath := "../test/test.zip"
 
 	file, _ := os.Open(filePath)
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		assert.Nil(t, err)
+	}(file)
 
 	formFile,
 		_ := writer.CreateFormFile("file", filepath.Base(filePath))
-	io.Copy(formFile, file)
-	writer.WriteField("name", "awesome-lib")
-	writer.WriteField("version", "1.0.0")
-	writer.Close()
+	_, err := io.Copy(formFile, file)
+	assert.Nil(t, err)
+	err = writer.WriteField("name", "awesome-lib")
+	assert.Nil(t, err)
+	err = writer.WriteField("version", "1.0.0")
+	assert.Nil(t, err)
+	err = writer.Close()
+	assert.Nil(t, err)
 
 	w := utils.PerformRequest(router, "POST", "/packages", payload,
 		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
@@ -116,14 +123,21 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	filePath := "../test/test.zip"
 
 	file, _ := os.Open(filePath)
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		assert.Nil(t, err)
+	}(file)
 
 	formFile,
 		_ := writer.CreateFormFile("file", filepath.Base(filePath))
-	io.Copy(formFile, file)
-	writer.WriteField("name", "awesome-lib")
-	writer.WriteField("version", "1.0.0")
-	writer.Close()
+	_, err := io.Copy(formFile, file)
+	assert.Nil(t, err)
+	err = writer.WriteField("name", "awesome-lib")
+	assert.Nil(t, err)
+	err = writer.WriteField("version", "1.0.0")
+	assert.Nil(t, err)
+	err = writer.Close()
+	assert.Nil(t, err)
 
 	w := utils.PerformRequest(router, "POST", "/packages", payload,
 		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
@@ -169,9 +183,12 @@ func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
 
-	writer.WriteField("name", "awesome-lib")
-	writer.WriteField("version", "1.0.0")
-	writer.Close()
+	err := writer.WriteField("name", "awesome-lib")
+	assert.Nil(t, err)
+	err = writer.WriteField("version", "1.0.0")
+	assert.Nil(t, err)
+	err = writer.Close()
+	assert.Nil(t, err)
 
 	w := utils.PerformRequest(router, "POST", "/packages", payload,
 		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},

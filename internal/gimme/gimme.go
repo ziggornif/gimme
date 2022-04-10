@@ -26,13 +26,13 @@ func NewGimmeService(objectStorageManager storage.ObjectStorageManager) GimmeSer
 }
 
 func (gimme *GimmeService) filterArray(arr []minio.ObjectInfo, fileName string, version string) []minio.ObjectInfo {
-	var filtred []minio.ObjectInfo
+	var filtered []minio.ObjectInfo
 	for _, item := range arr {
 		if strings.Contains(item.Key, fileName) && strings.Contains(item.Key, version) {
-			filtred = append(filtred, item)
+			filtered = append(filtered, item)
 		}
 	}
-	return filtred
+	return filtered
 }
 
 func (gimme *GimmeService) getVersion(objStorageFile string) string {

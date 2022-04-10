@@ -11,20 +11,20 @@ import (
 
 type MockOSManagerExists struct{}
 
-func (osc *MockOSManagerExists) CreateBucket(bucketName string, location string) *errors.GimmeError {
+func (osc *MockOSManagerExists) CreateBucket(_ string, _ string) *errors.GimmeError {
 	return errors.NewError(errors.BadRequest, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerExists) AddObject(objectName string, file *zip.File) *errors.GimmeError {
+func (osc *MockOSManagerExists) AddObject(_ string, _ *zip.File) *errors.GimmeError {
 	return errors.NewError(errors.BadRequest, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerExists) GetObject(objectName string) (*minio.Object, *errors.GimmeError) {
+func (osc *MockOSManagerExists) GetObject(_ string) (*minio.Object, *errors.GimmeError) {
 	return nil, errors.NewError(errors.BadRequest, fmt.Errorf("boom"))
 }
 
-func (osc *MockOSManagerExists) ObjectExists(objectName string) bool {
+func (osc *MockOSManagerExists) ObjectExists(_ string) bool {
 	return true
 }
 
-func (osc *MockOSManagerExists) ListObjects(objectName string) []minio.ObjectInfo {
+func (osc *MockOSManagerExists) ListObjects(_ string) []minio.ObjectInfo {
 	return []minio.ObjectInfo{}
 }

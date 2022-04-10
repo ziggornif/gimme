@@ -32,7 +32,10 @@ func TestObjectStorageManager_CreateBucketErr(t *testing.T) {
 func TestObjectStorageManager_AddObject(t *testing.T) {
 	archive, err := zip.OpenReader("../../test/test.zip")
 	assert.Nil(t, err)
-	defer archive.Close()
+	defer func(archive *zip.ReadCloser) {
+		err := archive.Close()
+		assert.Nil(t, err)
+	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
 	gimmeerr := osm.AddObject("test", archive.File[0])
@@ -48,7 +51,10 @@ func TestObjectStorageManager_AddObject(t *testing.T) {
 func TestObjectStorageManager_AddObjectErr(t *testing.T) {
 	archive, err := zip.OpenReader("../../test/test.zip")
 	assert.Nil(t, err)
-	defer archive.Close()
+	defer func(archive *zip.ReadCloser) {
+		err := archive.Close()
+		assert.Nil(t, err)
+	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
 	gimmeerr := osm.AddObject("test", archive.File[1])

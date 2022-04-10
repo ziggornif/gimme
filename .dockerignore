@@ -1,9 +1,10 @@
 .github
 cache
-tests
+examples
+**/*_test.go
 .gitignore
 coverage.out
 docker-compose.yml
 gimme
 schema.png
-resources
+test
