@@ -50,6 +50,11 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
 
 	slice := strings.Split(c.Param("package"), "@")
+	if len(slice) <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL (valid format : GET /gimme/<package>@<version>/<file>)"})
+		return
+	}
+
 	if file == "/" {
 		ctrl.getHTMLPackage(c, c.Param("package"), slice[0], slice[1])
 		return
@@ -71,6 +76,10 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
 	slice := strings.Split(c.Param("package"), "@")
+	if len(slice) <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL (valid format : GET /gimme/<package>@<version>/<file>)"})
+		return
+	}
 	ctrl.getHTMLPackage(c, c.Param("package"), slice[0], slice[1])
 	return
 }

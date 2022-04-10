@@ -47,6 +47,30 @@ func TestPackageControllerGETErr(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/file.js", nil)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := auth.NewAuthManager("secret")
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/foo/bar.js", nil)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestPackageControllerRedirect(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
