@@ -50,7 +50,7 @@ func TestNewAuthController(t *testing.T) {
 
 	w := utils.PerformRequest(router, "POST", "/create-token", strings.NewReader(body), utils.Header{Key: "Authorization", Value: "Basic dGVzdDp0ZXN0"})
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestNewAuthControllerExpired(t *testing.T) {

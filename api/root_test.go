@@ -14,5 +14,5 @@ func TestNewRootController(t *testing.T) {
 	NewRootController(router)
 
 	w := utils.PerformRequest(router, "GET", "/", nil)
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusFound, w.Code)
 }

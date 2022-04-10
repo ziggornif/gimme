@@ -45,7 +45,7 @@ func (ctrl *AuthController) createToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	c.JSON(http.StatusCreated, gin.H{"token": token})
 }
 
 // NewAuthController - Create controller

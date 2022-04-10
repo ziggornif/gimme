@@ -23,7 +23,7 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 		return
 	}
 
-	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+	c.HTML(http.StatusOK, "package.tmpl", gin.H{
 		"packageName": pkg,
 		"files":       files,
 	})
@@ -42,7 +42,7 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.Status(http.StatusCreated)
 	return
 }
 

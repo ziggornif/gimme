@@ -106,7 +106,7 @@ func TestPackageControllerCreate(t *testing.T) {
 			Key: "Content-Type", Value: writer.FormDataContentType(),
 		})
 
-	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestPackageControllerGet(t *testing.T) {

@@ -1,0 +1,220 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Gimme CDN",
+    "description": "A self hosted CDN solution written in Go",
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "email": "matthieudrouian@gmail.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/mit-license.php"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "documentation"
+        ],
+        "summary": "Get application documentation",
+        "responses": {
+          "200": {
+            "description": "Documentation",
+            "content": {
+              "text/html": {}
+            }
+          }
+        }
+      }
+    },
+    "/create-token": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Create auth token",
+        "description": "Auth token are used to upload packages to the CDN",
+        "operationId": "createToken",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages": {
+      "post": {
+        "tags": [
+          "package"
+        ],
+        "summary": "Publish package in the CDN",
+        "operationId": "postPackage",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/gimme/{package}": {
+      "get": {
+        "tags": [
+          "package"
+        ],
+        "summary": "Get package UI",
+        "operationId": "getPackage",
+        "parameters": [
+          {
+            "name": "package",
+            "in": "path",
+            "description": "Package name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package content UI",
+            "content": {
+              "text/html": {}
+            }
+          }
+        }
+      }
+    },
+    "/gimme/{package}/{file}": {
+      "get": {
+        "tags": [
+          "package"
+        ],
+        "summary": "Retrieve file",
+        "operationId": "getPackageFile",
+        "parameters": [
+          {
+            "name": "package",
+            "in": "path",
+            "description": "Package name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file",
+            "in": "path",
+            "description": "File name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package content UI",
+            "content": {
+              "text/html": {}
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateToken": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Token name"
+          },
+          "expirationDate": {
+            "type": "string",
+            "description": "Token expiration date"
+          }
+        }
+      },
+      "CreateTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Created token"
+          }
+        }
+      },
+      "CreatePackage": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  }
+}
