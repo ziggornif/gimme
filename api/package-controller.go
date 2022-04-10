@@ -18,6 +18,11 @@ type PackageController struct {
 
 func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name string, version string) {
 	files, _ := ctrl.gimmeService.GetFiles(name, version)
+	if len(files) == 0 {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"packageName": pkg,
 		"files":       files,

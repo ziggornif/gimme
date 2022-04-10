@@ -110,6 +110,20 @@ func TestPackageControllerGet(t *testing.T) {
 	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
 }
 
+func TestPackageControllerGetUI(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	router.LoadHTMLGlob("../templates/*.tmpl")
+	authManager := auth.NewAuthManager("secret")
+	service := gimme.NewGimmeService(objectStorageManager)
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
+}
+
 func TestPackageControllerCreateConflictErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
@@ -155,7 +169,7 @@ func TestPackageControllerGetEmpty(t *testing.T) {
 	service := gimme.NewGimmeService(objectStorageManager)
 	NewPackageController(router, authManager, service)
 
-	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
+	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@4.0.0", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
