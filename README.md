@@ -2,15 +2,6 @@
 
 A self-hosted CDN solution written in Go
 
-## Run a local object storage
-
-```shell
-docker run \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  minio/minio server /data --console-address ":9001"
-```
-
 ## Configuration
 
 Gimme configuration is stored in a yaml file.
@@ -49,8 +40,6 @@ s3:
 
 ## Run application
 
-> **/!\ You must create the access key / secret from Minio admin console if you are using a local minio object storage.**
-
 ### From sources
 ```shell
 go run main.go
@@ -83,6 +72,17 @@ services:
     volumes:
       - ./gimme.yml:/config/gimme.yml
 ```
+
+## Run a local object storage
+
+```shell
+docker run \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  minio/minio server /data --console-address ":9001"
+```
+
+> **/!\ You must create the access key / secret from Minio admin console if you are using a local minio object storage.**
 
 ## Architecture
 

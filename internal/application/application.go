@@ -67,7 +67,7 @@ func (app *Application) loadModules() {
 func (app *Application) setupServer() {
 	router := gin.Default()
 	router.Use(cors.Default())
-	router.Static("/swagger", "./docs")
+	router.Static("/docs", "./docs")
 	router.LoadHTMLGlob("templates/*.tmpl")
 
 	api.NewRootController(router)

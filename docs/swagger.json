@@ -3,9 +3,8 @@
   "info": {
     "title": "Gimme CDN",
     "description": "A self hosted CDN solution written in Go",
-    "termsOfService": "http://swagger.io/terms/",
-    "contact": {
-      "email": "matthieudrouian@gmail.com"
+    "x-logo": {
+      "url": ""
     },
     "license": {
       "name": "MIT",
