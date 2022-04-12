@@ -11,8 +11,9 @@ import (
 
 func TestNewRootController(t *testing.T) {
 	router := gin.New()
+	router.LoadHTMLGlob("../templates/*.tmpl")
 	NewRootController(router)
 
 	w := utils.PerformRequest(router, "GET", "/", nil)
-	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
