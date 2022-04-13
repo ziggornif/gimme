@@ -8,17 +8,19 @@ Gimme configuration is stored in a yaml file.
 
 You need to created it before running the application.
 
-| Parameter      | Description             |
-|----------------|-------------------------|
-| secret         | Application secret      |
-| admin.user     | Administration user     |
-| admin.password | Administration password |
-| s3.url         | Object storage url      |
-| s3.key         | Object storage key      |
-| s3.secret      | Object storage secret   |
-| s3.bucketName  | Bucket name             |
-| s3.location    | Object storage location |
-| ssl            | Enable SSL              |
+| Parameter      | Description                                |
+|----------------|--------------------------------------------|
+| secret         | Application secret                         |
+| admin.user     | Administration user                        |
+| admin.password | Administration password                    |
+| port           | Exposition port (default 8080)             |
+| s3.url         | Object storage url                         |
+| s3.key         | Object storage key                         |
+| s3.secret      | Object storage secret                      |
+| s3.bucketName  | Bucket name                                |
+| s3.location    | Object storage location                    |
+| ssl            | Enable SSL (default true)                  |
+| metrics        | Enable OpenMetrics endpoint (default true) |
 
 ### Example
 
@@ -34,7 +36,7 @@ s3:
   secret: s3secret
   bucketName: gimme (default gimme)
   location: eu-west-1
-  ssl: true (default true)
+  ssl: true
 ```
 
 
@@ -42,7 +44,11 @@ s3:
 
 ### From sources
 ```shell
-go run main.go
+make build
+```
+
+```shell
+./gimme
 ```
 
 ### With docker
@@ -218,3 +224,10 @@ http {
   }
 }
 ```
+
+## Monitoring
+
+Each CDN running instance expose an OpenMetrics endpoint.
+
+This endpoint is useful for monitoring your instances with for example Prometheus and Grafana.
+

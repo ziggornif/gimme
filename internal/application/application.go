@@ -12,6 +12,7 @@ import (
 	"time"
 
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gimme-cdn/gimme/api"
 	"github.com/gimme-cdn/gimme/configs"
@@ -63,6 +64,14 @@ func (app *Application) loadModules() {
 	}
 }
 
+func prometheusHandler() gin.HandlerFunc {
+	h := promhttp.Handler()
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
 // loadHttpServer load http (go gin) server
 func (app *Application) setupServer() {
 	router := gin.Default()
@@ -73,6 +82,10 @@ func (app *Application) setupServer() {
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)
 	api.NewPackageController(router, app.authManager, app.gimmeService)
+
+	if app.config.EnableMetrics {
+		router.GET("/metrics", prometheusHandler())
+	}
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", app.config.AppPort),

@@ -71,6 +71,7 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 		return
 	}
+	defer object.Close()
 	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
 }
 
