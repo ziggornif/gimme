@@ -47,6 +47,7 @@ func TestNewConfig(t *testing.T) {
 		S3BucketName:  "gimme",
 		S3Location:    "eu-west-1",
 		S3SSL:         true,
+		EnableMetrics: true,
 	}, confObj)
 	assert.Nil(t, err)
 }
