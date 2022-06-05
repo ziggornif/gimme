@@ -227,7 +227,7 @@ http {
 
 ## Deployment
 
-The [example deployment folder] contains docker and kubernetes deployment configuration examples.
+The [example deployment folder](./examples/deployment) contains docker and kubernetes deployment configuration examples.
 
 ## Monitoring
 
