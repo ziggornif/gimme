@@ -1,0 +1,12 @@
+admin:
+  user: gimmeadmin
+  password: gimmeadmin
+port: 8080
+secret: secret
+s3:
+  url: your.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
