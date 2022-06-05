@@ -16,6 +16,3 @@
 
 .idea
 .DS_Store
-gimme-conf
-cache
-docker-compose.yml
