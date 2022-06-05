@@ -1,8 +1,6 @@
 # gimme
 
-A self-hosted CDN solution written in Go
-
-[[_TOC_]]
+A self-hosted CDN solution written in Go.
 
 ## Configuration
 
