@@ -2,6 +2,8 @@
 
 A self-hosted CDN solution written in Go
 
+[[_TOC_]]
+
 ## Configuration
 
 Gimme configuration is stored in a yaml file.
@@ -225,9 +227,16 @@ http {
 }
 ```
 
+## Deployment
+
+The [example deployment folder] contains docker and kubernetes deployment configuration examples.
+
 ## Monitoring
 
 Each CDN running instance expose an OpenMetrics endpoint.
 
-This endpoint is useful for monitoring your instances with for example Prometheus and Grafana.
+This endpoint is useful to monitor instances with Prometheus and Grafana.
 
+A monitoring configuration with a default prometheus configuration and a grafana dashboard is avaiable in [the monitoring example dir](./examples/monitoring).
+
+There is also a docker-compose deployment configuration with prometheus and grafana here : [link](./examples/deployment/docker-compose/with-local-s3)
