@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gimme
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gimme-conf
+  labels:
+    name: gimme-conf
+  namespace: gimme
+data:
+  gimme.yml: |-
+    admin:
+      user: gimmeadmin
+      password: gimmeadmin
+    port: 8080
+    secret: secret
+    s3:
+      url: your.s3.url.cloud
+      key: s3key
+      secret: s3secret
+      bucketName: gimme
+      location: eu-west-1
+      ssl: true
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gimme-deployment
+  namespace: gimme
+  labels:
+    app: gimme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gimme
+  template:
+    metadata:
+      labels:
+        app: gimme
+    spec:
+      containers:
+        - name: gimme
+          image: ziggornif/gimme:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: gimme-config-volume
+              mountPath: /config/
+      volumes:
+        - name: gimme-config-volume
+          configMap:
+            defaultMode: 420
+            name: gimme-conf
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gimme
+  name: gimme-service
+  namespace: gimme
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app: gimme
+  type: NodePort
