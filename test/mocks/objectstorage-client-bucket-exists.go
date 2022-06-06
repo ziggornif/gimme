@@ -30,3 +30,9 @@ func (osc *MockOSClientBucketExists) ListObjects(_ context.Context, _ string, _ 
 	defer close(ch)
 	return ch
 }
+
+func (osc *MockOSClientBucketExists) RemoveObjects(_ context.Context, _ string, _ <-chan minio.ObjectInfo, _ minio.RemoveObjectsOptions) <-chan minio.RemoveObjectError {
+	ch := make(chan minio.RemoveObjectError, 1)
+	defer close(ch)
+	return ch
+}

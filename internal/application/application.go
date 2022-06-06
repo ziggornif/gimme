@@ -11,24 +11,23 @@ import (
 	"syscall"
 	"time"
 
-	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"github.com/gimme-cdn/gimme/api"
 	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/gimme"
+	"github.com/gimme-cdn/gimme/internal/content"
+	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
 type Application struct {
-	config       *configs.Configuration
-	authManager  auth.AuthManager
-	gimmeService gimme.GimmeService
-	server       *http.Server
+	config         *configs.Configuration
+	authManager    auth.AuthManager
+	contentService content.ContentService
+	server         *http.Server
 }
 
 // NewApplication create an application instance
@@ -55,7 +54,7 @@ func (app *Application) loadModules() {
 		log.Fatalln(err.String())
 	}
 	objectStorageManager := storage.NewObjectStorageManager(osmClient)
-	app.gimmeService = gimme.NewGimmeService(objectStorageManager)
+	app.contentService = content.NewContentService(objectStorageManager)
 
 	err = objectStorageManager.CreateBucket(app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
@@ -80,7 +79,7 @@ func (app *Application) setupServer() {
 
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)
-	api.NewPackageController(router, app.authManager, app.gimmeService)
+	api.NewPackageController(router, app.authManager, app.contentService)
 
 	if app.config.EnableMetrics {
 		router.GET("/metrics", prometheusHandler())

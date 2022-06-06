@@ -22,7 +22,7 @@ type CreateTokenRequest struct {
 
 func (req *CreateTokenRequest) validate() *errors.GimmeError {
 	if len(req.Name) == 0 {
-		return errors.NewError(errors.BadRequest, fmt.Errorf("access token name is required"))
+		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("access token name is required"))
 	}
 	return nil
 }

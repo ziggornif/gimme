@@ -27,3 +27,7 @@ func (osc *MockOSManager) ObjectExists(_ string) bool {
 func (osc *MockOSManager) ListObjects(_ string) []minio.ObjectInfo {
 	return []minio.ObjectInfo{}
 }
+
+func (osc *MockOSManager) RemoveObjects(_ string) *errors.GimmeError {
+	return nil
+}

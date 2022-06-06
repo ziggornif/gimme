@@ -39,7 +39,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 
 	if expiration <= 0 {
 		logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date")
-		return "", errors.NewError(errors.BadRequest, fmt.Errorf("expiration date must be greater than the current date"))
+		return "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("expiration date must be greater than the current date"))
 	}
 
 	claims := &jwt.RegisteredClaims{
@@ -51,7 +51,7 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	signedToken, err := token.SignedString([]byte(am.secret))
 	if err != nil {
 		logrus.Error("[AuthManager] CreateToken - Error while signing token")
-		return "", errors.NewError(errors.InternalError, fmt.Errorf("error while signing token"))
+		return "", errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while signing token"))
 	}
 	return signedToken, nil
 }

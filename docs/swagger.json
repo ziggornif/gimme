@@ -98,6 +98,25 @@
         }
       }
     },
+    "/packages/{package}": {
+      "delete": {
+        "tags": [
+          "package"
+        ],
+        "summary": "Delete package from the CDN",
+        "operationId": "deletePackage",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Acknowledge"
+          }
+        }
+      }
+    },
     "/gimme/{package}": {
       "get": {
         "tags": [

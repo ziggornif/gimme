@@ -28,5 +28,15 @@ func (osc *MockOSClientErr) GetObject(_ context.Context, _ string, _ string, _ m
 func (osc *MockOSClientErr) ListObjects(_ context.Context, _ string, _ minio.ListObjectsOptions) <-chan minio.ObjectInfo {
 	ch := make(chan minio.ObjectInfo, 1)
 	defer close(ch)
+	ch <- minio.ObjectInfo{Err: fmt.Errorf("boom")}
+	return ch
+}
+
+func (osc *MockOSClientErr) RemoveObjects(_ context.Context, _ string, _ <-chan minio.ObjectInfo, _ minio.RemoveObjectsOptions) <-chan minio.RemoveObjectError {
+	ch := make(chan minio.RemoveObjectError, 1)
+	defer close(ch)
+	ch <- minio.RemoveObjectError{
+		ObjectName: "test",
+	}
 	return ch
 }

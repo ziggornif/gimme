@@ -86,3 +86,15 @@ func TestObjectStorageManager_ObjectExistsFalsy(t *testing.T) {
 	res := osm.ObjectExists("test")
 	assert.False(t, res)
 }
+
+func TestObjectStorageManager_ListObjects(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClient{})
+	objs := osm.ListObjects("test")
+	assert.Equal(t, "test", objs[0].ETag)
+}
+
+func TestObjectStorageManager_RemoveObjects(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClient{})
+	err := osm.RemoveObjects("test")
+	assert.Nil(t, err)
+}

@@ -21,6 +21,7 @@ type ObjectStorageClient interface {
 	PutObject(ctx context.Context, bucketName string, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
 	GetObject(ctx context.Context, bucketName string, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
 	ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo
+	RemoveObjects(ctx context.Context, bucketName string, objectsCh <-chan minio.ObjectInfo, opts minio.RemoveObjectsOptions) <-chan minio.RemoveObjectError
 }
 
 // NewObjectStorageClient create a new object storage client
@@ -32,7 +33,7 @@ func NewObjectStorageClient(config *configs.Configuration) (ObjectStorageClient,
 
 	if err != nil {
 		logrus.Error("[ObjectStorageClient] NewObjectStorageClient - Error while create object storage client", err)
-		return nil, errors.NewError(errors.InternalError, fmt.Errorf("error while create object storage client"))
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while create object storage client"))
 	}
 
 	return minioClient, nil

@@ -40,7 +40,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	err := viper.ReadInConfig()
 	if err != nil {
 		logrus.Errorf("Unable to read the config file: %s", err)
-		return nil, errors.NewError(errors.InternalError, fmt.Errorf("unable to read the config file"))
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("unable to read the config file"))
 	}
 
 	config := Configuration{}
@@ -59,7 +59,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	err = validateConfig(&config)
 	if err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
-		return nil, errors.NewError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
 	}
 
 	return &config, nil
