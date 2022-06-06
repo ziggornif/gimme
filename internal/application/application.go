@@ -25,11 +25,10 @@ import (
 )
 
 type Application struct {
-	config               *configs.Configuration
-	authManager          auth.AuthManager
-	objectStorageManager storage.ObjectStorageManager
-	gimmeService         gimme.GimmeService
-	server               *http.Server
+	config       *configs.Configuration
+	authManager  auth.AuthManager
+	gimmeService gimme.GimmeService
+	server       *http.Server
 }
 
 // NewApplication create an application instance
@@ -55,10 +54,10 @@ func (app *Application) loadModules() {
 	if err != nil {
 		log.Fatalln(err.String())
 	}
-	app.objectStorageManager = storage.NewObjectStorageManager(osmClient)
-	app.gimmeService = gimme.NewGimmeService(app.objectStorageManager)
+	objectStorageManager := storage.NewObjectStorageManager(osmClient)
+	app.gimmeService = gimme.NewGimmeService(objectStorageManager)
 
-	err = app.objectStorageManager.CreateBucket(app.config.S3BucketName, app.config.S3Location)
+	err = objectStorageManager.CreateBucket(app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
 		log.Fatalln(err.String())
 	}

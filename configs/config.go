@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 
@@ -65,33 +66,25 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 }
 
 func validateConfig(config *Configuration) error {
-	if len(config.AdminUser) == 0 {
-		return fmt.Errorf("AdminUser is not set")
+	var configKeys = []string{"AdminUser", "AdminPassword", "Secret", "S3Url", "S3Key", "S3Secret", "S3Location"}
+	var throwableError error
+
+	for _, key := range configKeys {
+		err := assertConfigKey(config, key)
+		if err != nil {
+			throwableError = err
+			break
+		}
 	}
 
-	if len(config.AdminPassword) == 0 {
-		return fmt.Errorf("AdminPassword is not set")
-	}
+	return throwableError
+}
 
-	if len(config.Secret) == 0 {
-		return fmt.Errorf("Secret is not set")
+func assertConfigKey(config *Configuration, key string) error {
+	r := reflect.ValueOf(config)
+	f := reflect.Indirect(r).FieldByName(key)
+	if f.Len() == 0 {
+		return fmt.Errorf("%v is not set", key)
 	}
-
-	if len(config.S3Url) == 0 {
-		return fmt.Errorf("S3Url is not set")
-	}
-
-	if len(config.S3Key) == 0 {
-		return fmt.Errorf("S3Key is not set")
-	}
-
-	if len(config.S3Secret) == 0 {
-		return fmt.Errorf("S3Secret is not set")
-	}
-
-	if len(config.S3Location) == 0 {
-		return fmt.Errorf("S3Location is not set")
-	}
-
 	return nil
 }
