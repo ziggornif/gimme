@@ -2,9 +2,11 @@ package api
 
 import (
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"strings"
 
+	"github.com/gimme-cdn/gimme/internal/archive_validator"
 	"github.com/gimme-cdn/gimme/internal/auth"
 	"github.com/gimme-cdn/gimme/internal/content"
 	"github.com/gimme-cdn/gimme/internal/errors"
@@ -55,7 +57,21 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 	name := c.PostForm("name")
 	version := c.PostForm("version")
 
-	uploadErr := ctrl.contentService.UploadPackage(name, version, file)
+	validationErr := archive_validator.ValidateFile(file)
+	if validationErr != nil {
+		c.JSON(validationErr.GetHTTPCode(), gin.H{"error": validationErr.String()})
+		return
+	}
+
+	reader, _ := file.Open()
+	defer func(reader multipart.File) {
+		err := reader.Close()
+		if err != nil {
+			logrus.Error("Fail to close file")
+		}
+	}(reader)
+
+	uploadErr := ctrl.contentService.CreatePackage(name, version, reader, file.Size)
 
 	if uploadErr != nil {
 		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.String()})

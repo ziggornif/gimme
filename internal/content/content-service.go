@@ -1,13 +1,15 @@
 package content
 
 import (
+	"archive/zip"
 	"fmt"
-	"mime/multipart"
+	"io"
+	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/storage"
-	"github.com/gimme-cdn/gimme/internal/upload"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/mod/semver"
@@ -69,30 +71,48 @@ func (svc *ContentService) getLatestPackagePath(pkg string, version string, file
 	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
 }
 
-// UploadPackage upload package
-func (svc *ContentService) UploadPackage(name string, version string, archive *multipart.FileHeader) *errors.GimmeError {
-	validationErr := upload.ValidateFile(archive)
-	if validationErr != nil {
-		return validationErr
+// CreatePackage create package
+func (svc *ContentService) CreatePackage(name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
+	archive, err := zip.NewReader(file, fileSize)
+	if err != nil {
+		logrus.Error("[UploadManager] ArchiveProcessor - Error while reading zip file", err)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while reading zip file"))
 	}
 
-	reader, _ := archive.Open()
-	defer func(src multipart.File) {
-		err := src.Close()
-		if err != nil {
-			logrus.Error("Fail to close file")
-		}
-	}(reader)
+	folderName := fmt.Sprintf("%s@%s", name, version)
 
-	uploadErr := upload.ArchiveProcessor(name, version, svc.objectStorageManager, reader, archive.Size)
-	return uploadErr
+	if exists := svc.objectStorageManager.ObjectExists(folderName); exists {
+		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
+	}
+
+	var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)
+
+	nbFiles := len(archive.File)
+
+	var wg sync.WaitGroup
+	wg.Add(nbFiles)
+
+	for _, currentFile := range archive.File {
+		go func(currentFile *zip.File) {
+			defer wg.Done()
+			logrus.Debug("[UploadManager] ArchiveProcessor - Unzipping file ", currentFile.Name)
+			fileName := re.ReplaceAllString(currentFile.FileHeader.Name, folderName)
+			err := svc.objectStorageManager.AddObject(fileName, currentFile)
+			if err != nil {
+				logrus.Errorf("[UploadManager] ArchiveProcessor - Error while processing file %s", fileName)
+			}
+		}(currentFile)
+	}
+
+	wg.Wait()
+	return nil
 }
 
 // GetFile get package file
 func (svc *ContentService) GetFile(pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
 	if !valid {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version"))
+		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
 	}
 
 	var objectPath string

@@ -12,10 +12,17 @@ test:
 
 .PHONY: coverage
 coverage:
+	go tool cover -func coverage.out
+
+.PHONY: html_coverage
+html_coverage:
 	go tool cover -html=coverage.out
 
 .PHONY: test_coverage
 test_coverage: test coverage
+
+.PHONY: test_coverage_html
+test_coverage_html: test html_coverage
 
 .PHONY: watch
 watch:
