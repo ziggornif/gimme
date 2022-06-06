@@ -154,7 +154,6 @@ func (osm *objectStorageManager) ObjectExists(objectName string) bool {
 
 // RemoveObjects remove objects from storage
 func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.GimmeError {
-	var throwable *errors.GimmeError
 	objectsCh := make(chan minio.ObjectInfo)
 
 	var removeErrors []RemoveError
@@ -180,10 +179,6 @@ func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.
 		}
 	}()
 
-	if throwable != nil {
-		return throwable
-	}
-
 	opts := minio.RemoveObjectsOptions{
 		GovernanceBypass: true,
 	}
@@ -198,11 +193,11 @@ func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.
 	}
 
 	if len(removeErrors) != 0 {
-		throwable = errors.NewBusinessError(
+		return errors.NewBusinessError(
 			errors.InternalError,
 			fmt.Errorf("Error while removing objects. Details : %v", removeErrors),
 		)
 	}
 
-	return throwable
+	return nil
 }
