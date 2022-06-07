@@ -4,7 +4,10 @@ audit:
 
 .PHONY: build
 build:
-	go build -ldflags "-w -s" -o gimme
+	rm -rf dist
+	mkdir dist
+	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme
+	cp -R gimme docs templates ./dist
 
 .PHONY: test
 test:

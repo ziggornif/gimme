@@ -1,0 +1,18 @@
+[Unit]
+Description=Gimme service
+After=network.target
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=10
+startLimitIntervalSec=60
+
+WorkingDirectory=/opt/gimme # gimme working directory
+ExecStart=/root/gimme/gimme # gimme binary path
+
+StandardOutput=file:/var/log/gimme/gimme.log
+StandardError=file:/var/log/gimme/gimme-error.log
+
+[Install]
+WantedBy=multi-user.target

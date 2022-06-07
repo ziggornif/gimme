@@ -2,6 +2,14 @@
 
 A self-hosted CDN solution written in Go.
 
+## What is a CDN ?
+
+> A content delivery network (CDN) refers to a geographically distributed group of servers which work together to provide fast delivery of Internet content.
+>
+> A CDN allows for the quick transfer of assets needed for loading Internet content including HTML pages, javascript files, stylesheets, images, and videos. […]
+> 
+> https://www.cloudflare.com/learning/cdn/what-is-a-cdn/
+
 ## Configuration
 
 Gimme configuration is stored in a yaml file.
