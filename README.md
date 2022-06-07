@@ -235,7 +235,7 @@ http {
 
 ## Deployment
 
-The [example deployment folder](./examples/deployment) contains docker and kubernetes deployment configuration examples.
+The [example deployment folder](./examples/deployment) contains linux systemd, docker and kubernetes deployment configuration examples.
 
 ## Monitoring
 
