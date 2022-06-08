@@ -7,12 +7,9 @@ import (
 	"time"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
-
-	"github.com/sirupsen/logrus"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/sirupsen/logrus"
 )
 
 type AuthManager struct {

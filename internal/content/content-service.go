@@ -25,6 +25,8 @@ type File struct {
 	Folder bool
 }
 
+var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)
+
 // NewContentService create a new content service instance
 func NewContentService(objectStorageManager storage.ObjectStorageManager) ContentService {
 	return ContentService{
@@ -84,8 +86,6 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 	if exists := svc.objectStorageManager.ObjectExists(folderName); exists {
 		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
-
-	var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)
 
 	nbFiles := len(archive.File)
 

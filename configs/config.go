@@ -70,8 +70,7 @@ func validateConfig(config *Configuration) error {
 	var throwableError error
 
 	for _, key := range configKeys {
-		err := assertConfigKey(config, key)
-		if err != nil {
+		if err := assertConfigKey(config, key); err != nil {
 			throwableError = err
 			break
 		}
