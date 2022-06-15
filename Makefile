@@ -6,7 +6,7 @@ audit:
 build:
 	rm -rf dist
 	mkdir dist
-	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme
+	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
 	cp -R gimme docs templates ./dist
 
 .PHONY: test

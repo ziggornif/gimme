@@ -5,9 +5,9 @@ ADD . .
 RUN make build
 
 FROM alpine
-COPY --from=builder /build/gimme /bin/gimme
-COPY --from=builder /build/templates /templates
-COPY --from=builder /build/docs /docs
+COPY --from=builder /build/dist/gimme /bin/gimme
+COPY --from=builder /build/dist/templates /templates
+COPY --from=builder /build/dist/docs /docs
 RUN chmod +x /bin/gimme
 
 ENV GIN_MODE=release
