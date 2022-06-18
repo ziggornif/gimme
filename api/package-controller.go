@@ -11,7 +11,6 @@ import (
 	"github.com/gimme-cdn/gimme/internal/content"
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 )
 
@@ -101,20 +100,13 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
 		return
 	}
-	defer func(object *minio.Object) {
-		err := object.Close()
-		if err != nil {
-			logrus.Error("getPackage - Fail to close file")
-		}
-	}(object)
 
-	infos, _ := object.Stat()
-	if infos.Size == 0 {
+	if *object.ContentLength == 0 {
 		c.Status(http.StatusNotFound)
 		return
 	}
 
-	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
+	c.DataFromReader(http.StatusOK, *object.ContentLength, *object.ContentType, object.Body, nil)
 }
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {

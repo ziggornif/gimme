@@ -8,10 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/storage"
-	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+
+	"github.com/aws/aws-sdk-go/service/s3"
+
+	"github.com/gimme-cdn/gimme/internal/storage"
+
+	"github.com/gimme-cdn/gimme/internal/errors"
 	"golang.org/x/mod/semver"
 )
 
@@ -35,10 +38,10 @@ func NewContentService(objectStorageManager storage.ObjectStorageManager) Conten
 }
 
 // filterArray filter objects array
-func (svc *ContentService) filterArray(arr []minio.ObjectInfo, fileName string, version string) []minio.ObjectInfo {
-	var filtered []minio.ObjectInfo
+func (svc *ContentService) filterArray(arr []*s3.Object, fileName string, version string) []*s3.Object {
+	var filtered []*s3.Object
 	for _, item := range arr {
-		if strings.Contains(item.Key, fileName) && strings.Contains(item.Key, version) {
+		if strings.Contains(*item.Key, fileName) && strings.Contains(*item.Key, version) {
 			filtered = append(filtered, item)
 		}
 	}
@@ -51,26 +54,30 @@ func (svc *ContentService) getVersion(objStorageFile string) string {
 }
 
 // getLatestVersion get last package version
-func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
+func (svc *ContentService) getLatestVersion(arr []*s3.Object) string {
 	var versions []string
 	for _, curr := range arr {
-		versions = append(versions, svc.getVersion(curr.Key))
+		versions = append(versions, svc.getVersion(*curr.Key))
 	}
 	semver.Sort(versions)
 	return versions[len(versions)-1]
 }
 
 // getLatestPackagePath get latest package path
-func (svc *ContentService) getLatestPackagePath(pkg string, version string, fileName string) string {
-	objs := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+func (svc *ContentService) getLatestPackagePath(pkg string, version string, fileName string) (string, *errors.GimmeError) {
+	objs, err := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+	if err != nil {
+		return "", err
+	}
+
 	filtred := svc.filterArray(objs, fileName, version)
 
 	if len(filtred) == 0 {
-		return fmt.Sprintf("%s@%s%s", pkg, version, fileName)
+		return fmt.Sprintf("%s@%s%s", pkg, version, fileName), nil
 	}
 
 	lversion := svc.getLatestVersion(filtred)
-	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
+	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName), nil
 }
 
 // CreatePackage create package
@@ -83,7 +90,7 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 
 	folderName := fmt.Sprintf("%s@%s", name, version)
 
-	if exists := svc.objectStorageManager.ObjectExists(folderName); exists {
+	if exists, _ := svc.objectStorageManager.ObjectExists(folderName); exists {
 		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
 
@@ -109,7 +116,7 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 }
 
 // GetFile get package file
-func (svc *ContentService) GetFile(pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
+func (svc *ContentService) GetFile(pkg string, version string, fileName string) (*s3.GetObjectOutput, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
 	if !valid {
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
@@ -120,7 +127,10 @@ func (svc *ContentService) GetFile(pkg string, version string, fileName string) 
 	if len(slice) == 3 {
 		objectPath = fmt.Sprintf("%s@%s%s", pkg, version, fileName)
 	} else {
-		objectPath = svc.getLatestPackagePath(pkg, version, fileName)
+		objectPath, _ = svc.getLatestPackagePath(pkg, version, fileName)
+		//if err != nil {
+		//	return nil, err
+		//}
 	}
 
 	return svc.objectStorageManager.GetObject(objectPath)
@@ -128,13 +138,17 @@ func (svc *ContentService) GetFile(pkg string, version string, fileName string) 
 
 // GetFiles get package files
 func (svc *ContentService) GetFiles(pkg string, version string) ([]File, *errors.GimmeError) {
-	objs := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+	objs, err := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+
+	if err != nil {
+		return nil, err
+	}
 
 	var files []File
 	for _, obj := range objs {
 		files = append(files, File{
-			Name:   obj.Key,
-			Size:   obj.Size,
+			Name:   *obj.Key,
+			Size:   *obj.Size,
 			Folder: false,
 		})
 	}
@@ -143,9 +157,9 @@ func (svc *ContentService) GetFiles(pkg string, version string) ([]File, *errors
 
 // DeletePackage delete package
 func (svc *ContentService) DeletePackage(pkg string, version string) *errors.GimmeError {
-	err := svc.objectStorageManager.RemoveObjects(fmt.Sprintf("%s@%s", pkg, version))
-	if err != nil {
-		return err
-	}
+	//err := svc.objectStorageManager.RemoveObjects(fmt.Sprintf("%s@%s", pkg, version))
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }

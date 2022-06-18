@@ -19,6 +19,7 @@ type Configuration struct {
 	S3Url         string
 	S3Key         string
 	S3Secret      string
+	S3Token       string
 	S3BucketName  string
 	S3Location    string
 	S3SSL         bool
@@ -34,6 +35,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
+	viper.SetDefault("s3.token", "")
 	viper.SetDefault("s3.ssl", true)
 	viper.SetDefault("metrics", true)
 
@@ -51,6 +53,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Url = viper.GetString("s3.url")
 	config.S3Key = viper.GetString("s3.key")
 	config.S3Secret = viper.GetString("s3.secret")
+	config.S3Token = viper.GetString("s3.token")
 	config.S3BucketName = viper.GetString("s3.bucketName")
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
