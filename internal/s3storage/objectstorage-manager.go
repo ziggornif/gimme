@@ -1,4 +1,4 @@
-package storage
+package s3storage
 
 import (
 	"archive/zip"
@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/gimme-cdn/gimme/internal/domain/gimmecdn/model"
+	"github.com/gimme-cdn/gimme/internal/domain/gimmecdn/spi"
 
+	"github.com/gimme-cdn/gimme/internal/errors"
 	fileutils "github.com/gimme-cdn/gimme/pkg/file-utils"
 
 	"github.com/minio/minio-go/v7"
@@ -41,17 +43,8 @@ type RemoveError struct {
 	Details    string
 }
 
-type ObjectStorageManager interface {
-	CreateBucket(bucketName string, location string) *errors.GimmeError
-	AddObject(objectName string, file *zip.File) *errors.GimmeError
-	GetObject(objectName string) (*minio.Object, *errors.GimmeError)
-	ObjectExists(objectName string) bool
-	ListObjects(objectParentName string) []minio.ObjectInfo
-	RemoveObjects(objectParentName string) *errors.GimmeError
-}
-
-// NewObjectStorageManager create a new object storage manager
-func NewObjectStorageManager(client ObjectStorageClient) ObjectStorageManager {
+// NewObjectStorageManager create a new object s3storage manager
+func NewObjectStorageManager(client ObjectStorageClient) spi.ObjectStorage {
 	return &objectStorageManager{
 		client: client,
 		ctx:    context.Background(),
@@ -105,8 +98,8 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) *e
 
 	info, err := osm.client.PutObject(osm.ctx, osm.bucketName, objectName, src, file.FileInfo().Size(), minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
-		logrus.Error("[ObjectStorageManager] AddObject - Fail to put object in the object storage", err)
-		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to put object %s in the object storage", objectName))
+		logrus.Error("[ObjectStorageManager] AddObject - Fail to put object in the object s3storage", err)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to put object %s in the object s3storage", objectName))
 	}
 
 	logrus.Debugf("Successfully uploaded %s of size %d\n", objectName, info.Size)
@@ -114,25 +107,42 @@ func (osm *objectStorageManager) AddObject(objectName string, file *zip.File) *e
 }
 
 // GetObject get object from the bucket
-func (osm *objectStorageManager) GetObject(objectName string) (*minio.Object, *errors.GimmeError) {
+func (osm *objectStorageManager) GetObject(objectName string) (*model.CDNObject, *errors.GimmeError) {
 	object, err := osm.client.GetObject(osm.ctx, osm.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		logrus.Error("[ObjectStorageManager] GetObject - Fail to get object from the object storage", err)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to get object %s from the object storage", objectName))
+		logrus.Error("[ObjectStorageManager] GetObject - Fail to get object from the object s3storage", err)
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to get object %s from the object s3storage", objectName))
 	}
-	return object, nil
+
+	fStats, err := object.Stat()
+	if err != nil {
+		logrus.Error("[ObjectStorageManager] GetObject - Fail to get object stats", err)
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to get object %s stats", objectName))
+	}
+
+	return &model.CDNObject{
+		File:        object,
+		Size:        fStats.Size,
+		ContentType: fStats.ContentType,
+	}, nil
+
 }
 
 // ListObjects list objects in parent
-func (osm *objectStorageManager) ListObjects(objectParentName string) []minio.ObjectInfo {
-	var objects []minio.ObjectInfo
+func (osm *objectStorageManager) ListObjects(objectParentName string) []model.ObjectInfos {
+	var objects []model.ObjectInfos
 	objectCh := osm.client.ListObjects(osm.ctx, osm.bucketName, minio.ListObjectsOptions{
 		Prefix:    objectParentName,
 		Recursive: true,
 	})
 
 	for object := range objectCh {
-		objects = append(objects, object)
+		objects = append(objects, model.ObjectInfos{
+			Key:          object.Key,
+			ContentType:  object.ContentType,
+			Size:         object.Size,
+			LastModified: object.LastModified,
+		})
 	}
 	return objects
 }
@@ -152,7 +162,7 @@ func (osm *objectStorageManager) ObjectExists(objectName string) bool {
 	return false
 }
 
-// RemoveObjects remove objects from storage
+// RemoveObjects remove objects from s3storage
 func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.GimmeError {
 	objectsCh := make(chan minio.ObjectInfo)
 
@@ -167,7 +177,7 @@ func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.
 			Recursive: true,
 		}) {
 			if object.Err != nil {
-				logrus.Error("[ObjectStorageManager] RemoveObjects - Fail to read objects from the object storage", object.Err.Error())
+				logrus.Error("[ObjectStorageManager] RemoveObjects - Fail to read objects from the object s3storage", object.Err.Error())
 				removeErrors = append(removeErrors, RemoveError{
 					Kind:       Read,
 					ObjectName: object.Key,

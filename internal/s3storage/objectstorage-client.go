@@ -1,4 +1,4 @@
-package storage
+package s3storage
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type ObjectStorageClient interface {
 	RemoveObjects(ctx context.Context, bucketName string, objectsCh <-chan minio.ObjectInfo, opts minio.RemoveObjectsOptions) <-chan minio.RemoveObjectError
 }
 
-// NewObjectStorageClient create a new object storage client
+// NewObjectStorageClient create a new object s3storage client
 func NewObjectStorageClient(config *configs.Configuration) (ObjectStorageClient, *errors.GimmeError) {
 	minioClient, err := minio.New(config.S3Url, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.S3Key, config.S3Secret, ""),
@@ -32,8 +32,8 @@ func NewObjectStorageClient(config *configs.Configuration) (ObjectStorageClient,
 	})
 
 	if err != nil {
-		logrus.Error("[ObjectStorageClient] NewObjectStorageClient - Error while create object storage client", err)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while create object storage client"))
+		logrus.Error("[ObjectStorageClient] NewObjectStorageClient - Error while create object s3storage client", err)
+		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while create object s3storage client"))
 	}
 
 	return minioClient, nil

@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"bytes"
@@ -13,16 +13,15 @@ import (
 
 	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
-	"github.com/gimme-cdn/gimme/internal/storage"
+	"github.com/gimme-cdn/gimme/internal/s3storage"
 	"github.com/gimme-cdn/gimme/test/mocks"
 	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func initObjectStorage() storage.ObjectStorageManager {
-	client, _ := storage.NewObjectStorageClient(&configs.Configuration{
+func initObjectStorage() s3storage.ObjectStorageManager {
+	client, _ := s3storage.NewObjectStorageClient(&configs.Configuration{
 		S3Url:        "localhost:9000",
 		S3Key:        "minioadmin",
 		S3Secret:     "minioadmin",
@@ -30,7 +29,7 @@ func initObjectStorage() storage.ObjectStorageManager {
 		S3Location:   "eu-west-1",
 		S3SSL:        false,
 	})
-	objectStorageManager := storage.NewObjectStorageManager(client)
+	objectStorageManager := s3storage.NewObjectStorageManager(client)
 	objectStorageManager.CreateBucket("gimme", "eu-west-1")
 	return objectStorageManager
 }

@@ -11,12 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gimme-cdn/gimme/api"
+	"github.com/gimme-cdn/gimme/api/rest"
+	"github.com/gimme-cdn/gimme/web"
+
+	"github.com/gimme-cdn/gimme/internal/domain/gimmecdn"
+	"github.com/gimme-cdn/gimme/internal/domain/gimmecdn/api"
+
 	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/storage"
+	"github.com/gimme-cdn/gimme/internal/s3storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -24,10 +28,10 @@ import (
 )
 
 type Application struct {
-	config         *configs.Configuration
-	authManager    auth.AuthManager
-	contentService content.ContentService
-	server         *http.Server
+	config      *configs.Configuration
+	authManager auth.AuthManager
+	cdnEngine   api.CDNEngine
+	server      *http.Server
 }
 
 // NewApplication create an application instance
@@ -49,12 +53,12 @@ func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
 	app.authManager = auth.NewAuthManager(app.config.Secret)
 
-	osmClient, err := storage.NewObjectStorageClient(app.config)
+	osmClient, err := s3storage.NewObjectStorageClient(app.config)
 	if err != nil {
 		log.Fatalln(err.String())
 	}
-	objectStorageManager := storage.NewObjectStorageManager(osmClient)
-	app.contentService = content.NewContentService(objectStorageManager)
+	objectStorageManager := s3storage.NewObjectStorageManager(osmClient)
+	app.cdnEngine = gimmecdn.NewCDNEngine(objectStorageManager)
 
 	err = objectStorageManager.CreateBucket(app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
@@ -77,9 +81,10 @@ func (app *Application) setupServer() {
 	router.Static("/docs", "./docs")
 	router.LoadHTMLGlob("templates/*.tmpl")
 
-	api.NewRootController(router)
-	api.NewAuthController(router, app.authManager, app.config)
-	api.NewPackageController(router, app.authManager, app.contentService)
+	rest.NewAuthController(router, app.authManager, app.config)
+	rest.NewPackageRestController(router, app.authManager, app.cdnEngine)
+	web.NewRootWebController(router)
+	web.NewPackageWebController(router, app.cdnEngine)
 
 	if app.config.EnableMetrics {
 		router.GET("/metrics", prometheusHandler())

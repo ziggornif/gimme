@@ -1,4 +1,4 @@
-package api
+package web
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NewRootController - Create controller
-func NewRootController(router *gin.Engine) {
+// NewRootWebController - Create controller
+func NewRootWebController(router *gin.Engine) {
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{})
 	})

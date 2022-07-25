@@ -1,4 +1,4 @@
-package storage
+package s3storage
 
 import (
 	"archive/zip"
@@ -58,7 +58,7 @@ func TestObjectStorageManager_AddObjectErr(t *testing.T) {
 
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
 	gimmeerr := osm.AddObject("test", archive.File[1])
-	assert.Equal(t, "fail to put object test in the object storage", gimmeerr.String())
+	assert.Equal(t, "fail to put object test in the object s3storage", gimmeerr.String())
 }
 
 func TestObjectStorageManager_GetObject(t *testing.T) {
@@ -71,7 +71,7 @@ func TestObjectStorageManager_GetObject(t *testing.T) {
 func TestObjectStorageManager_GetObjectErr(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
 	obj, err := osm.GetObject("test")
-	assert.Equal(t, "fail to get object test from the object storage", err.String())
+	assert.Equal(t, "fail to get object test from the object s3storage", err.String())
 	assert.Nil(t, obj)
 }
 
@@ -90,7 +90,7 @@ func TestObjectStorageManager_ObjectExistsFalsy(t *testing.T) {
 func TestObjectStorageManager_ListObjects(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
 	objs := osm.ListObjects("test")
-	assert.Equal(t, "test", objs[0].ETag)
+	assert.Equal(t, "test", objs[0].Key)
 }
 
 func TestObjectStorageManager_RemoveObjects(t *testing.T) {

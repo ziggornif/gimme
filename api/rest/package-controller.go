@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"fmt"
@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"strings"
 
+	gimmmecdnapi "github.com/gimme-cdn/gimme/internal/domain/gimmecdn/api"
+
 	"github.com/gimme-cdn/gimme/internal/archive_validator"
 	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 )
 
 type PackageController struct {
-	authManager    auth.AuthManager
-	contentService content.ContentService
+	authManager auth.AuthManager
+	cdnEngine   gimmmecdnapi.CDNEngine
 }
 
 type packageSlice struct {
@@ -39,7 +39,7 @@ func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.Gimm
 }
 
 func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name string, version string) {
-	files, _ := ctrl.contentService.GetFiles(name, version)
+	files := ctrl.cdnEngine.GetPackageFiles(name, version)
 	if len(files) == 0 {
 		c.Status(http.StatusNotFound)
 		return
@@ -71,7 +71,7 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		}
 	}(reader)
 
-	uploadErr := ctrl.contentService.CreatePackage(name, version, reader, file.Size)
+	uploadErr := ctrl.cdnEngine.CreatePackage(name, version, reader, file.Size)
 
 	if uploadErr != nil {
 		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.String()})
@@ -92,39 +92,22 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 	}
 
 	if file == "/" {
-		ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
+		c.Redirect(http.StatusMultipleChoices, fmt.Sprintf("/gimme/%s", c.Param("package")))
 		return
 	}
 
-	object, err := ctrl.contentService.GetFile(pkg.Name, pkg.Version, file)
+	object, err := ctrl.cdnEngine.GetFileFromPackage(pkg.Name, pkg.Version, file)
 	if err != nil {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
 		return
 	}
-	defer func(object *minio.Object) {
-		err := object.Close()
-		if err != nil {
-			logrus.Error("getPackage - Fail to close file")
-		}
-	}(object)
 
-	infos, _ := object.Stat()
-	if infos.Size == 0 {
+	if object.Size == 0 {
 		c.Status(http.StatusNotFound)
 		return
 	}
 
-	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
-}
-
-func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
-	pkg, err := ctrl.getSlice(c.Param("package"))
-	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
-		return
-	}
-	ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
-	return
+	c.DataFromReader(http.StatusOK, object.Size, object.ContentType, object.File, nil)
 }
 
 func (ctrl *PackageController) deletePackage(c *gin.Context) {
@@ -134,7 +117,7 @@ func (ctrl *PackageController) deletePackage(c *gin.Context) {
 		return
 	}
 
-	err = ctrl.contentService.DeletePackage(pkg.Name, pkg.Version)
+	err = ctrl.cdnEngine.RemovePackage(pkg.Name, pkg.Version)
 	if err != nil {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
 		return
@@ -144,17 +127,17 @@ func (ctrl *PackageController) deletePackage(c *gin.Context) {
 	return
 }
 
-// NewPackageController - Create controller
-func NewPackageController(router *gin.Engine, authManager auth.AuthManager, contentService content.ContentService) {
+// NewPackageRestController - Create rest controller
+func NewPackageRestController(router *gin.Engine, authManager auth.AuthManager, cdnEngine gimmmecdnapi.CDNEngine) {
 	controller := PackageController{
 		authManager,
-		contentService,
+		cdnEngine,
 	}
 
 	router.GET("/gimme", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/")
 	})
-	router.GET("/gimme/:package", controller.getPackageFolder)
+	//router.GET("/gimme/:package", controller.getPackageFolder)
 	router.GET("/gimme/:package/*file", controller.getPackage)
 	router.POST("/packages", authManager.AuthenticateMiddleware, controller.createPackage)
 	router.DELETE("/packages/:package", authManager.AuthenticateMiddleware, controller.deletePackage)

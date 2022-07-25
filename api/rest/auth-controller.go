@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"fmt"
@@ -48,8 +48,8 @@ func (ctrl *AuthController) createToken(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"token": token})
 }
 
-// NewAuthController - Create controller
-func NewAuthController(router *gin.Engine, authManager auth.AuthManager, appConfig *configs.Configuration) {
+// NewAuthRestController - Create rest controller
+func NewAuthRestController(router *gin.Engine, authManager auth.AuthManager, appConfig *configs.Configuration) {
 	controller := AuthController{
 		authManager,
 	}
