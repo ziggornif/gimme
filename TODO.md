@@ -52,11 +52,11 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 6 — CI/CD (après montée Go et mise à jour des dépendances)
 
-- [ ] Mettre à jour `actions/checkout@v2` → `@v4` dans `build.yml` et `release.yml`
-- [ ] Mettre à jour `actions/setup-go@v2` → `@v5` dans `build.yml`
-- [ ] Mettre à jour `go-version: '^1.18'` → `'^1.26'` dans `build.yml`
-- [ ] Mettre à jour `wangyoucao577/go-release-action@v1.25` → vérifier dernière version dans `release.yml`
-- [ ] Remplacer `dawidd6/action-get-tag@v1` par la variable native `github.ref_name` dans `release.yml`
+- [x] Mettre à jour `actions/checkout@v2` → `@v4` dans `build.yml` et `release.yml`
+- [x] Mettre à jour `actions/setup-go@v2` → `@v5` dans `build.yml`
+- [x] Mettre à jour `go-version: '^1.18'` → `'^1.26'` dans `build.yml`
+- [x] Mettre à jour `wangyoucao577/go-release-action@v1.25` → `@v1.55` dans `release.yml`
+- [x] Remplacer `dawidd6/action-get-tag@v1` par la variable native `github.ref_name` dans `release.yml`
 - [ ] Remplacer le lancement Minio CI par Garage dans `build.yml` (ou proposer les deux)
 
 ## Priorité 7 — Dockerfile (indépendant, peut être fait en parallèle de P3+)

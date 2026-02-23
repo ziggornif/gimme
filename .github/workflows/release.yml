@@ -17,10 +17,10 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Prepare example config
       run: cp gimme.example.yml gimme.yml
-    - uses: wangyoucao577/go-release-action@v1.25
+    - uses: wangyoucao577/go-release-action@v1.55
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: ${{ matrix.goos }}
@@ -32,13 +32,10 @@ jobs:
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Get tag
-        id: tag
-        uses: dawidd6/action-get-tag@v1
+      - uses: actions/checkout@v4
       - name: Docker login
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
       - name: Build the Docker image
-        run: docker build -t $REPO:${{steps.tag.outputs.tag}} .
+        run: docker build -t $REPO:${{ github.ref_name }} .
       - name: Publish Docker image
-        run: docker push $REPO:${{steps.tag.outputs.tag}}
+        run: docker push $REPO:${{ github.ref_name }}
