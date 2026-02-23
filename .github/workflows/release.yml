@@ -18,6 +18,8 @@ jobs:
             goos: windows
     steps:
     - uses: actions/checkout@v2
+    - name: Prepare example config
+      run: cp gimme.example.yml gimme.yml
     - uses: wangyoucao577/go-release-action@v1.25
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
