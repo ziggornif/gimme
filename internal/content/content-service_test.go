@@ -7,7 +7,7 @@ import (
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/test/mocks"
-
+	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -99,4 +99,10 @@ func TestContentService_DeletePackageErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManagerErr{})
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	assert.Equal(t, "boom", err.Error())
+}
+
+func TestContentService_GetLatestVersionEmpty(t *testing.T) {
+	service := NewContentService(&mocks.MockOSManager{})
+	result := service.getLatestVersion([]minio.ObjectInfo{})
+	assert.Equal(t, "", result)
 }

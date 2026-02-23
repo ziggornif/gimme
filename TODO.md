@@ -33,22 +33,22 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 4 — Modernisation du code (après mise à jour des dépendances)
 
-- [ ] Supprimer `pkg/array` et remplacer `ArrayContains` par `slices.Contains` (Go 1.21+)
-- [ ] `GimmeError` : renommer `String()` en `Error() string` pour implémenter l'interface `error` standard
-- [ ] `objectstorage-manager.go` — `RemoveObjects` : remplacer `fmt.Println` par `logrus.Error`
-- [ ] `objectstorage-manager.go` : remplacer le `context.Background()` hardcodé par propagation du contexte HTTP
-- [ ] `configs/config.go` — `assertConfigKey` : remplacer la validation par reflection par une validation explicite type-safe
+- [x] Supprimer `pkg/array` et remplacer `ArrayContains` par `slices.Contains` (Go 1.21+)
+- [x] `GimmeError` : renommer `String()` en `Error() string` pour implémenter l'interface `error` standard
+- [x] `objectstorage-manager.go` — `RemoveObjects` : remplacer `fmt.Println` par `logrus.Error`
+- [x] `objectstorage-manager.go` : remplacer le `context.Background()` hardcodé par propagation du contexte HTTP
+- [x] `configs/config.go` — `assertConfigKey` : remplacer la validation par reflection par une validation explicite type-safe
 
 ## Priorité 5 — Tests (après correction des bugs et modernisation)
 
-- [ ] Séparer les tests unitaires et d'intégration dans `package-controller_test.go` (tag `//go:build integration`)
-- [ ] Corriger `TestContentService_CreatePackageUploadErr` : le test actuel assert `Nil(err)` en commentant "error is silent here" — corriger après le fix du bug `CreatePackage`
-- [ ] Ajouter des tests pour les 4 `ErrorKind` manquants dans `business-error_test.go` (`BadRequest`, `Conflict`, `Unauthorized`, `NotImplemented`) et le cas `kind` inconnu
-- [ ] Ajouter un test pour `getLatestVersion` avec une liste vide
-- [ ] Ajouter un test pour `Content-Type: application/zip; charset=utf-8` dans `archive-validator_test.go`
-- [ ] Ajouter un test pour le cas `tokenClaims["exp"] == nil` dans le middleware auth
-- [ ] Ajouter un test pour `application/octet-stream` dans `archive-validator_test.go` (type valide non testé)
-- [ ] Corriger `initObjectStorage()` dans `package-controller_test.go` : ne pas ignorer l'erreur avec `_`
+- [x] Séparer les tests unitaires et d'intégration dans `package-controller_test.go` (tag `//go:build integration`)
+- [x] Corriger `TestContentService_CreatePackageUploadErr` : le test actuel assert `Nil(err)` en commentant "error is silent here" — corriger après le fix du bug `CreatePackage`
+- [x] Ajouter des tests pour les 4 `ErrorKind` manquants dans `business-error_test.go` (`BadRequest`, `Conflict`, `Unauthorized`, `NotImplemented`) et le cas `kind` inconnu
+- [x] Ajouter un test pour `getLatestVersion` avec une liste vide
+- [x] Ajouter un test pour `Content-Type: application/zip; charset=utf-8` dans `archive-validator_test.go`
+- [x] Ajouter un test pour le cas `tokenClaims["exp"] == nil` dans le middleware auth
+- [x] Ajouter un test pour `application/octet-stream` dans `archive-validator_test.go` (type valide non testé)
+- [x] Corriger `initObjectStorage()` dans `package-controller_test.go` : ne pas ignorer l'erreur avec `_`
 
 ## Priorité 6 — CI/CD (après montée Go et mise à jour des dépendances)
 

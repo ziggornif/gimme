@@ -10,7 +10,7 @@ import (
 	"github.com/gimme-cdn/gimme/test/utils"
 
 	"github.com/gin-gonic/gin"
-
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -104,4 +104,21 @@ func TestAuthManager_AuthenticateMiddlewareOK(t *testing.T) {
 	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAuthManager_AuthenticateMiddlewareNoExp(t *testing.T) {
+	authManager := NewAuthManager("secret")
+
+	// Build a valid token signed with the right secret but without an exp claim
+	claims := jwt.MapClaims{"jti": "test"}
+	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, _ := rawToken.SignedString([]byte("secret"))
+
+	router := gin.New()
+	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
+	})
+
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", signed)})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
