@@ -35,13 +35,13 @@ func (ctrl *AuthController) createToken(c *gin.Context) {
 	}
 
 	if validErr := request.validate(); validErr != nil {
-		c.JSON(validErr.GetHTTPCode(), gin.H{"error": validErr.String()})
+		c.JSON(validErr.GetHTTPCode(), gin.H{"error": validErr.Error()})
 		return
 	}
 
 	token, createErr := ctrl.authManager.CreateToken(request.Name, request.ExpirationDate)
 	if createErr != nil {
-		c.JSON(createErr.GetHTTPCode(), gin.H{"error": createErr.String()})
+		c.JSON(createErr.GetHTTPCode(), gin.H{"error": createErr.Error()})
 		return
 	}
 

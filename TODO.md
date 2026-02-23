@@ -8,28 +8,28 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 1 — Fondations (débloquer tout le reste)
 
-- [ ] Monter Go de `1.18` → `1.26` dans `go.mod` et la CI
-- [ ] Ajouter `gimme.yml` au `.gitignore` (risque de commit accidentel de credentials)
+- [x] Monter Go de `1.18` → `1.26` dans `go.mod` et la CI
+- [x] Ajouter `gimme.yml` au `.gitignore` (risque de commit accidentel de credentials)
 
 ## Priorité 2 — Bugs critiques (corriger avant toute autre modification du code)
 
-- [ ] `content-service.go` — `CreatePackage` : erreurs des goroutines d'upload silencieuses → remplacer `sync.WaitGroup` par `errgroup.Group` et propager les erreurs (actuellement retourne `201 Created` même si tous les uploads ont échoué)
-- [ ] `objectstorage-manager.go` — `RemoveObjects` : `rErr.Err.Error()` panique si `rErr.Err == nil`
-- [ ] `content-service.go` — `getLatestVersion` : `versions[len(versions)-1]` panique si le slice est vide
-- [ ] `archive-validator.go` : `Content-Type: application/zip; charset=utf-8` rejeté à tort (comparaison exacte au lieu de `mime.ParseMediaType`)
-- [ ] `auth-manager.go` — `CreateToken` : erreur de `time.Parse` ignorée avec `_` → expiration silencieusement incorrecte
+- [x] `content-service.go` — `CreatePackage` : erreurs des goroutines d'upload silencieuses → remplacer `sync.WaitGroup` par `errgroup.Group` et propager les erreurs (actuellement retourne `201 Created` même si tous les uploads ont échoué)
+- [x] `objectstorage-manager.go` — `RemoveObjects` : `rErr.Err.Error()` panique si `rErr.Err == nil`
+- [x] `content-service.go` — `getLatestVersion` : `versions[len(versions)-1]` panique si le slice est vide
+- [x] `archive-validator.go` : `Content-Type: application/zip; charset=utf-8` rejeté à tort (comparaison exacte au lieu de `mime.ParseMediaType`)
+- [x] `auth-manager.go` — `CreateToken` : erreur de `time.Parse` ignorée avec `_` → expiration silencieusement incorrecte
 
 ## Priorité 3 — Mise à jour des dépendances (après montée Go)
 
-- [ ] Mettre à jour `gin-gonic/gin` : `v1.8.1` → `v1.11.0`
-- [ ] Mettre à jour `gin-contrib/cors` : `v1.3.1` → `v1.7.6`
-- [ ] Mettre à jour `golang-jwt/jwt/v4` : `v4.4.1` → `v4.5.2`
-- [ ] Mettre à jour `sirupsen/logrus` : `v1.8.1` → `v1.9.4`
-- [ ] Mettre à jour `prometheus/client_golang` : `v1.12.2` → `v1.23.2`
-- [ ] Mettre à jour `spf13/viper` : `v1.12.0` → `v1.21.0`
-- [ ] Mettre à jour `stretchr/testify` : `v1.7.2` → `v1.11.1`
-- [ ] Mettre à jour `golang.org/x/mod` : `v0.6.0-dev` → `v0.33.0`
-- [ ] Mettre à jour `minio/minio-go/v7` : `v7.0.28` → `v7.0.98` (conservé en option parallèle à Garage)
+- [x] Mettre à jour `gin-gonic/gin` : `v1.8.1` → `v1.11.0`
+- [x] Mettre à jour `gin-contrib/cors` : `v1.3.1` → `v1.7.6`
+- [x] Mettre à jour `golang-jwt/jwt/v4` : `v4.4.1` → `v4.5.2`
+- [x] Mettre à jour `sirupsen/logrus` : `v1.8.1` → `v1.9.4`
+- [x] Mettre à jour `prometheus/client_golang` : `v1.12.2` → `v1.23.2`
+- [x] Mettre à jour `spf13/viper` : `v1.12.0` → `v1.21.0`
+- [x] Mettre à jour `stretchr/testify` : `v1.7.2` → `v1.11.1`
+- [x] Mettre à jour `golang.org/x/mod` : `v0.6.0-dev` → `v0.33.0`
+- [x] Mettre à jour `minio/minio-go/v7` : `v7.0.28` → `v7.0.98` (conservé en option parallèle à Garage)
 
 ## Priorité 4 — Modernisation du code (après mise à jour des dépendances)
 

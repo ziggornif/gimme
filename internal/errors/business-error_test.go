@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGimmeError_String(t *testing.T) {
+func TestGimmeError_Error(t *testing.T) {
 	err := NewBusinessError(InternalError, fmt.Errorf("boom"))
-	assert.Equal(t, "boom", err.String())
+	assert.Equal(t, "boom", err.Error())
 }
 
 func TestGimmeError_GetHTTPCode(t *testing.T) {

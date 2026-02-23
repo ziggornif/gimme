@@ -1,6 +1,7 @@
 package content
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestContentService_CreatePackage(t *testing.T) {
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
-	err := service.CreatePackage("test", "1.0.0", reader, size)
+	err := service.CreatePackage(context.Background(), "test", "1.0.0", reader, size)
 	assert.Nil(t, err)
 }
 
@@ -27,8 +28,8 @@ func TestContentService_CreatePackageZipErr(t *testing.T) {
 
 	fileName := "../../resources/tests/test.zip"
 	reader, _ := os.Open(fileName)
-	err := service.CreatePackage("test", "1.0.0", reader, 1)
-	assert.Equal(t, "error while reading zip file", err.String())
+	err := service.CreatePackage(context.Background(), "test", "1.0.0", reader, 1)
+	assert.Equal(t, "error while reading zip file", err.Error())
 }
 
 func TestContentService_CreatePackageUploadErr(t *testing.T) {
@@ -38,7 +39,7 @@ func TestContentService_CreatePackageUploadErr(t *testing.T) {
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
-	err := service.CreatePackage("test", "1.0.0", reader, size)
+	err := service.CreatePackage(context.Background(), "test", "1.0.0", reader, size)
 	require.NotNil(t, err)
 	assert.Equal(t, errors.ErrorKindEnum(errors.InternalError), err.Kind)
 }
@@ -50,52 +51,52 @@ func TestContentService_CreatePackageExists(t *testing.T) {
 	fi, _ := os.Stat(fileName)
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
-	err := service.CreatePackage("test", "1.0.0", reader, size)
-	assert.Equal(t, "the package test@1.0.0 already exists", err.String())
+	err := service.CreatePackage(context.Background(), "test", "1.0.0", reader, size)
+	assert.Equal(t, "the package test@1.0.0 already exists", err.Error())
 }
 
 func TestContentService_GetFileSemverErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	_, err := service.GetFile("test", "a.b.c", "test.js")
-	assert.Equal(t, "invalid version (asked version must be semver compatible)", err.String())
+	_, err := service.GetFile(context.Background(), "test", "a.b.c", "test.js")
+	assert.Equal(t, "invalid version (asked version must be semver compatible)", err.Error())
 }
 
 func TestContentService_GetFile(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	file, err := service.GetFile("test", "1.1.1", "test.js")
+	file, err := service.GetFile(context.Background(), "test", "1.1.1", "test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 }
 
 func TestContentService_GetMajorFile(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	file, err := service.GetFile("test", "1", "test.js")
+	file, err := service.GetFile(context.Background(), "test", "1", "test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 }
 
 func TestContentService_GetMinorFile(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	file, err := service.GetFile("test", "1.1", "test.js")
+	file, err := service.GetFile(context.Background(), "test", "1.1", "test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 }
 
 func TestContentService_GetFiles(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	files, err := service.GetFiles("test", "1.1.1")
+	files, err := service.GetFiles(context.Background(), "test", "1.1.1")
 	assert.Equal(t, 2, len(files))
 	assert.Nil(t, err)
 }
 
 func TestContentService_DeletePackage(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{})
-	err := service.DeletePackage("test", "1.1.1")
+	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	assert.Nil(t, err)
 }
 
 func TestContentService_DeletePackageErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManagerErr{})
-	err := service.DeletePackage("test", "1.1.1")
-	assert.Equal(t, "boom", err.String())
+	err := service.DeletePackage(context.Background(), "test", "1.1.1")
+	assert.Equal(t, "boom", err.Error())
 }

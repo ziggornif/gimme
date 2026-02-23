@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"archive/zip"
+	"context"
 	"strings"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
@@ -11,21 +12,21 @@ import (
 
 type MockOSManager struct{}
 
-func (osc *MockOSManager) CreateBucket(_ string, _ string) *errors.GimmeError {
+func (osc *MockOSManager) CreateBucket(_ context.Context, _ string, _ string) *errors.GimmeError {
 	return nil
 }
-func (osc *MockOSManager) AddObject(_ string, _ *zip.File) *errors.GimmeError {
+func (osc *MockOSManager) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
 	return nil
 }
-func (osc *MockOSManager) GetObject(_ string) (*minio.Object, *errors.GimmeError) {
+func (osc *MockOSManager) GetObject(_ context.Context, _ string) (*minio.Object, *errors.GimmeError) {
 	return &minio.Object{}, nil
 }
 
-func (osc *MockOSManager) ObjectExists(_ string) bool {
+func (osc *MockOSManager) ObjectExists(_ context.Context, _ string) bool {
 	return false
 }
 
-func (osc *MockOSManager) ListObjects(fileName string) []minio.ObjectInfo {
+func (osc *MockOSManager) ListObjects(_ context.Context, fileName string) []minio.ObjectInfo {
 	var objs = []minio.ObjectInfo{{
 		Key: "test@1.0.0",
 	}, {
@@ -53,6 +54,6 @@ func (osc *MockOSManager) ListObjects(fileName string) []minio.ObjectInfo {
 	return objs
 }
 
-func (osc *MockOSManager) RemoveObjects(_ string) *errors.GimmeError {
+func (osc *MockOSManager) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return nil
 }

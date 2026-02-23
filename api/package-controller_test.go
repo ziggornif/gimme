@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -31,7 +32,7 @@ func initObjectStorage() storage.ObjectStorageManager {
 		S3SSL:        false,
 	})
 	objectStorageManager := storage.NewObjectStorageManager(client)
-	objectStorageManager.CreateBucket("gimme", "eu-west-1")
+	objectStorageManager.CreateBucket(context.Background(), "gimme", "eu-west-1")
 	return objectStorageManager
 }
 
@@ -134,7 +135,7 @@ func TestPackageControllerCreate(t *testing.T) {
 	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
 	assert.Equal(t, http.StatusCreated, resp.Code)
 
-	service.DeletePackage("awesome-lib", "1.0.0")
+	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
 }
 
 func TestPackageControllerGet(t *testing.T) {
@@ -152,7 +153,7 @@ func TestPackageControllerGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
 
-	service.DeletePackage("awesome-lib", "1.0.0")
+	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
 }
 
 func TestPackageControllerGetUI(t *testing.T) {
@@ -170,7 +171,7 @@ func TestPackageControllerGetUI(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
 
-	service.DeletePackage("awesome-lib", "1.0.0")
+	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
 }
 
 func TestPackageControllerGetUIAlter(t *testing.T) {
@@ -188,7 +189,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
 
-	service.DeletePackage("awesome-lib", "1.0.0")
+	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
 }
 
 func TestPackageControllerCreateConflictErr(t *testing.T) {
@@ -205,7 +206,7 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	resp2 := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
 	assert.Equal(t, http.StatusConflict, resp2.Code)
 
-	service.DeletePackage("awesome-lib", "1.0.0")
+	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
 }
 
 func TestPackageControllerGetEmpty(t *testing.T) {

@@ -18,7 +18,7 @@ func TestValidateFile(t *testing.T) {
 
 func TestValidateFileEmpty(t *testing.T) {
 	err := ValidateFile(nil)
-	assert.Equal(t, "input file is required. (accepted types : application/zip)", err.String())
+	assert.Equal(t, "input file is required. (accepted types : application/zip)", err.Error())
 }
 
 func TestValidateFileErr(t *testing.T) {
@@ -27,7 +27,7 @@ func TestValidateFileErr(t *testing.T) {
 	err := ValidateFile(&multipart.FileHeader{
 		Header: header,
 	})
-	assert.Equal(t, "invalid input file type. (accepted types : application/zip)", err.String())
+	assert.Equal(t, "invalid input file type. (accepted types : application/zip)", err.Error())
 }
 
 func TestValidateFileWithCharset(t *testing.T) {

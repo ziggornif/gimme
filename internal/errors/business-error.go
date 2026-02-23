@@ -23,18 +23,21 @@ var httpCodes = map[ErrorKindEnum]int{
 }
 
 type GimmeError struct {
-	Kind  ErrorKindEnum
-	Error error
+	Kind ErrorKindEnum
+	Err  error
 }
 
 func NewBusinessError(kind ErrorKindEnum, err error) *GimmeError {
 	return &GimmeError{kind, err}
 }
 
-func (err GimmeError) String() string {
-	return err.Error.Error()
+func (e GimmeError) Error() string {
+	if e.Err == nil {
+		return string(e.Kind)
+	}
+	return e.Err.Error()
 }
 
-func (err GimmeError) GetHTTPCode() int {
-	return httpCodes[err.Kind]
+func (e GimmeError) GetHTTPCode() int {
+	return httpCodes[e.Kind]
 }

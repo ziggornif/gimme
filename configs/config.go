@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 
@@ -56,8 +55,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
 
-	err = validateConfig(&config)
-	if err != nil {
+	if err := validateConfig(&config); err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
 		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
 	}
@@ -66,24 +64,26 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 }
 
 func validateConfig(config *Configuration) error {
-	var configKeys = []string{"AdminUser", "AdminPassword", "Secret", "S3Url", "S3Key", "S3Secret", "S3Location"}
-	var throwableError error
-
-	for _, key := range configKeys {
-		if err := assertConfigKey(config, key); err != nil {
-			throwableError = err
-			break
-		}
+	if config.AdminUser == "" {
+		return fmt.Errorf("AdminUser is not set")
 	}
-
-	return throwableError
-}
-
-func assertConfigKey(config *Configuration, key string) error {
-	r := reflect.ValueOf(config)
-	f := reflect.Indirect(r).FieldByName(key)
-	if f.Len() == 0 {
-		return fmt.Errorf("%v is not set", key)
+	if config.AdminPassword == "" {
+		return fmt.Errorf("AdminPassword is not set")
+	}
+	if config.Secret == "" {
+		return fmt.Errorf("Secret is not set")
+	}
+	if config.S3Url == "" {
+		return fmt.Errorf("S3Url is not set")
+	}
+	if config.S3Key == "" {
+		return fmt.Errorf("S3Key is not set")
+	}
+	if config.S3Secret == "" {
+		return fmt.Errorf("S3Secret is not set")
+	}
+	if config.S3Location == "" {
+		return fmt.Errorf("S3Location is not set")
 	}
 	return nil
 }

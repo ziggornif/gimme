@@ -40,7 +40,7 @@ func (app *Application) loadConfig() {
 	var err *gimmeerr.GimmeError
 	app.config, err = configs.NewConfig()
 	if err != nil {
-		log.Fatalln(err.String())
+		log.Fatalln(err)
 	}
 }
 
@@ -51,14 +51,14 @@ func (app *Application) loadModules() {
 
 	osmClient, err := storage.NewObjectStorageClient(app.config)
 	if err != nil {
-		log.Fatalln(err.String())
+		log.Fatalln(err)
 	}
 	objectStorageManager := storage.NewObjectStorageManager(osmClient)
 	app.contentService = content.NewContentService(objectStorageManager)
 
-	err = objectStorageManager.CreateBucket(app.config.S3BucketName, app.config.S3Location)
+	err = objectStorageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
-		log.Fatalln(err.String())
+		log.Fatalln(err)
 	}
 }
 

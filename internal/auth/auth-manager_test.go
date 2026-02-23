@@ -21,7 +21,7 @@ func TestCreateTokenError(t *testing.T) {
 
 	_, err := authManager.CreateToken("test", "2022-02-17")
 
-	assert.Equal(t, "expiration date must be greater than the current date", err.String())
+	assert.Equal(t, "expiration date must be greater than the current date", err.Error())
 }
 
 func TestCreateTokenInvalidFormat(t *testing.T) {
@@ -29,7 +29,7 @@ func TestCreateTokenInvalidFormat(t *testing.T) {
 
 	_, err := authManager.CreateToken("test", "17/02/2022")
 
-	assert.Equal(t, "invalid expiration date format, expected YYYY-MM-DD", err.String())
+	assert.Equal(t, "invalid expiration date format, expected YYYY-MM-DD", err.Error())
 }
 
 func TestCreateTokenDefault(t *testing.T) {

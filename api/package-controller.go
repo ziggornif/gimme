@@ -39,7 +39,7 @@ func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.Gimm
 }
 
 func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name string, version string) {
-	files, _ := ctrl.contentService.GetFiles(name, version)
+	files, _ := ctrl.contentService.GetFiles(c.Request.Context(), name, version)
 	if len(files) == 0 {
 		c.Status(http.StatusNotFound)
 		return
@@ -59,7 +59,7 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 
 	validationErr := archive_validator.ValidateFile(file)
 	if validationErr != nil {
-		c.JSON(validationErr.GetHTTPCode(), gin.H{"error": validationErr.String()})
+		c.JSON(validationErr.GetHTTPCode(), gin.H{"error": validationErr.Error()})
 		return
 	}
 
@@ -71,10 +71,10 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		}
 	}(reader)
 
-	uploadErr := ctrl.contentService.CreatePackage(name, version, reader, file.Size)
+	uploadErr := ctrl.contentService.CreatePackage(c.Request.Context(), name, version, reader, file.Size)
 
 	if uploadErr != nil {
-		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.String()})
+		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.Error()})
 		return
 	}
 
@@ -87,7 +87,7 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -96,9 +96,9 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
-	object, err := ctrl.contentService.GetFile(pkg.Name, pkg.Version, file)
+	object, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file)
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 	defer func(object *minio.Object) {
@@ -120,7 +120,7 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 	ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
@@ -130,13 +130,13 @@ func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
 func (ctrl *PackageController) deletePackage(c *gin.Context) {
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 
-	err = ctrl.contentService.DeletePackage(pkg.Name, pkg.Version)
+	err = ctrl.contentService.DeletePackage(c.Request.Context(), pkg.Name, pkg.Version)
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 

@@ -2,6 +2,7 @@ package content
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -45,7 +46,7 @@ func (svc *ContentService) filterArray(arr []minio.ObjectInfo, fileName string, 
 	return filtered
 }
 
-// filterArray get package version
+// getVersion get package version
 func (svc *ContentService) getVersion(objStorageFile string) string {
 	return strings.Split(strings.Split(objStorageFile, "@")[1], "/")[0]
 }
@@ -64,8 +65,8 @@ func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
 }
 
 // getLatestPackagePath get latest package path
-func (svc *ContentService) getLatestPackagePath(pkg string, version string, fileName string) string {
-	objs := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string, version string, fileName string) string {
+	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
 	filtred := svc.filterArray(objs, fileName, version)
 
 	if len(filtred) == 0 {
@@ -77,7 +78,7 @@ func (svc *ContentService) getLatestPackagePath(pkg string, version string, file
 }
 
 // CreatePackage create package
-func (svc *ContentService) CreatePackage(name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
+func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
 	archive, err := zip.NewReader(file, fileSize)
 	if err != nil {
 		logrus.Error("[UploadManager] ArchiveProcessor - Error while reading zip file", err)
@@ -86,20 +87,19 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 
 	folderName := fmt.Sprintf("%s@%s", name, version)
 
-	if exists := svc.objectStorageManager.ObjectExists(folderName); exists {
+	if exists := svc.objectStorageManager.ObjectExists(ctx, folderName); exists {
 		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
 
 	var eg errgroup.Group
 
 	for _, currentFile := range archive.File {
-		currentFile := currentFile
 		eg.Go(func() error {
 			logrus.Debug("[UploadManager] ArchiveProcessor - Unzipping file ", currentFile.Name)
 			fileName := re.ReplaceAllString(currentFile.FileHeader.Name, folderName)
-			if err := svc.objectStorageManager.AddObject(fileName, currentFile); err != nil {
+			if err := svc.objectStorageManager.AddObject(ctx, fileName, currentFile); err != nil {
 				logrus.Errorf("[UploadManager] ArchiveProcessor - Error while processing file %s", fileName)
-				return err.Error
+				return err.Err
 			}
 			return nil
 		})
@@ -112,7 +112,7 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 }
 
 // GetFile get package file
-func (svc *ContentService) GetFile(pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
+func (svc *ContentService) GetFile(ctx context.Context, pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
 	if !valid {
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
@@ -123,15 +123,15 @@ func (svc *ContentService) GetFile(pkg string, version string, fileName string) 
 	if len(slice) == 3 {
 		objectPath = fmt.Sprintf("%s@%s%s", pkg, version, fileName)
 	} else {
-		objectPath = svc.getLatestPackagePath(pkg, version, fileName)
+		objectPath = svc.getLatestPackagePath(ctx, pkg, version, fileName)
 	}
 
-	return svc.objectStorageManager.GetObject(objectPath)
+	return svc.objectStorageManager.GetObject(ctx, objectPath)
 }
 
 // GetFiles get package files
-func (svc *ContentService) GetFiles(pkg string, version string) ([]File, *errors.GimmeError) {
-	objs := svc.objectStorageManager.ListObjects(fmt.Sprintf("%s@%s", pkg, version))
+func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version string) ([]File, *errors.GimmeError) {
+	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
 
 	var files []File
 	for _, obj := range objs {
@@ -145,8 +145,8 @@ func (svc *ContentService) GetFiles(pkg string, version string) ([]File, *errors
 }
 
 // DeletePackage delete package
-func (svc *ContentService) DeletePackage(pkg string, version string) *errors.GimmeError {
-	err := svc.objectStorageManager.RemoveObjects(fmt.Sprintf("%s@%s", pkg, version))
+func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, version string) *errors.GimmeError {
+	err := svc.objectStorageManager.RemoveObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
 	if err != nil {
 		return err
 	}

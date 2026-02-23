@@ -2,6 +2,7 @@ package storage
 
 import (
 	"archive/zip"
+	"context"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
@@ -13,20 +14,20 @@ import (
 
 func TestObjectStorageManager_CreateBucket(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	err := osm.CreateBucket("test", "test")
+	err := osm.CreateBucket(context.Background(), "test", "test")
 	assert.Nil(t, err)
 }
 
 func TestObjectStorageManager_CreateBucketExists(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClientBucketExists{})
-	err := osm.CreateBucket("test", "test")
+	err := osm.CreateBucket(context.Background(), "test", "test")
 	assert.Nil(t, err)
 }
 
 func TestObjectStorageManager_CreateBucketErr(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
-	err := osm.CreateBucket("test", "test")
-	assert.Equal(t, "fail to create bucket test in location test", err.String())
+	err := osm.CreateBucket(context.Background(), "test", "test")
+	assert.Equal(t, "fail to create bucket test in location test", err.Error())
 }
 
 func TestObjectStorageManager_AddObject(t *testing.T) {
@@ -38,13 +39,13 @@ func TestObjectStorageManager_AddObject(t *testing.T) {
 	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	gimmeerr := osm.AddObject("test", archive.File[0])
+	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[0])
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject("test", archive.File[1])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[1])
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject("test", archive.File[2])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[2])
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject("test", archive.File[3])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[3])
 	assert.Nil(t, gimmeerr)
 }
 
@@ -57,44 +58,44 @@ func TestObjectStorageManager_AddObjectErr(t *testing.T) {
 	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
-	gimmeerr := osm.AddObject("test", archive.File[1])
-	assert.Equal(t, "fail to put object test in the object storage", gimmeerr.String())
+	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[1])
+	assert.Equal(t, "fail to put object test in the object storage", gimmeerr.Error())
 }
 
 func TestObjectStorageManager_GetObject(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	obj, err := osm.GetObject("test")
+	obj, err := osm.GetObject(context.Background(), "test")
 	assert.Equal(t, &minio.Object{}, obj)
 	assert.Nil(t, err)
 }
 
 func TestObjectStorageManager_GetObjectErr(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
-	obj, err := osm.GetObject("test")
-	assert.Equal(t, "fail to get object test from the object storage", err.String())
+	obj, err := osm.GetObject(context.Background(), "test")
+	assert.Equal(t, "fail to get object test from the object storage", err.Error())
 	assert.Nil(t, obj)
 }
 
 func TestObjectStorageManager_ObjectExists(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	res := osm.ObjectExists("test")
+	res := osm.ObjectExists(context.Background(), "test")
 	assert.True(t, res)
 }
 
 func TestObjectStorageManager_ObjectExistsFalsy(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
-	res := osm.ObjectExists("test")
+	res := osm.ObjectExists(context.Background(), "test")
 	assert.False(t, res)
 }
 
 func TestObjectStorageManager_ListObjects(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	objs := osm.ListObjects("test")
+	objs := osm.ListObjects(context.Background(), "test")
 	assert.Equal(t, "test", objs[0].ETag)
 }
 
 func TestObjectStorageManager_RemoveObjects(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	err := osm.RemoveObjects("test")
+	err := osm.RemoveObjects(context.Background(), "test")
 	assert.Nil(t, err)
 }
