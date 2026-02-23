@@ -184,11 +184,15 @@ func (osm *objectStorageManager) RemoveObjects(objectParentName string) *errors.
 	}
 
 	for rErr := range osm.client.RemoveObjects(osm.ctx, osm.bucketName, objectsCh, opts) {
-		fmt.Println("[ObjectStorageManager] RemoveObjects - Error detected during deletion: ", rErr)
+		details := ""
+		if rErr.Err != nil {
+			details = rErr.Err.Error()
+		}
+		logrus.Errorf("[ObjectStorageManager] RemoveObjects - Error detected during deletion: %s %s", rErr.ObjectName, details)
 		removeErrors = append(removeErrors, RemoveError{
 			Kind:       Delete,
 			ObjectName: rErr.ObjectName,
-			Details:    rErr.Err.Error(),
+			Details:    details,
 		})
 	}
 

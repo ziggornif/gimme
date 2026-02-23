@@ -6,13 +6,13 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/mod/semver"
+	"golang.org/x/sync/errgroup"
 )
 
 type ContentService struct {
@@ -56,6 +56,9 @@ func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
 	for _, curr := range arr {
 		versions = append(versions, svc.getVersion(curr.Key))
 	}
+	if len(versions) == 0 {
+		return ""
+	}
 	semver.Sort(versions)
 	return versions[len(versions)-1]
 }
@@ -87,24 +90,24 @@ func (svc *ContentService) CreatePackage(name string, version string, file io.Re
 		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
 
-	nbFiles := len(archive.File)
-
-	var wg sync.WaitGroup
-	wg.Add(nbFiles)
+	var eg errgroup.Group
 
 	for _, currentFile := range archive.File {
-		go func(currentFile *zip.File) {
-			defer wg.Done()
+		currentFile := currentFile
+		eg.Go(func() error {
 			logrus.Debug("[UploadManager] ArchiveProcessor - Unzipping file ", currentFile.Name)
 			fileName := re.ReplaceAllString(currentFile.FileHeader.Name, folderName)
-			err := svc.objectStorageManager.AddObject(fileName, currentFile)
-			if err != nil {
+			if err := svc.objectStorageManager.AddObject(fileName, currentFile); err != nil {
 				logrus.Errorf("[UploadManager] ArchiveProcessor - Error while processing file %s", fileName)
+				return err.Error
 			}
-		}(currentFile)
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := eg.Wait(); err != nil {
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w", err))
+	}
 	return nil
 }
 

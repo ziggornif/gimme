@@ -4,9 +4,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/test/mocks"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContentService_CreatePackage(t *testing.T) {
@@ -37,7 +39,8 @@ func TestContentService_CreatePackageUploadErr(t *testing.T) {
 	size := fi.Size()
 	reader, _ := os.Open(fileName)
 	err := service.CreatePackage("test", "1.0.0", reader, size)
-	assert.Nil(t, err) // error is silent here
+	require.NotNil(t, err)
+	assert.Equal(t, errors.ErrorKindEnum(errors.InternalError), err.Kind)
 }
 
 func TestContentService_CreatePackageExists(t *testing.T) {

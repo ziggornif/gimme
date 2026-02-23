@@ -28,7 +28,11 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (string, 
 	var expiration time.Duration
 	if len(expirationDate) > 0 {
 		format := "2006-01-02"
-		end, _ := time.Parse(format, expirationDate)
+		end, parseErr := time.Parse(format, expirationDate)
+		if parseErr != nil {
+			logrus.Errorf("[AuthManager] CreateToken - Invalid expiration date format: %s", expirationDate)
+			return "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid expiration date format, expected YYYY-MM-DD"))
+		}
 		expiration = time.Minute * time.Duration(time.Until(end).Minutes())
 	} else {
 		expiration = time.Minute * 15

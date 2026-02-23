@@ -29,3 +29,12 @@ func TestValidateFileErr(t *testing.T) {
 	})
 	assert.Equal(t, "invalid input file type. (accepted types : application/zip)", err.String())
 }
+
+func TestValidateFileWithCharset(t *testing.T) {
+	header := make(map[string][]string)
+	header["Content-Type"] = append(header["Content-Type"], "application/zip; charset=utf-8")
+	err := ValidateFile(&multipart.FileHeader{
+		Header: header,
+	})
+	assert.Nil(t, err)
+}

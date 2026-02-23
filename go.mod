@@ -14,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.2
+	golang.org/x/sync v0.19.0
 )
 
 require (

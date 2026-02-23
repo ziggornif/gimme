@@ -2,6 +2,7 @@ package archive_validator
 
 import (
 	"fmt"
+	"mime"
 	"mime/multipart"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
@@ -18,7 +19,8 @@ func ValidateFile(file *multipart.FileHeader) *errors.GimmeError {
 	}
 
 	contentType := file.Header.Get("Content-Type")
-	if len(contentType) == 0 || !array.ArrayContains(validTypes, contentType) {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || !array.ArrayContains(validTypes, mediaType) {
 		logrus.Errorf("[UploadManager] ValidateFile - Invalid input file type. Content type : %s", contentType)
 		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid input file type. (accepted types : application/zip)"))
 	}
