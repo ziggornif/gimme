@@ -1,15 +1,26 @@
-FROM golang:1-alpine as builder
-RUN apk update && apk add gcc make g++ git
+FROM golang:1.26-alpine AS builder
+RUN apk add --no-cache make git
 WORKDIR /build
-ADD . .
-RUN make build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 make build
 
-FROM alpine
-COPY --from=builder /build/dist/gimme /bin/gimme
-COPY --from=builder /build/dist/templates /templates
-COPY --from=builder /build/dist/docs /docs
-RUN chmod +x /bin/gimme
+FROM alpine:3.22
+RUN apk add --no-cache wget && adduser -D gimme
+
+WORKDIR /app
+COPY --chown=gimme:gimme --from=builder /build/dist/gimme     /bin/gimme
+COPY --chown=gimme:gimme --from=builder /build/dist/templates /app/templates
+COPY --chown=gimme:gimme --from=builder /build/dist/docs      /app/docs
 
 ENV GIN_MODE=release
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:8080/ || exit 1
+
+USER gimme
 
 ENTRYPOINT ["/bin/gimme"]

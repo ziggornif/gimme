@@ -61,14 +61,14 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 7 — Dockerfile (indépendant, peut être fait en parallèle de P3+)
 
-- [ ] Fixer la version de l'image builder : `golang:1-alpine` → `golang:1.26-alpine`
-- [ ] Fixer la version de l'image finale : `FROM alpine` → `FROM alpine:3.22`
-- [ ] Séparer `COPY go.mod go.sum` + `RUN go mod download` avant `COPY . .` pour le cache des dépendances
-- [ ] Remplacer `ADD . .` par `COPY . .`
-- [ ] Remplacer `apk update && apk add` par `apk add --no-cache`
-- [ ] Supprimer le `chmod +x /bin/gimme` inutile
-- [ ] Ajouter un utilisateur non-root (`adduser -D gimme` + `USER gimme`)
-- [ ] Ajouter un `HEALTHCHECK`
+- [x] Fixer la version de l'image builder : `golang:1-alpine` → `golang:1.26-alpine`
+- [x] Fixer la version de l'image finale : `FROM alpine` → `FROM alpine:3.22`
+- [x] Séparer `COPY go.mod go.sum` + `RUN go mod download` avant `COPY . .` pour le cache des dépendances
+- [x] Remplacer `ADD . .` par `COPY . .`
+- [x] Remplacer `apk update && apk add` par `apk add --no-cache`
+- [x] Supprimer le `chmod +x /bin/gimme` inutile
+- [x] Ajouter un utilisateur non-root (`adduser -D gimme` + `USER gimme`)
+- [x] Ajouter un `HEALTHCHECK`
 
 ## Priorité 8 — Storage : Garage HQ (après mise à jour Minio et Dockerfile)
 
@@ -81,7 +81,8 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 - [ ] Supprimer la clé `version:` dépréciée dans les fichiers Docker Compose
 - [ ] Ajouter `resources` (limits/requests) dans le `Deployment`
-- [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment`
+- [ ] Ajouter les routes `GET /healthz` (liveness) et `GET /readyz` (readiness, vérifie Minio) dans l'application
+- [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment` (dépend de la tâche précédente)
 - [ ] Proposer un exemple d'`Ingress` en complément du `NodePort`
 - [ ] Documenter les options HPA et PodDisruptionBudget dans le README Kubernetes
 
