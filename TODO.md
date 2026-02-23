@@ -57,7 +57,7 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 - [x] Mettre à jour `go-version: '^1.18'` → `'^1.26'` dans `build.yml`
 - [x] Mettre à jour `wangyoucao577/go-release-action@v1.25` → `@v1.55` dans `release.yml`
 - [x] Remplacer `dawidd6/action-get-tag@v1` par la variable native `github.ref_name` dans `release.yml`
-- [ ] Remplacer le lancement Minio CI par Garage dans `build.yml` (ou proposer les deux)
+- [x] Remplacer le lancement Minio CI par Garage dans `build.yml` (ou proposer les deux)
 
 ## Priorité 7 — Dockerfile (indépendant, peut être fait en parallèle de P3+)
 
@@ -72,10 +72,10 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 8 — Storage : Garage HQ (après mise à jour Minio et Dockerfile)
 
-- [ ] Vérifier la compatibilité S3 du SDK `minio-go` avec Garage (auth, bucket creation, object ops)
-- [ ] Ajouter un exemple Docker Compose avec Garage HQ (`dxflrs/garage`) en remplacement de Minio
-- [ ] Mettre à jour le Docker Compose `with-local-s3` pour proposer les deux options (Minio à jour + Garage)
-- [ ] Documenter les différences de configuration entre Minio et Garage
+- [x] Vérifier la compatibilité S3 du SDK `minio-go` avec Garage (auth, bucket creation, object ops)
+- [x] Ajouter un exemple Docker Compose avec Garage HQ (`dxflrs/garage`) en remplacement de Minio
+- [x] Mettre à jour le Docker Compose `with-local-s3` pour proposer les deux options (Minio à jour + Garage)
+- [x] Documenter les différences de configuration entre Minio et Garage (voir `examples/deployment/docker-compose/with-garage/README.md`)
 
 ## Priorité 9 — Kubernetes (indépendant)
 

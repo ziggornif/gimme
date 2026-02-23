@@ -1,19 +1,29 @@
 services:
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+  garage:
+    image: dxflrs/garage:v1.3.1
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "3900:3900"
+      - "3903:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["/garage", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   gimme:
     image: ziggornif/gimme:latest
     ports:
       - "8080:8080"
     volumes:
       - ./gimme.yml:/config/gimme.yml
+    depends_on:
+      garage:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus:latest
@@ -32,3 +42,7 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+
+volumes:
+  garage-meta:
+  garage-data:

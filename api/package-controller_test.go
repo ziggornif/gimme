@@ -22,20 +22,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func envOrDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
 func initObjectStorage() storage.ObjectStorageManager {
+	bucketName := envOrDefault("TEST_S3_BUCKET", "gimme")
+	location := envOrDefault("TEST_S3_LOCATION", "eu-west-1")
 	client, err := storage.NewObjectStorageClient(&configs.Configuration{
-		S3Url:        "localhost:9000",
-		S3Key:        "minioadmin",
-		S3Secret:     "minioadmin",
-		S3BucketName: "gimme",
-		S3Location:   "eu-west-1",
+		S3Url:        envOrDefault("TEST_S3_URL", "localhost:9000"),
+		S3Key:        envOrDefault("TEST_S3_KEY", "minioadmin"),
+		S3Secret:     envOrDefault("TEST_S3_SECRET", "minioadmin"),
+		S3BucketName: bucketName,
+		S3Location:   location,
 		S3SSL:        false,
 	})
 	if err != nil {
 		panic(err.Error())
 	}
 	objectStorageManager := storage.NewObjectStorageManager(client)
-	objectStorageManager.CreateBucket(context.Background(), "gimme", "eu-west-1")
+	objectStorageManager.CreateBucket(context.Background(), bucketName, location)
 	return objectStorageManager
 }
 
