@@ -1,0 +1,99 @@
+# TODO — Refonte du projet Gimme
+
+Les tâches sont ordonnées par priorité et dépendances logiques.
+Les tâches de la section suivante ne doivent pas être démarrées tant que les précédentes ne sont pas terminées
+(ex : monter Go avant de mettre à jour les dépendances, corriger les bugs avant d'améliorer les tests).
+
+---
+
+## Priorité 1 — Fondations (débloquer tout le reste)
+
+- [ ] Monter Go de `1.18` → `1.26` dans `go.mod` et la CI
+- [ ] Ajouter `gimme.yml` au `.gitignore` (risque de commit accidentel de credentials)
+
+## Priorité 2 — Bugs critiques (corriger avant toute autre modification du code)
+
+- [ ] `content-service.go` — `CreatePackage` : erreurs des goroutines d'upload silencieuses → remplacer `sync.WaitGroup` par `errgroup.Group` et propager les erreurs (actuellement retourne `201 Created` même si tous les uploads ont échoué)
+- [ ] `objectstorage-manager.go` — `RemoveObjects` : `rErr.Err.Error()` panique si `rErr.Err == nil`
+- [ ] `content-service.go` — `getLatestVersion` : `versions[len(versions)-1]` panique si le slice est vide
+- [ ] `archive-validator.go` : `Content-Type: application/zip; charset=utf-8` rejeté à tort (comparaison exacte au lieu de `mime.ParseMediaType`)
+- [ ] `auth-manager.go` — `CreateToken` : erreur de `time.Parse` ignorée avec `_` → expiration silencieusement incorrecte
+
+## Priorité 3 — Mise à jour des dépendances (après montée Go)
+
+- [ ] Mettre à jour `gin-gonic/gin` : `v1.8.1` → `v1.11.0`
+- [ ] Mettre à jour `gin-contrib/cors` : `v1.3.1` → `v1.7.6`
+- [ ] Mettre à jour `golang-jwt/jwt/v4` : `v4.4.1` → `v4.5.2`
+- [ ] Mettre à jour `sirupsen/logrus` : `v1.8.1` → `v1.9.4`
+- [ ] Mettre à jour `prometheus/client_golang` : `v1.12.2` → `v1.23.2`
+- [ ] Mettre à jour `spf13/viper` : `v1.12.0` → `v1.21.0`
+- [ ] Mettre à jour `stretchr/testify` : `v1.7.2` → `v1.11.1`
+- [ ] Mettre à jour `golang.org/x/mod` : `v0.6.0-dev` → `v0.33.0`
+- [ ] Mettre à jour `minio/minio-go/v7` : `v7.0.28` → `v7.0.98` (conservé en option parallèle à Garage)
+
+## Priorité 4 — Modernisation du code (après mise à jour des dépendances)
+
+- [ ] Supprimer `pkg/array` et remplacer `ArrayContains` par `slices.Contains` (Go 1.21+)
+- [ ] `GimmeError` : renommer `String()` en `Error() string` pour implémenter l'interface `error` standard
+- [ ] `objectstorage-manager.go` — `RemoveObjects` : remplacer `fmt.Println` par `logrus.Error`
+- [ ] `objectstorage-manager.go` : remplacer le `context.Background()` hardcodé par propagation du contexte HTTP
+- [ ] `configs/config.go` — `assertConfigKey` : remplacer la validation par reflection par une validation explicite type-safe
+
+## Priorité 5 — Tests (après correction des bugs et modernisation)
+
+- [ ] Séparer les tests unitaires et d'intégration dans `package-controller_test.go` (tag `//go:build integration`)
+- [ ] Corriger `TestContentService_CreatePackageUploadErr` : le test actuel assert `Nil(err)` en commentant "error is silent here" — corriger après le fix du bug `CreatePackage`
+- [ ] Ajouter des tests pour les 4 `ErrorKind` manquants dans `business-error_test.go` (`BadRequest`, `Conflict`, `Unauthorized`, `NotImplemented`) et le cas `kind` inconnu
+- [ ] Ajouter un test pour `getLatestVersion` avec une liste vide
+- [ ] Ajouter un test pour `Content-Type: application/zip; charset=utf-8` dans `archive-validator_test.go`
+- [ ] Ajouter un test pour le cas `tokenClaims["exp"] == nil` dans le middleware auth
+- [ ] Ajouter un test pour `application/octet-stream` dans `archive-validator_test.go` (type valide non testé)
+- [ ] Corriger `initObjectStorage()` dans `package-controller_test.go` : ne pas ignorer l'erreur avec `_`
+
+## Priorité 6 — CI/CD (après montée Go et mise à jour des dépendances)
+
+- [ ] Mettre à jour `actions/checkout@v2` → `@v4` dans `build.yml` et `release.yml`
+- [ ] Mettre à jour `actions/setup-go@v2` → `@v5` dans `build.yml`
+- [ ] Mettre à jour `go-version: '^1.18'` → `'^1.26'` dans `build.yml`
+- [ ] Mettre à jour `wangyoucao577/go-release-action@v1.25` → vérifier dernière version dans `release.yml`
+- [ ] Remplacer `dawidd6/action-get-tag@v1` par la variable native `github.ref_name` dans `release.yml`
+- [ ] Remplacer le lancement Minio CI par Garage dans `build.yml` (ou proposer les deux)
+
+## Priorité 7 — Dockerfile (indépendant, peut être fait en parallèle de P3+)
+
+- [ ] Fixer la version de l'image builder : `golang:1-alpine` → `golang:1.26-alpine`
+- [ ] Fixer la version de l'image finale : `FROM alpine` → `FROM alpine:3.22`
+- [ ] Séparer `COPY go.mod go.sum` + `RUN go mod download` avant `COPY . .` pour le cache des dépendances
+- [ ] Remplacer `ADD . .` par `COPY . .`
+- [ ] Remplacer `apk update && apk add` par `apk add --no-cache`
+- [ ] Supprimer le `chmod +x /bin/gimme` inutile
+- [ ] Ajouter un utilisateur non-root (`adduser -D gimme` + `USER gimme`)
+- [ ] Ajouter un `HEALTHCHECK`
+
+## Priorité 8 — Storage : Garage HQ (après mise à jour Minio et Dockerfile)
+
+- [ ] Vérifier la compatibilité S3 du SDK `minio-go` avec Garage (auth, bucket creation, object ops)
+- [ ] Ajouter un exemple Docker Compose avec Garage HQ (`dxflrs/garage`) en remplacement de Minio
+- [ ] Mettre à jour le Docker Compose `with-local-s3` pour proposer les deux options (Minio à jour + Garage)
+- [ ] Documenter les différences de configuration entre Minio et Garage
+
+## Priorité 9 — Kubernetes (indépendant)
+
+- [ ] Supprimer la clé `version:` dépréciée dans les fichiers Docker Compose
+- [ ] Ajouter `resources` (limits/requests) dans le `Deployment`
+- [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment`
+- [ ] Proposer un exemple d'`Ingress` en complément du `NodePort`
+- [ ] Documenter les options HPA et PodDisruptionBudget dans le README Kubernetes
+
+## Priorité 10 — Sécurité & Qualité (indépendant)
+
+- [ ] Épingler les versions CDN dans les templates : `redoc@latest` → version fixe, `@picocss/pico@latest` → version fixe
+- [ ] Compléter `.dockerignore` : ajouter `*.md`, `Makefile`, `gimme.yml`, `.air.toml`, `examples/`
+
+## Priorité 11 — Documentation (en dernier, une fois tout stabilisé)
+
+- [ ] Mettre à jour le README : instructions de démarrage local avec Garage + Minio
+- [ ] Mettre à jour le README : montée de version Go, nouvelles dépendances
+- [ ] Revoir les exemples de `curl` dans le README (tokens, upload, etc.)
+- [ ] Vérifier et mettre à jour le contenu statique dans `docs/`
+- [ ] Mettre à jour `CLAUDE.md` une fois toutes les modifications appliquées
