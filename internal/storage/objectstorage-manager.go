@@ -47,6 +47,7 @@ type ObjectStorageManager interface {
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
 	RemoveObjects(ctx context.Context, objectParentName string) *errors.GimmeError
+	Ping(ctx context.Context) *errors.GimmeError
 }
 
 // NewObjectStorageManager create a new object storage manager
@@ -148,6 +149,20 @@ func (osm *objectStorageManager) ObjectExists(ctx context.Context, objectName st
 		}
 	}
 	return false
+}
+
+// Ping checks that the object storage is reachable by verifying the bucket exists
+func (osm *objectStorageManager) Ping(ctx context.Context) *errors.GimmeError {
+	exists, err := osm.client.BucketExists(ctx, osm.bucketName)
+	if err != nil {
+		logrus.Error("[ObjectStorageManager] Ping - Fail to reach object storage", err)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("object storage is unreachable"))
+	}
+	if !exists {
+		logrus.Errorf("[ObjectStorageManager] Ping - Bucket %s does not exist", osm.bucketName)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("bucket %s does not exist", osm.bucketName))
+	}
+	return nil
 }
 
 // RemoveObjects remove objects from storage

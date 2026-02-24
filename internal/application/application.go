@@ -27,6 +27,7 @@ type Application struct {
 	config         *configs.Configuration
 	authManager    auth.AuthManager
 	contentService content.ContentService
+	storageManager storage.ObjectStorageManager
 	server         *http.Server
 }
 
@@ -53,10 +54,10 @@ func (app *Application) loadModules() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	objectStorageManager := storage.NewObjectStorageManager(osmClient)
-	app.contentService = content.NewContentService(objectStorageManager)
+	app.storageManager = storage.NewObjectStorageManager(osmClient)
+	app.contentService = content.NewContentService(app.storageManager)
 
-	err = objectStorageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
+	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -80,6 +81,7 @@ func (app *Application) setupServer() {
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)
 	api.NewPackageController(router, app.authManager, app.contentService)
+	api.NewHealthController(router, app.storageManager)
 
 	if app.config.EnableMetrics {
 		router.GET("/metrics", prometheusHandler())

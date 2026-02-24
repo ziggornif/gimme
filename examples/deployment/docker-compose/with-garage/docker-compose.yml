@@ -9,21 +9,51 @@ services:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
     healthcheck:
-      test: ["/garage", "status"]
+      # /garage status exits 0 once the daemon is up (no shell required in the image)
+      test: ["CMD", "/garage", "status"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
       start_period: 5s
+
+  init-garage:
+    image: alpine:3.21
+    depends_on:
+      garage:
+        condition: service_healthy
+    volumes:
+      - ./init-garage.sh:/init-garage.sh:ro
+      - gimme-config:/gimme-config
+    environment:
+      GARAGE_HOST: garage
+      GARAGE_S3_PORT: "3900"
+      GARAGE_ADMIN_PORT: "3903"
+      # Must match admin_token in garage.toml — change in production
+      GARAGE_ADMIN_TOKEN: "gimme-init-token-change-me"
+      BUCKET_NAME: gimme
+      KEY_NAME: gimme-key
+      # Capacity in bytes assigned to the Garage node (default: 10 GiB)
+      GARAGE_CAPACITY_BYTES: "10737418240"
+      GARAGE_ZONE: dc1
+      GARAGE_REGION: garage
+      GIMME_CONFIG_PATH: /gimme-config/gimme.yml
+      # Gimme credentials — override in production
+      GIMME_ADMIN_USER: gimmeadmin
+      GIMME_ADMIN_PASSWORD: gimmeadmin
+      GIMME_SECRET: change_me_use_a_real_secret
+    entrypoint: ["/bin/sh", "/init-garage.sh"]
+    restart: "no"
 
   gimme:
     image: ziggornif/gimme:latest
     ports:
       - "8080:8080"
     volumes:
-      - ./gimme.yml:/config/gimme.yml
+      - gimme-config:/config
     depends_on:
-      garage:
-        condition: service_healthy
+      init-garage:
+        condition: service_completed_successfully
+    restart: on-failure
 
   prometheus:
     image: prom/prometheus:latest
@@ -46,3 +76,4 @@ services:
 volumes:
   garage-meta:
   garage-data:
+  gimme-config:

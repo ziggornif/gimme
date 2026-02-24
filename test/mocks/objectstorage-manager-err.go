@@ -33,3 +33,7 @@ func (osc *MockOSManagerErr) ListObjects(_ context.Context, _ string) []minio.Ob
 func (osc *MockOSManagerErr) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 }
+
+func (osc *MockOSManagerErr) Ping(_ context.Context) *errors.GimmeError {
+	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
+}

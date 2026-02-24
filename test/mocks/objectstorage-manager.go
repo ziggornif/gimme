@@ -57,3 +57,7 @@ func (osc *MockOSManager) ListObjects(_ context.Context, fileName string) []mini
 func (osc *MockOSManager) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return nil
 }
+
+func (osc *MockOSManager) Ping(_ context.Context) *errors.GimmeError {
+	return nil
+}

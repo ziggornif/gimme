@@ -33,3 +33,7 @@ func (osc *MockOSManagerExists) ListObjects(_ context.Context, _ string) []minio
 func (osc *MockOSManagerExists) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return nil
 }
+
+func (osc *MockOSManagerExists) Ping(_ context.Context) *errors.GimmeError {
+	return nil
+}
