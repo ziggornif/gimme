@@ -62,8 +62,8 @@ EOF
         id: garage-creds
         run: |
           set -euo pipefail
-          KEY_ID=$(docker exec garage /garage key info gimme-key | grep 'Key ID' | awk '{print $3}')
-          SECRET=$(docker exec garage /garage key info gimme-key | grep 'Secret key' | awk '{print $3}')
+          KEY_ID=$(docker exec garage /garage key info --show-secret gimme-key | grep 'Key ID' | awk '{print $3}')
+          SECRET=$(docker exec garage /garage key info --show-secret gimme-key | grep 'Secret key' | awk '{print $3}')
           echo "::add-mask::$SECRET"
           echo "key_id=$KEY_ID" >> $GITHUB_OUTPUT
           echo "secret=$SECRET" >> $GITHUB_OUTPUT
