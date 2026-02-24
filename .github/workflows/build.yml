@@ -80,7 +80,9 @@ jobs:
           TEST_S3_SECRET: ${{ steps.garage-creds.outputs.secret }}
           TEST_S3_BUCKET: gimme
           TEST_S3_LOCATION: garage
-        run: go test ./... -coverprofile=coverage.out
+        run: |
+          go test ./... -coverprofile=coverage.out
+          grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out
 
       - name: Coverage
         run: go tool cover -func coverage.out

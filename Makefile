@@ -11,7 +11,8 @@ build:
 
 .PHONY: test
 test:
-	go test  ./... -coverprofile=coverage.out
+	go test ./... -coverprofile=coverage.out
+	grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out
 
 .PHONY: coverage
 coverage:
