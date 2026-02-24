@@ -1,230 +1,329 @@
 # gimme
 
-A self-hosted CDN solution written in Go.
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
+[![Docker](https://img.shields.io/docker/v/ziggornif/gimme?label=Docker&logo=docker)](https://hub.docker.com/r/ziggornif/gimme)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/gimme-cdn/gimme/actions/workflows/build.yml/badge.svg)](https://github.com/gimme-cdn/gimme/actions/workflows/build.yml)
 
-## What is a CDN ?
+**A self-hosted CDN solution written in Go.**
 
-> A content delivery network (CDN) refers to a geographically distributed group of servers which work together to provide fast delivery of Internet content.
->
-> A CDN allows for the quick transfer of assets needed for loading Internet content including HTML pages, javascript files, stylesheets, images, and videos. […]
-> 
-> https://www.cloudflare.com/learning/cdn/what-is-a-cdn/
+Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple REST API, backed by **any S3-compatible object storage** — AWS S3, Google Cloud Storage, OVH Object Storage, Scaleway Object Storage, Clever Cloud Cellar, [Garage](https://garagehq.deuxfleurs.fr/), [Minio](https://min.io/), and more.
+
+> **💡 A caching layer in front of gimme (e.g. Nginx, Varnish, Cloudflare) is strongly recommended for production use.**
+
+---
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [API Usage](#api-usage)
+- [Deployment Examples](#deployment-examples)
+- [Monitoring](#monitoring)
+
+---
+
+## Architecture
+
+### Components
+
+```mermaid
+graph LR
+    Client["Client\n(browser / curl)"]
+    Gimme["gimme\n:8080"]
+    S3["Any S3-compatible storage\n(AWS S3, OVH, Cellar, Garage, Minio, …)"]
+    Cache["Cache layer\n(Nginx / CDN) — optional"]
+
+    Client -->|"GET /gimme/pkg@1.0/file.js"| Cache
+    Cache -->|cache miss| Gimme
+    Gimme -->|stream object| S3
+    Client -->|"POST /packages (JWT)"| Gimme
+    Gimme -->|store objects| S3
+```
+
+### Upload flow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant API as gimme API
+    participant Val as Archive Validator
+    participant S3 as Object Storage
+
+    Dev->>API: POST /packages (Bearer JWT, multipart ZIP)
+    API->>Val: Validate ZIP (Content-Type: application/zip)
+    Val-->>API: OK
+    API->>S3: PutObject pkg@version/file (parallel goroutines)
+    S3-->>API: 200 OK
+    API-->>Dev: 201 Created
+```
+
+### Serve flow
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant API as gimme API
+    participant S3 as Object Storage
+
+    Browser->>API: GET /gimme/awesome-lib@1.0.0/awesome-lib.min.js
+    API->>S3: GetObject awesome-lib@1.0.0/awesome-lib.min.js
+    Note over API: Semver partial match: 1.0 → latest 1.0.x
+    S3-->>API: stream
+    API-->>Browser: 200 OK (Content-Type: application/javascript)
+```
+
+---
+
+## Quick Start
+
+### With a managed S3 provider (AWS, R2, Scaleway, …)
+
+Gimme works with any S3-compatible provider. Just fill in `gimme.yml` with your credentials:
+
+```yaml
+s3:
+  url: s3.amazonaws.com          # or s3.fr-par.scw.cloud, s3.gra.io.cloud.ovh.net, cellar-c2.services.clever-cloud.com, …
+  key: your-access-key
+  secret: your-secret-key
+  bucketName: gimme
+  location: eu-west-1            # region as defined by your provider
+  ssl: true
+```
+
+Then run:
+
+```bash
+cp gimme.example.yml gimme.yml
+# Edit gimme.yml with your credentials
+make build && ./gimme
+```
+
+> See [with-managed-s3/](examples/deployment/docker-compose/with-managed-s3/) for a ready-to-use Docker Compose example.
+
+### With Garage (self-hosted S3)
+
+If you also want to self-host the object storage, [Garage](https://garagehq.deuxfleurs.fr/) is a lightweight S3-compatible store that runs alongside gimme. The stack provisions itself automatically — no manual setup needed.
+
+```bash
+cd examples/deployment/docker-compose/with-garage
+docker compose up -d
+```
+
+Gimme will be available at <http://localhost:8080>.  
+The `init-garage` service creates the bucket and writes the config automatically.
+
+> See [with-garage/README.md](examples/deployment/docker-compose/with-garage/README.md) for configuration details.
+
+### With Minio (local dev)
+
+```bash
+cd examples/deployment/docker-compose/with-local-s3
+docker compose up -d
+```
+
+> You must create an access key / secret from the Minio admin console at <http://localhost:9001> and update `gimme.yml` accordingly.
+
+### From source
+
+```bash
+# Requires Go 1.26+ and a running S3-compatible backend
+cp gimme.example.yml gimme.yml
+# Edit gimme.yml with your S3 credentials
+make build
+./gimme
+```
+
+---
 
 ## Configuration
 
-Gimme configuration is stored in a yaml file.
-
-You need to created it before running the application.
-
-| Parameter      | Description                                |
-|----------------|--------------------------------------------|
-| secret         | Application secret                         |
-| admin.user     | Administration user                        |
-| admin.password | Administration password                    |
-| port           | Exposition port (default 8080)             |
-| s3.url         | Object storage url                         |
-| s3.key         | Object storage key                         |
-| s3.secret      | Object storage secret                      |
-| s3.bucketName  | Bucket name                                |
-| s3.location    | Object storage location                    |
-| ssl            | Enable SSL (default true)                  |
-| metrics        | Enable OpenMetrics endpoint (default true) |
-
-### Example
+Configuration is read from `gimme.yml` (local directory or `/config/gimme.yml` in Docker).  
+Environment variables override file values automatically (via [Viper](https://github.com/spf13/viper)).
 
 ```yaml
 admin:
   user: gimmeadmin
   password: gimmeadmin
-port: 8080 # (default 8080)
-secret: secret
+port: 8080
+secret: your-jwt-signing-secret
 s3:
-  url: your.s3.url.cloud
-  key: s3key
-  secret: s3secret
-  bucketName: gimme (default gimme)
-  location: eu-west-1
-  ssl: true
+  url: your.s3.endpoint
+  key: your-access-key
+  secret: your-secret-key
+  bucketName: gimme
+  location: garage          # use region name matching your backend
+  ssl: false                # set true for remote/production backends
+# metrics: true             # optional — expose /metrics (Prometheus), defaults to true
 ```
 
+| Key               | Description                              | Default  |
+|-------------------|------------------------------------------|----------|
+| `secret`          | JWT signing secret                       | required |
+| `admin.user`      | Admin username (Basic Auth)              | required |
+| `admin.password`  | Admin password (Basic Auth)              | required |
+| `port`            | HTTP server port                         | `8080`   |
+| `s3.url`          | S3 / Garage endpoint URL                 | required |
+| `s3.key`          | S3 access key                            | required |
+| `s3.secret`       | S3 secret key                            | required |
+| `s3.bucketName`   | Bucket name                              | `gimme`  |
+| `s3.location`     | S3 region / Garage zone                  | required |
+| `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
+| `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
 
-## Run application
+---
 
-### From sources
-```shell
-make build
+## API Usage
+
+### 1. Create an access token
+
+Use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
+
+```bash
+curl -s -X POST http://localhost:8080/create-token \
+  -u gimmeadmin:gimmeadmin \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "my-token", "expirationDate": "2027-12-31"}'
 ```
 
-```shell
-./gimme
+Response:
+```json
+{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
 ```
 
-### With docker
+> If `expirationDate` is omitted, the token expires in **15 minutes**.
 
-Execute the following command to run a gimme instance.
+### 2. Upload a package
 
-```shell
-docker run -p 8080:8080 -v `pwd`/gimme.yml:/config/gimme.yml \
-  ziggornif/gimme:latest
+A package is a ZIP archive. The `name` and `version` fields identify it in the CDN.
+
+```bash
+curl -s -X POST http://localhost:8080/packages \
+  -H 'Authorization: Bearer <token>' \
+  -F 'file=@awesome-lib.zip' \
+  -F 'name=awesome-lib' \
+  -F 'version=1.0.0'
 ```
 
-Or with docker compose :
+Response: `201 Created`
 
-```yaml
-version: "3.9"
-services:
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-  gimme:
-    image: ziggornif/gimme:latest
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./gimme.yml:/config/gimme.yml
+### 3. Serve a file
+
+Once uploaded, files are served at:
+
+```
+GET /gimme/<package>@<version>/<file>
 ```
 
-## Run a local object storage
-
-```shell
-docker run \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  minio/minio server /data --console-address ":9001"
+```bash
+curl http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js
 ```
 
-> **/!\ You must create the access key / secret from Minio admin console if you are using a local minio object storage.**
+**Semver partial versions are supported** — `awesome-lib@1.0` resolves to the latest `1.0.x` available.
 
-## Architecture
-
-![schema](./schema.png)
-
-The CDN core is based on a S3 object storage.
-
-Each package will be stored in a bucket as a folder named `<package>@<version>` to manage packages versioning.
-
-The project use the Minio SDK to be compatible with all S3 providers.
-
-**💡NOTE : A caching system in front of the CDN is strongly recommended to improve performance.**
-
-## Usage
-
-### Create access token
-
-Use your `GIMME_ADMIN_USER` and `GIMME_ADMIN_PASSWORD` as a basic authentication to create a new access token.
-```shell
-curl --location --request POST 'http://localhost:8080/create-token' \
---header 'Authorization: Basic Z2ltbWVhZG1pbjpnaW1tZWFkbWlu' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "name": "awesome-token",
-    "expirationDate": "2022-02-17"
-}'
-```
-
-> NOTE : If the `expirationDate` is not set, the token expiration will be set to 15 minutes
-
-### Upload content to the CDN
-
-The `POST /packages` route allows you to upload content to the CDN.
-
-This route currently only accept a zip archive file which contains the files to import.
-
-You also must provide a package name and a version.
-
-**This route needs a valid access-token to process the upload.**
-
-**Example :**
-```shell
-curl --location --request POST 'http://localhost:8080/packages' \
---header 'Authorization: Bearer xxxxxxx' \
---form 'file=@"tests/awesome-lib.zip"' \
---form 'name="awesome-lib"' \
---form 'version="1.0.0"'
-```
-
-### Load library from the CDN
-
-Once your package uploaded in the CDN, you can use it from the following URL.
-
-```text
-<base_url>/gimme/<package>@<version>/<your_file>.<js|css|...>
-```
-
-**Example :**
-
-Open the `tests/index.html` file. 
-
-This file load js and css dependencies from the CDN (uploaded with the previous curl command).
+Use it directly in HTML:
 
 ```html
 <link rel="stylesheet" href="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome.min.css">
-...
 <script src="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js" type="module"></script>
 ```
 
-You can try it with your favourite http server tool.
+### 4. Browse package contents
 
-```shell
-cd tests
-npx http-server --cors .
+```
+GET /gimme/<package>@<version>
 ```
 
-### Show package content
+Returns an HTML page listing all files in the package.
 
-The root package URL package allows to view the list of available files.
-
-Example :
-```text
-<base_url>/gimme/awesome-lib@3.0.0
+```bash
+# macOS
+open http://localhost:8080/gimme/awesome-lib@1.0.0
+# Linux
+xdg-open http://localhost:8080/gimme/awesome-lib@1.0.0
 ```
 
-![interface](./examples/interface.png)
+### 5. Delete a package
 
+```bash
+curl -s -X DELETE http://localhost:8080/packages/awesome-lib@1.0.0 \
+  -H 'Authorization: Bearer <token>'
+```
 
-## Setup a basic cache system with Nginx
+Response: `204 No Content`
 
-Here is a docker-compose deployment file with a simple Nginx cache system.
+> **CORS:** All routes include CORS headers with permissive defaults (`Access-Control-Allow-Origin: *`). This means you can load assets from gimme directly in a browser without any proxy configuration.
 
-The following configuration will cache all called CDN files during 10 minutes.
+### API routes summary
+
+| Method   | Route                        | Auth       | Description                          |
+|----------|------------------------------|------------|--------------------------------------|
+| `GET`    | `/`                          | —          | HTML homepage                        |
+| `POST`   | `/create-token`              | Basic Auth | Create a JWT access token            |
+| `POST`   | `/packages`                  | Bearer JWT | Upload a ZIP package                 |
+| `DELETE` | `/packages/:package`         | Bearer JWT | Delete a package (`name@version`)    |
+| `GET`    | `/gimme/:package`            | —          | List files in a package (HTML)       |
+| `GET`    | `/gimme/:package/*file`      | —          | Serve a file from a package          |
+| `GET`    | `/metrics`                   | —          | Prometheus / OpenMetrics endpoint    |
+| `GET`    | `/docs`                      | —          | Interactive API documentation        |
+| `GET`    | `/healthz`                   | —          | Liveness probe                       |
+| `GET`    | `/readyz`                    | —          | Readiness probe (checks S3 bucket)   |
+
+---
+
+## Deployment Examples
+
+The [`examples/deployment`](examples/deployment) directory contains ready-to-use configurations:
+
+| Stack                       | Path                                                         | Description                                              |
+|-----------------------------|--------------------------------------------------------------|----------------------------------------------------------|
+| Docker Compose + managed S3 | [`with-managed-s3/`](examples/deployment/docker-compose/with-managed-s3/) | gimme + any cloud S3 provider (AWS, OVH, Scaleway, Cellar, …) |
+| Docker Compose + Garage     | [`with-garage/`](examples/deployment/docker-compose/with-garage/) | Self-provisioning stack with self-hosted Garage + monitoring |
+| Docker Compose + Minio      | [`with-local-s3/`](examples/deployment/docker-compose/with-local-s3/) | Local dev stack with Minio + monitoring              |
+| Kubernetes                  | [`kubernetes/`](examples/deployment/kubernetes/)             | Namespace, Deployment, Service, Ingress                  |
+| systemd                     | [`systemd/`](examples/deployment/systemd/)                   | Linux systemd unit file                                  |
+
+### Docker — single container
+
+```bash
+docker run -p 8080:8080 \
+  -v "$(pwd)/gimme.yml:/config/gimme.yml" \
+  ziggornif/gimme:latest
+```
+
+### Cache with Nginx
+
+Add a Nginx reverse proxy with caching in front of gimme:
 
 ```yaml
-version: "3.9"
 services:
-  front:
-    image: nginx
+  nginx:
+    image: nginx:alpine
     volumes:
-      - ./default.conf:/etc/nginx/nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf
     ports:
       - "80:80"
   gimme:
     image: ziggornif/gimme:latest
-    ports:
-      - "8080:8080"
     volumes:
-      - ./gimme-conf/gimme.yml:/config/gimme.yml
+      - ./gimme.yml:/config/gimme.yml
 ```
 
-And the Nginx `default.conf` config file :
-```text
-events {
-
-}
+`nginx.conf`:
+```nginx
+events {}
 http {
-  proxy_cache_path  /cache  levels=1:2 keys_zone=STATIC:10m inactive=24h  max_size=1g;
+  proxy_cache_path /cache levels=1:2 keys_zone=CDN:10m inactive=24h max_size=1g;
   server {
     listen 80;
 
-    location ~* \.(?:jpg|jpeg|gif|png|ico|woff2|css|js)$ {
-		proxy_pass http://gimme:8080;
-		proxy_set_header       Host $host;
-        proxy_buffering        on;
-        proxy_cache            STATIC;
-        proxy_cache_valid      200  10m;
-	}
+    location ~* \.(js|css|jpg|jpeg|gif|png|ico|woff2)$ {
+      proxy_pass         http://gimme:8080;
+      proxy_cache        CDN;
+      proxy_cache_valid  200 10m;
+      proxy_buffering    on;
+    }
 
     location / {
       proxy_pass http://gimme:8080;
@@ -233,16 +332,15 @@ http {
 }
 ```
 
-## Deployment
-
-The [example deployment folder](./examples/deployment) contains linux systemd, docker and kubernetes deployment configuration examples.
+---
 
 ## Monitoring
 
-Each CDN running instance expose an OpenMetrics endpoint.
+Each gimme instance exposes a `/metrics` endpoint in [OpenMetrics](https://openmetrics.io/) format, compatible with Prometheus.
 
-This endpoint is useful to monitor instances with Prometheus and Grafana.
+A pre-configured Prometheus + Grafana stack is included in the Docker Compose examples.  
+See [`examples/monitoring/`](examples/monitoring/) for the Prometheus config and Grafana dashboard.
 
-A monitoring configuration with a default prometheus configuration and a grafana dashboard is avaiable in [the monitoring example dir](./examples/monitoring).
-
-There is also a docker-compose deployment configuration with prometheus and grafana here : [link](./examples/deployment/docker-compose/with-local-s3)
+Access:
+- Prometheus: <http://localhost:9090>
+- Grafana: <http://localhost:3000> (anonymous access enabled in the example)

@@ -2,10 +2,8 @@
   "openapi": "3.0.1",
   "info": {
     "title": "Gimme CDN",
-    "description": "A self hosted CDN solution written in Go",
-    "x-logo": {
-      "url": ""
-    },
+    "description": "A self-hosted CDN solution written in Go. Upload ZIP packages and serve static assets (JS, CSS, images, …) backed by any S3-compatible object storage.",
+
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/mit-license.php"
@@ -14,169 +12,300 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080"
+      "url": "http://localhost:8080",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "documentation",
+      "description": "Homepage and API docs"
+    },
+    {
+      "name": "authentication",
+      "description": "JWT token management"
+    },
+    {
+      "name": "package",
+      "description": "Upload, browse and delete packages"
+    },
+    {
+      "name": "observability",
+      "description": "Health probes and metrics"
     }
   ],
   "paths": {
     "/": {
       "get": {
-        "tags": [
-          "documentation"
-        ],
-        "summary": "Get application documentation",
+        "tags": ["documentation"],
+        "summary": "Homepage",
+        "description": "Returns the HTML homepage with links to the API documentation.",
         "responses": {
           "200": {
-            "description": "Documentation",
-            "content": {
-              "text/html": {}
-            }
+            "description": "HTML homepage",
+            "content": { "text/html": {} }
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": ["documentation"],
+        "summary": "API documentation",
+        "description": "Serves the static ReDoc API documentation generated from `swagger.json`.",
+        "responses": {
+          "200": {
+            "description": "ReDoc HTML page",
+            "content": { "text/html": {} }
           }
         }
       }
     },
     "/create-token": {
       "post": {
-        "tags": [
-          "authentication"
-        ],
-        "summary": "Create auth token",
-        "description": "Auth token are used to upload packages to the CDN",
+        "tags": ["authentication"],
+        "summary": "Create an access token",
+        "description": "Creates a signed JWT used to authenticate upload and delete requests. Requires HTTP Basic Auth with the admin credentials configured in `gimme.yml`.",
         "operationId": "createToken",
         "security": [
-          {
-            "basicAuth": []
-          }
+          { "basicAuth": [] }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateToken"
+              "schema": { "$ref": "#/components/schemas/CreateTokenRequest" },
+              "example": {
+                "name": "ci-token",
+                "expirationDate": "2027-12-31"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Token created",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateTokenResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CreateTokenResponse" }
               }
             }
+          },
+          "400": {
+            "description": "Bad request (missing or invalid body)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid admin credentials"
           }
         }
       }
     },
     "/packages": {
       "post": {
-        "tags": [
-          "package"
-        ],
-        "summary": "Publish package in the CDN",
-        "operationId": "postPackage",
+        "tags": ["package"],
+        "summary": "Upload a package",
+        "description": "Uploads a ZIP archive as a versioned package. The archive is extracted and each file is stored in the S3 backend under `<name>@<version>/<file>`. Requires a valid Bearer JWT.",
+        "operationId": "createPackage",
         "security": [
-          {
-            "bearerAuth": []
-          }
+          { "bearerAuth": [] }
         ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePackage"
-              }
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/CreatePackageRequest" }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Package uploaded successfully"
+          },
+          "400": {
+            "description": "Invalid file or missing fields",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "409": {
+            "description": "Package already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
     },
     "/packages/{package}": {
       "delete": {
-        "tags": [
-          "package"
-        ],
-        "summary": "Delete package from the CDN",
+        "tags": ["package"],
+        "summary": "Delete a package",
+        "description": "Deletes all objects stored under `<name>@<version>` from the S3 backend. The `package` parameter must be in the form `name@version` (e.g. `awesome-lib@1.0.0`).",
         "operationId": "deletePackage",
         "security": [
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
           {
-            "bearerAuth": []
+            "name": "package",
+            "in": "path",
+            "description": "Package identifier in the form `name@version` (e.g. `awesome-lib@1.0.0`)",
+            "required": true,
+            "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           }
         ],
         "responses": {
           "204": {
-            "description": "Acknowledge"
+            "description": "Package deleted"
+          },
+          "400": {
+            "description": "Invalid package identifier format",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
           }
         }
       }
     },
     "/gimme/{package}": {
       "get": {
-        "tags": [
-          "package"
-        ],
-        "summary": "Get package UI",
+        "tags": ["package"],
+        "summary": "Browse package contents",
+        "description": "Returns an HTML page listing all files available in the given package version. Supports partial semver: `awesome-lib@1.0` resolves to the latest `1.0.x`.",
         "operationId": "getPackage",
         "parameters": [
           {
             "name": "package",
             "in": "path",
-            "description": "Package name",
+            "description": "Package identifier in the form `name@version` (e.g. `awesome-lib@1.0.0` or `awesome-lib@1.0`)",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           }
         ],
         "responses": {
           "200": {
-            "description": "Package content UI",
-            "content": {
-              "text/html": {}
-            }
+            "description": "HTML listing of package files",
+            "content": { "text/html": {} }
+          },
+          "400": {
+            "description": "Invalid package identifier format"
+          },
+          "404": {
+            "description": "Package not found"
           }
         }
       }
     },
     "/gimme/{package}/{file}": {
       "get": {
-        "tags": [
-          "package"
-        ],
-        "summary": "Retrieve file",
+        "tags": ["package"],
+        "summary": "Serve a file",
+        "description": "Streams a file from the CDN. The `Content-Type` is inferred from the file extension. Supports partial semver for the version part of `package`.",
         "operationId": "getPackageFile",
         "parameters": [
           {
             "name": "package",
             "in": "path",
-            "description": "Package name",
+            "description": "Package identifier in the form `name@version`",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           },
           {
             "name": "file",
             "in": "path",
-            "description": "File name",
+            "description": "File path within the package. Nested paths are supported (e.g. `dist/awesome-lib.min.js`). The leading `/` captured by the Gin wildcard is stripped internally.",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string", "example": "dist/awesome-lib.min.js" }
           }
         ],
         "responses": {
           "200": {
-            "description": "Package content UI",
+            "description": "File content",
             "content": {
-              "text/html": {}
+              "application/javascript": {},
+              "text/css": {},
+              "application/octet-stream": {}
+            }
+          },
+          "400": {
+            "description": "Invalid package identifier format"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": ["observability"],
+        "summary": "Liveness probe",
+        "description": "Returns `200 OK` as long as the process is running. Use this as a Kubernetes liveness probe.",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Process is alive"
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": ["observability"],
+        "summary": "Readiness probe",
+        "description": "Returns `200 OK` when the S3 bucket is reachable. Returns `503` otherwise. Use this as a Kubernetes readiness probe.",
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "S3 backend is reachable"
+          },
+          "503": {
+            "description": "S3 backend is not reachable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["observability"],
+        "summary": "Prometheus metrics",
+        "description": "Exposes runtime and HTTP metrics in OpenMetrics format. Can be scraped by Prometheus. This endpoint is enabled when `metrics: true` in `gimme.yml`.",
+        "operationId": "metrics",
+        "responses": {
+          "200": {
+            "description": "OpenMetrics text payload",
+            "content": {
+              "text/plain": {}
             }
           }
         }
@@ -185,40 +314,62 @@
   },
   "components": {
     "schemas": {
-      "CreateToken": {
+      "CreateTokenRequest": {
         "type": "object",
+        "required": ["name"],
         "properties": {
           "name": {
             "type": "string",
-            "description": "Token name"
+            "description": "Human-readable label for the token",
+            "example": "ci-token"
           },
           "expirationDate": {
             "type": "string",
-            "description": "Token expiration date"
+            "format": "date",
+            "description": "Token expiration date (YYYY-MM-DD). Defaults to 15 minutes from now if omitted.",
+            "example": "2027-12-31"
           }
         }
       },
       "CreateTokenResponse": {
         "type": "object",
+        "required": ["token"],
         "properties": {
           "token": {
             "type": "string",
-            "description": "Created token"
+            "description": "Signed JWT to use as Bearer token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
           }
         }
       },
-      "CreatePackage": {
+      "CreatePackageRequest": {
         "type": "object",
+        "required": ["file", "name", "version"],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Package name",
+            "example": "awesome-lib"
           },
           "version": {
-            "type": "string"
+            "type": "string",
+            "description": "Semver version string",
+            "example": "1.0.0"
           },
           "file": {
             "type": "string",
-            "format": "binary"
+            "format": "binary",
+            "description": "ZIP archive containing the package files"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "package already exists"
           }
         }
       }

@@ -98,4 +98,5 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 - [ ] Mettre à jour le README : montée de version Go, nouvelles dépendances
 - [ ] Revoir les exemples de `curl` dans le README (tokens, upload, etc.)
 - [ ] Vérifier et mettre à jour le contenu statique dans `docs/`
+- [ ] Revoir les schémas du projet : supprimer `schema.png` (image statique obsolète) et le remplacer par des diagrammes Mermaid intégrés directement dans le README (architecture, flux de données, etc.)
 - [ ] Mettre à jour `CLAUDE.md` une fois toutes les modifications appliquées
