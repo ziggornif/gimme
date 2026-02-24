@@ -157,18 +157,28 @@ Custom error type `GimmeError` (`internal/errors/business-error.go`) implements 
 
 Tests use `github.com/stretchr/testify`. Each package has a `_test.go` file alongside the source.
 
-Unit tests run standalone. Integration tests (tagged `//go:build integration`) require a running S3 backend — see `.github/workflows/build.yml` for the CI setup using Garage.
+Unit tests run standalone. Integration tests (in `api/`, **not** tagged `//go:build integration` — they run unconditionally) require a live S3 backend. **`make test` will run them and they will fail without a running Garage or Minio instance.**
+
+### Running the full test suite locally
 
 ```bash
-# Run unit tests only
-go test ./... -coverprofile=coverage.out
-
-# Run integration tests
-go test -tags integration ./...
-
-# Or via Makefile
+# Start Garage, run all tests (unit + integration), stop Garage
 make test
+
+# Or step by step:
+make garage-start   # start + provision Garage in Docker
+make garage-stop    # stop and remove the Garage container
 ```
+
+### Running unit tests only (no S3 required)
+
+```bash
+go test $(go list ./... | grep -v 'github.com/gimme-cdn/gimme/api') -coverprofile=coverage.out
+```
+
+### CI
+
+See `.github/workflows/build.yml` — Garage is started as a service before the test step.
 
 ---
 
@@ -195,6 +205,7 @@ Required GitHub secrets: `DOCKER_REPO`, `DOCKER_USER`, `DOCKER_PASS`.
 | `stretchr/testify`              | v1.11.1   | Test assertions                           |
 | `golang.org/x/mod/semver`       | v0.33.0   | Semver parsing and sorting                |
 | `golang.org/x/sync/errgroup`    | v0.19.0   | Goroutine error propagation               |
+| `redis/go-redis/v9`             | v9.18.0   | Redis client (internal cache backend)     |
 
 ---
 
@@ -230,8 +241,8 @@ gofmt -l ./...         # must output nothing (no unformatted files)
 # 2. Lint (requires golangci-lint)
 golangci-lint run ./...
 
-# 3. Tests
-make test              # go test ./... -coverprofile=coverage.out
+# 3. Tests (unit + integration — starts and stops Garage automatically)
+make test
 
 # 4. Build
 make build

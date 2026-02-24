@@ -10,6 +10,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+type CacheConfig struct {
+	Enabled  bool
+	Type     string // "redis" ; "memory" reserved for future use
+	TTL      int    // seconds
+	RedisURL string
+}
+
 type Configuration struct {
 	AppPort       string
 	AdminUser     string
@@ -22,6 +29,7 @@ type Configuration struct {
 	S3Location    string
 	S3SSL         bool
 	EnableMetrics bool
+	Cache         CacheConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -35,6 +43,10 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
 	viper.SetDefault("metrics", true)
+	viper.SetDefault("cache.enabled", false)
+	viper.SetDefault("cache.type", "redis")
+	viper.SetDefault("cache.ttl", 3600)
+	viper.SetDefault("cache.redis_url", "redis://localhost:6379")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -54,6 +66,12 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
+	config.Cache = CacheConfig{
+		Enabled:  viper.GetBool("cache.enabled"),
+		Type:     viper.GetString("cache.type"),
+		TTL:      viper.GetInt("cache.ttl"),
+		RedisURL: viper.GetString("cache.redis_url"),
+	}
 
 	if err := validateConfig(&config); err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
@@ -84,6 +102,14 @@ func validateConfig(config *Configuration) error {
 	}
 	if config.S3Location == "" {
 		return fmt.Errorf("S3Location is not set")
+	}
+	if config.Cache.Enabled {
+		if config.Cache.Type != "redis" {
+			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
+		}
+		if config.Cache.RedisURL == "" {
+			return fmt.Errorf("cache.redis_url is required when cache is enabled")
+		}
 	}
 	return nil
 }

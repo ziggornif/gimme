@@ -19,7 +19,7 @@ func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/file.js", nil)
@@ -31,7 +31,7 @@ func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/foo/bar.js", nil)
@@ -43,7 +43,7 @@ func TestPackageControllerRedirect(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme", nil)
@@ -56,13 +56,13 @@ func TestPackageControllerCreate(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
 	assert.Equal(t, http.StatusCreated, resp.Code)
 
-	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
 func TestPackageControllerGet(t *testing.T) {
@@ -70,7 +70,7 @@ func TestPackageControllerGet(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
@@ -80,7 +80,7 @@ func TestPackageControllerGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
 
-	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
 func TestPackageControllerGetUI(t *testing.T) {
@@ -89,7 +89,7 @@ func TestPackageControllerGetUI(t *testing.T) {
 	router.LoadHTMLGlob("../templates/*.tmpl")
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
@@ -98,7 +98,7 @@ func TestPackageControllerGetUI(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
 
-	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
 func TestPackageControllerGetUIAlter(t *testing.T) {
@@ -107,7 +107,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 	router.LoadHTMLGlob("../templates/*.tmpl")
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
@@ -116,7 +116,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
 
-	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
 func TestPackageControllerCreateConflictErr(t *testing.T) {
@@ -124,7 +124,7 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
@@ -133,14 +133,14 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	resp2 := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
 	assert.Equal(t, http.StatusConflict, resp2.Code)
 
-	service.DeletePackage(context.Background(), "awesome-lib", "1.0.0")
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
 func TestPackageControllerGetEmpty(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@4.0.0", nil)
@@ -152,7 +152,7 @@ func TestPackageControllerGetNotFound(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/invalid@1.0.0/invalid.js", nil)
@@ -165,7 +165,7 @@ func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	payload := &bytes.Buffer{}
@@ -192,7 +192,7 @@ func TestPackageControllerDeleteInvalidUrlErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "DELETE", "/packages/file.js", nil,
@@ -206,7 +206,7 @@ func TestPackageControllerDelete(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
+	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "DELETE", "/packages/awesome-lib@1.0.0", nil,

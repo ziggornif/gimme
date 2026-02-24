@@ -112,29 +112,27 @@ Browser → [Cache externe : proxy/CDN] → [gimme + cache interne] → [S3]
 
 ### Niveau 1 — Headers HTTP de cache (impact immédiat, zéro dépendance)
 
-- [ ] Émettre `Cache-Control: public, max-age=31536000, immutable` sur les fichiers servis avec une version épinglée (`pkg@1.0.0`)
-- [ ] Émettre `Cache-Control: public, max-age=300` sur les fichiers servis avec une version partielle (`pkg@1.0`) — la résolution peut changer
-- [ ] Émettre `Cache-Control: no-store` sur les réponses `404` — évite de cacher les absences
-- [ ] Documenter dans le README comment configurer Nginx/Varnish/Caddy pour exploiter ces headers
+- [x] Émettre `Cache-Control: public, max-age=31536000, immutable` sur les fichiers servis avec une version épinglée (`pkg@1.0.0`)
+- [x] Émettre `Cache-Control: public, max-age=300` sur les fichiers servis avec une version partielle (`pkg@1.0`) — la résolution peut changer
+- [x] Émettre `Cache-Control: no-store` sur les réponses `404` — évite de cacher les absences
+- [x] Documenter dans le README comment configurer Nginx/Varnish/Caddy pour exploiter ces headers
 
 ### Niveau 2 — Cache interne optionnel (activable via config)
 
-Deux backends au choix : mémoire (single-node, sans dépendance) ou Redis/Valkey (multi-instances, persistant).
+Backend Redis/Valkey (multi-instances, scale-out). L'interface `CacheManager` est conçue pour accueillir facilement un backend mémoire ultérieurement.
 
 ```yaml
 cache:
   enabled: true
-  type: memory      # ou "redis"
+  type: redis       # "redis" supporté ; "memory" prévu
   ttl: 3600         # secondes
-  max_size_mb: 512  # pour le mode memory uniquement
-  redis_url: redis://localhost:6379  # pour le mode redis
+  redis_url: redis://localhost:6379  # requis si type: redis
 ```
 
 - [ ] Définir l'interface `CacheManager` (`Get`, `Set`, `Delete`, `DeleteByPrefix`)
-- [ ] Implémenter le backend mémoire (LRU + TTL, ex: `github.com/hashicorp/golang-lru/v2`)
 - [ ] Implémenter le backend Redis/Valkey (ex: `github.com/redis/go-redis/v9`)
-- [ ] Intégrer le cache dans `content.GetFile` : résolution de version partielle et métadonnées (Content-Type, Size) — **à décider** : cacher aussi le body (économise S3 mais coûte mémoire) ou uniquement les métadonnées (compromis raisonnable)
+- [ ] Intégrer le cache dans `content.GetFile` : résolution de version partielle et métadonnées (Content-Type, Size) uniquement — le body reste streamé depuis S3 (compromis raisonnable)
 - [ ] Invalider le cache au `DELETE /packages/:package` (suppression de toutes les entrées `pkg@version/*`)
 - [ ] Ajouter les tests unitaires (mock `CacheManager`)
 - [ ] Ajouter un exemple Docker Compose avec Redis dans `examples/deployment/docker-compose/`
-- [ ] Documenter la stratégie de cache dans le README (niveaux 1 et 2, arbitrage body vs métadonnées)
+- [ ] Documenter la stratégie de cache dans le README (niveaux 1 et 2)

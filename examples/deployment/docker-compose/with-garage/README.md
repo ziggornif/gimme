@@ -36,6 +36,9 @@ All parameters are passed as environment variables on the `init-garage` service 
 | `GIMME_ADMIN_USER` | `gimmeadmin` | Gimme admin username |
 | `GIMME_ADMIN_PASSWORD` | `gimmeadmin` | Gimme admin password |
 | `GIMME_SECRET` | `change_me_use_a_real_secret` | JWT signing secret |
+| `CACHE_ENABLED` | `true` | Enable Redis cache |
+| `CACHE_REDIS_URL` | `redis://redis:6379` | Redis connection URL |
+| `CACHE_TTL` | `3600` | Cache TTL in seconds |
 
 **For production**, change all secrets before deploying:
 - `admin_token` in `garage.toml` (generate with `openssl rand -base64 32`)
@@ -51,9 +54,9 @@ All parameters are passed as environment variables on the `init-garage` service 
                  └──────────┬──────────────────────────────┘
                             │ writes              │ reads
                             ▼                     ▼
-┌─────────────┐   healthy   ┌──────────────┐   completed   ┌─────────┐
-│   garage    │ ──────────► │ init-garage  │ ────────────► │  gimme  │
-│  :3900/3903 │             │  (alpine)    │               │  :8080  │
+┌─────────────┐   healthy   ┌──────────────┐   completed   ┌─────────┐   healthy
+│   garage    │ ──────────► │ init-garage  │ ────────────► │  gimme  │ ◄────────── redis
+│  :3900/3903 │             │  (alpine)    │               │  :8080  │             :6379
 └─────────────┘             └──────────────┘               └─────────┘
 ```
 

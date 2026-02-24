@@ -44,7 +44,9 @@ func initObjectStorage() storage.ObjectStorageManager {
 		panic(err.Error())
 	}
 	objectStorageManager := storage.NewObjectStorageManager(client)
-	objectStorageManager.CreateBucket(context.Background(), bucketName, location)
+	if err := objectStorageManager.CreateBucket(context.Background(), bucketName, location); err != nil {
+		panic(err.Error())
+	}
 	return objectStorageManager
 }
 
@@ -80,7 +82,7 @@ func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager)
+	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0/file.js", nil)
@@ -93,7 +95,7 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager("secret")
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager)
+	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0", nil)

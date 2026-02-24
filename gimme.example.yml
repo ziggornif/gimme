@@ -11,3 +11,10 @@ s3:
   bucketName: gimme
   location: eu-west-1
   ssl: true
+
+# Optional internal cache (disabled by default)
+# cache:
+#   enabled: true
+#   type: redis        # "redis" supported ; "memory" reserved for future use
+#   ttl: 3600          # seconds
+#   redis_url: redis://localhost:6379

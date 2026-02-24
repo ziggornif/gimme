@@ -14,6 +14,7 @@ import (
 	"github.com/gimme-cdn/gimme/api"
 	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
+	"github.com/gimme-cdn/gimme/internal/cache"
 	"github.com/gimme-cdn/gimme/internal/content"
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/storage"
@@ -28,7 +29,6 @@ type Application struct {
 	authManager    auth.AuthManager
 	contentService content.ContentService
 	storageManager storage.ObjectStorageManager
-	server         *http.Server
 }
 
 // NewApplication create an application instance
@@ -55,7 +55,18 @@ func (app *Application) loadModules() {
 		log.Fatalln(err)
 	}
 	app.storageManager = storage.NewObjectStorageManager(osmClient)
-	app.contentService = content.NewContentService(app.storageManager)
+
+	var cacheManager cache.CacheManager
+	cacheTTL := time.Duration(app.config.Cache.TTL) * time.Second
+	if app.config.Cache.Enabled {
+		var cacheErr error
+		cacheManager, cacheErr = cache.NewRedisCache(app.config.Cache.RedisURL)
+		if cacheErr != nil {
+			log.Fatalln(cacheErr)
+		}
+	}
+
+	app.contentService = content.NewContentService(app.storageManager, cacheManager, cacheTTL)
 
 	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
@@ -98,7 +109,7 @@ func (app *Application) setupServer() {
 		}
 	}()
 
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logrus.Info("Shutting down server...")

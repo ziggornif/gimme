@@ -7,7 +7,9 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/gimme-cdn/gimme/internal/cache"
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/minio/minio-go/v7"
@@ -18,6 +20,8 @@ import (
 
 type ContentService struct {
 	objectStorageManager storage.ObjectStorageManager
+	cacheManager         cache.CacheManager // nil = cache disabled
+	cacheTTL             time.Duration
 }
 
 type File struct {
@@ -28,10 +32,13 @@ type File struct {
 
 var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)
 
-// NewContentService create a new content service instance
-func NewContentService(objectStorageManager storage.ObjectStorageManager) ContentService {
+// NewContentService create a new content service instance.
+// cacheManager may be nil to disable caching.
+func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheManager cache.CacheManager, cacheTTL time.Duration) ContentService {
 	return ContentService{
-		objectStorageManager,
+		objectStorageManager: objectStorageManager,
+		cacheManager:         cacheManager,
+		cacheTTL:             cacheTTL,
 	}
 }
 
@@ -139,14 +146,40 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
 	}
 
+	pinned := IsPinnedVersion(version)
+	cacheKey := fmt.Sprintf("%s@%s%s", pkg, version, fileName)
+
+	// Cache lookup — only for partial versions (pinned paths are already deterministic)
+	if !pinned && svc.cacheManager != nil {
+		if entry, ok := svc.cacheManager.Get(ctx, cacheKey); ok {
+			logrus.Debugf("[ContentService] GetFile - Cache hit for %s", cacheKey)
+			return svc.objectStorageManager.GetObject(ctx, entry.ObjectPath)
+		}
+	}
+
 	var objectPath string
-	if IsPinnedVersion(version) {
-		objectPath = fmt.Sprintf("%s@%s%s", pkg, version, fileName)
+	if pinned {
+		objectPath = cacheKey
 	} else {
 		objectPath = svc.getLatestPackagePath(ctx, pkg, version, fileName)
 	}
 
-	return svc.objectStorageManager.GetObject(ctx, objectPath)
+	obj, err := svc.objectStorageManager.GetObject(ctx, objectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store resolved path in cache for future partial-version requests
+	if !pinned && svc.cacheManager != nil {
+		entry := &cache.CacheEntry{ObjectPath: objectPath}
+		if setErr := svc.cacheManager.Set(ctx, cacheKey, entry, svc.cacheTTL); setErr != nil {
+			logrus.Warnf("[ContentService] GetFile - Could not store cache entry for %s: %v", cacheKey, setErr)
+		} else {
+			logrus.Debugf("[ContentService] GetFile - Cached %s → %s", cacheKey, objectPath)
+		}
+	}
+
+	return obj, nil
 }
 
 // GetFiles get package files
@@ -166,9 +199,20 @@ func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version str
 
 // DeletePackage delete package
 func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, version string) *errors.GimmeError {
-	err := svc.objectStorageManager.RemoveObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
+	prefix := fmt.Sprintf("%s@%s", pkg, version)
+
+	err := svc.objectStorageManager.RemoveObjects(ctx, prefix)
 	if err != nil {
 		return err
 	}
+
+	if svc.cacheManager != nil {
+		if cacheErr := svc.cacheManager.DeleteByPrefix(ctx, prefix); cacheErr != nil {
+			logrus.Warnf("[ContentService] DeletePackage - Could not invalidate cache for prefix %s: %v", prefix, cacheErr)
+		} else {
+			logrus.Debugf("[ContentService] DeletePackage - Invalidated cache entries for prefix %s", prefix)
+		}
+	}
+
 	return nil
 }

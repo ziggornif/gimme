@@ -44,6 +44,15 @@ services:
     entrypoint: ["/bin/sh", "/init-garage.sh"]
     restart: "no"
 
+  redis:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   gimme:
     image: ziggornif/gimme:latest
     ports:
@@ -53,6 +62,8 @@ services:
     depends_on:
       init-garage:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     restart: on-failure
 
   prometheus:

@@ -29,7 +29,6 @@ func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.Gimm
 	slice := strings.Split(pkg, "@")
 	if len(slice) <= 1 {
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("Invalid URL (valid format : GET /gimme/<package>@<version>/<file>)"))
-
 	}
 
 	return &packageSlice{
@@ -49,7 +48,6 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 		"packageName": pkg,
 		"files":       files,
 	})
-	return
 }
 
 func (ctrl *PackageController) createPackage(c *gin.Context) {
@@ -79,7 +77,6 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 	}
 
 	c.Status(http.StatusCreated)
-	return
 }
 
 func cacheControlHeader(version string) string {
@@ -135,7 +132,6 @@ func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
 		return
 	}
 	ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
-	return
 }
 
 func (ctrl *PackageController) deletePackage(c *gin.Context) {
@@ -152,7 +148,6 @@ func (ctrl *PackageController) deletePackage(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
-	return
 }
 
 // NewPackageController - Create controller

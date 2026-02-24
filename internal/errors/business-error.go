@@ -8,10 +8,10 @@ type ErrorKindEnum string
 
 const (
 	Unauthorized   ErrorKindEnum = "Unauthorized"
-	InternalError                = "InternalError"
-	BadRequest                   = "BadRequest"
-	Conflict                     = "Conflict"
-	NotImplemented               = "NotImplemented"
+	InternalError  ErrorKindEnum = "InternalError"
+	BadRequest     ErrorKindEnum = "BadRequest"
+	Conflict       ErrorKindEnum = "Conflict"
+	NotImplemented ErrorKindEnum = "NotImplemented"
 )
 
 var httpCodes = map[ErrorKindEnum]int{

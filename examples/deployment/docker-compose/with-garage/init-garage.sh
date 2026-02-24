@@ -151,6 +151,10 @@ fi
 
 # ── Write gimme.yml ───────────────────────────────────────────────────────────
 
+CACHE_ENABLED="${CACHE_ENABLED:-true}"
+CACHE_REDIS_URL="${CACHE_REDIS_URL:-redis://redis:6379}"
+CACHE_TTL="${CACHE_TTL:-3600}"
+
 log "Writing ${GIMME_CONFIG_PATH}..."
 mkdir -p "$(dirname "$GIMME_CONFIG_PATH")"
 cat > "$GIMME_CONFIG_PATH" <<EOF
@@ -167,6 +171,11 @@ s3:
   location: ${GARAGE_REGION}
   ssl: false
 metrics: true
+cache:
+  enabled: ${CACHE_ENABLED}
+  type: redis
+  ttl: ${CACHE_TTL}
+  redis_url: ${CACHE_REDIS_URL}
 EOF
 
 log "Done."

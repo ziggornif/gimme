@@ -48,6 +48,12 @@ func TestNewConfig(t *testing.T) {
 		S3Location:    "eu-west-1",
 		S3SSL:         true,
 		EnableMetrics: true,
+		Cache: CacheConfig{
+			Enabled:  false,
+			Type:     "redis",
+			TTL:      3600,
+			RedisURL: "redis://localhost:6379",
+		},
 	}, confObj)
 	assert.Nil(t, err)
 }
@@ -127,4 +133,26 @@ func TestNewConfigValidationErrS3Location(t *testing.T) {
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: S3Location is not set", err.Error())
+}
+
+func TestNewConfigValidationErrCacheInvalidType(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "cache-invalid-type.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: cache.type "memory" is not supported (supported: "redis")`, err.Error())
+}
+
+func TestNewConfigValidationErrCacheNoRedisURL(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "cache-no-redis-url.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, "configuration is not valid: cache.redis_url is required when cache is enabled", err.Error())
 }

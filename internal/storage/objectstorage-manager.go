@@ -31,7 +31,7 @@ type RemoveKindErrorEnum string
 
 const (
 	Read   RemoveKindErrorEnum = "Read"
-	Delete                     = "Delete"
+	Delete RemoveKindErrorEnum = "Delete"
 )
 
 type RemoveError struct {
