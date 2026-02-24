@@ -106,3 +106,25 @@ func TestContentService_GetLatestVersionEmpty(t *testing.T) {
 	result := service.getLatestVersion([]minio.ObjectInfo{})
 	assert.Equal(t, "", result)
 }
+
+func TestIsPinnedVersion(t *testing.T) {
+	tests := []struct {
+		version  string
+		expected bool
+	}{
+		{"1.0.0", true},
+		{"1.0.1", true},
+		{"0.0.1", true},
+		{"1.0", false},
+		{"1", false},
+		{"1.0.0-rc.1", false},
+		{"1.0.0+build.1", true},
+		{"notasemver", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			assert.Equal(t, tt.expected, IsPinnedVersion(tt.version))
+		})
+	}
+}

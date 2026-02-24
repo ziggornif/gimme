@@ -86,6 +86,7 @@ func TestPackageControllerGETErr(t *testing.T) {
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0/file.js", nil)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 }
 
 func TestPackageControllerNotFoundURL(t *testing.T) {
@@ -98,4 +99,24 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCacheControlHeader(t *testing.T) {
+	tests := []struct {
+		version  string
+		expected string
+	}{
+		{"1.0.0", "public, max-age=31536000, immutable"},
+		{"1.0.1", "public, max-age=31536000, immutable"},
+		{"1.0", "public, max-age=300"},
+		{"1", "public, max-age=300"},
+		{"1.0.0-rc.1", "public, max-age=300"},
+		{"1.0.0+build.1", "public, max-age=31536000, immutable"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			assert.Equal(t, tt.expected, cacheControlHeader(tt.version))
+		})
+	}
 }

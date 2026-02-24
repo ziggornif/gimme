@@ -84,7 +84,8 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 - [ ] Ajouter les routes `GET /healthz` (liveness) et `GET /readyz` (readiness, vérifie Minio) dans l'application
 - [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment` (dépend de la tâche précédente)
 - [ ] Proposer un exemple d'`Ingress` en complément du `NodePort`
-- [ ] Documenter les options HPA et PodDisruptionBudget dans le README Kubernetes
+- [ ] Proposer un Helm chart de déploiement dans `examples/deployment/helm/` (templates : Deployment, Service, Ingress, ConfigMap, Secret, HPA optionnel via `values.yaml`)
+- [ ] Publier le chart Helm sur GHCR (OCI) via une GitHub Action (`helm package` + `helm push` sur `ghcr.io/<org>/charts/gimme`) — déclenché sur release
 
 ## Priorité 10 — Sécurité & Qualité (indépendant)
 

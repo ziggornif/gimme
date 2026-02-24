@@ -292,9 +292,23 @@ docker run -p 8080:8080 \
   ziggornif/gimme:latest
 ```
 
+### HTTP Cache-Control headers
+
+Gimme automatically emits `Cache-Control` headers on every file response:
+
+| Version type | Example | Header |
+|---|---|---|
+| Pinned (3-part semver) | `pkg@1.0.0` | `public, max-age=31536000, immutable` |
+| Partial | `pkg@1.0` or `pkg@1` | `public, max-age=300` |
+| Not found (404) | any | `no-store` |
+
+Pinned versions are **immutable by design** — a `pkg@1.0.0` URL always resolves to the exact same files, so browsers and proxies can cache them for up to 1 year without revalidation.
+
+Partial versions (e.g. `pkg@1.0`) resolve to the latest matching patch at request time, so they are only cached for 5 minutes.
+
 ### Cache with Nginx
 
-Add a Nginx reverse proxy with caching in front of gimme:
+Add a Nginx reverse proxy with caching in front of gimme. Nginx will respect the `Cache-Control` headers emitted by gimme and cache responses accordingly.
 
 ```yaml
 services:
@@ -318,16 +332,63 @@ http {
   server {
     listen 80;
 
-    location ~* \.(js|css|jpg|jpeg|gif|png|ico|woff2)$ {
+    location /gimme/ {
       proxy_pass         http://gimme:8080;
       proxy_cache        CDN;
-      proxy_cache_valid  200 10m;
+      # respect Cache-Control headers emitted by gimme:
+      # - pinned versions (pkg@1.0.0) → immutable, cached up to 1 year
+      # - partial versions (pkg@1.0)  → cached 5 minutes
+      # - errors / 404               → no-store, never cached
+      proxy_cache_valid  200 1y;
       proxy_buffering    on;
     }
 
     location / {
       proxy_pass http://gimme:8080;
     }
+  }
+}
+```
+
+### Cache with Caddy
+
+Standard Caddy does **not** cache by default — it requires the [`cache-handler`](https://github.com/caddyserver/cache-handler) plugin (available in [Caddy with plugins](https://caddyserver.com/download)).
+
+Once the plugin is compiled in, Caddy respects `Cache-Control` headers automatically:
+
+```caddy
+:80 {
+  route /gimme/* {
+    cache
+    reverse_proxy gimme:8080
+  }
+
+  reverse_proxy gimme:8080
+}
+```
+
+Without the plugin, Caddy acts as a plain reverse proxy and forwards all requests to gimme with no caching.
+
+### Cache with Varnish
+
+```vcl
+vcl 4.1;
+
+backend gimme {
+  .host = "gimme";
+  .port = "8080";
+}
+
+sub vcl_backend_response {
+  # cache based on Cache-Control sent by gimme
+  if (beresp.http.Cache-Control ~ "immutable") {
+    set beresp.ttl = 365d;
+  } else if (beresp.http.Cache-Control ~ "max-age=300") {
+    set beresp.ttl = 5m;
+  } else {
+    # no-store: do not cache
+    set beresp.uncacheable = true;
+    set beresp.ttl = 0s;
   }
 }
 ```

@@ -82,6 +82,13 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 	return
 }
 
+func cacheControlHeader(version string) string {
+	if content.IsPinnedVersion(version) {
+		return "public, max-age=31536000, immutable"
+	}
+	return "public, max-age=300"
+}
+
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
 
@@ -98,6 +105,7 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 
 	object, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file)
 	if err != nil {
+		c.Header("Cache-Control", "no-store")
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
@@ -108,12 +116,15 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		}
 	}(object)
 
-	infos, _ := object.Stat()
-	if infos.Size == 0 {
-		c.Status(http.StatusNotFound)
+	infos, statErr := object.Stat()
+	if statErr != nil {
+		logrus.Errorf("getPackage - Fail to stat object: %v", statErr)
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
 		return
 	}
 
+	c.Header("Cache-Control", cacheControlHeader(pkg.Version))
 	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
 }
 

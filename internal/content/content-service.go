@@ -111,6 +111,27 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	return nil
 }
 
+// IsPinnedVersion returns true if version is an explicit full 3-part semver
+// with no pre-release suffix (e.g. "1.0.0", "1.2.3"), meaning the content is
+// immutable and can be cached indefinitely.
+// Partial versions ("1.0", "1") and pre-release versions ("1.0.0-rc.1") return false.
+func IsPinnedVersion(version string) bool {
+	// Require exactly 3 dot-separated numeric parts in the original string
+	// before any pre-release/build suffix.
+	base := strings.SplitN(version, "-", 2)[0]
+	base = strings.SplitN(base, "+", 2)[0]
+	parts := strings.Split(base, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	// Validate the full version as semver and ensure no pre-release.
+	v := "v" + version
+	if !semver.IsValid(v) {
+		return false
+	}
+	return semver.Prerelease(v) == ""
+}
+
 // GetFile get package file
 func (svc *ContentService) GetFile(ctx context.Context, pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
@@ -119,8 +140,7 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 	}
 
 	var objectPath string
-	slice := strings.Split(version, ".")
-	if len(slice) == 3 {
+	if IsPinnedVersion(version) {
 		objectPath = fmt.Sprintf("%s@%s%s", pkg, version, fileName)
 	} else {
 		objectPath = svc.getLatestPackagePath(ctx, pkg, version, fileName)
