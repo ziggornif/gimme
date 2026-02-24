@@ -129,10 +129,10 @@ cache:
   redis_url: redis://localhost:6379  # requis si type: redis
 ```
 
-- [ ] Définir l'interface `CacheManager` (`Get`, `Set`, `Delete`, `DeleteByPrefix`)
-- [ ] Implémenter le backend Redis/Valkey (ex: `github.com/redis/go-redis/v9`)
-- [ ] Intégrer le cache dans `content.GetFile` : résolution de version partielle et métadonnées (Content-Type, Size) uniquement — le body reste streamé depuis S3 (compromis raisonnable)
-- [ ] Invalider le cache au `DELETE /packages/:package` (suppression de toutes les entrées `pkg@version/*`)
-- [ ] Ajouter les tests unitaires (mock `CacheManager`)
-- [ ] Ajouter un exemple Docker Compose avec Redis dans `examples/deployment/docker-compose/`
+- [x] Définir l'interface `CacheManager` (`Get`, `Set`, `Delete`, `DeleteByPrefix`)
+- [x] Implémenter le backend Redis/Valkey (ex: `github.com/redis/go-redis/v9`)
+- [x] Intégrer le cache dans `content.GetFile` : résolution de version partielle uniquement — le body reste streamé depuis S3 (compromis raisonnable)
+- [x] Invalider le cache au `DELETE /packages/:package` (suppression de toutes les entrées `pkg@version/*`)
+- [x] Ajouter les tests unitaires (mock `CacheManager`)
+- [x] Ajouter Valkey/Redis dans l'exemple Docker Compose `with-garage`
 - [ ] Documenter la stratégie de cache dans le README (niveaux 1 et 2)
