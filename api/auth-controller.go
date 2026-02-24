@@ -1,7 +1,10 @@
 package api
 
 import (
+	"encoding/json"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gimme-cdn/gimme/configs"
@@ -30,7 +33,15 @@ func (req *CreateTokenRequest) validate() *errors.GimmeError {
 func (ctrl *AuthController) createToken(c *gin.Context) {
 	var request CreateTokenRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		msg := "invalid request body"
+		if stderrors.Is(err, io.EOF) {
+			msg = "request body is required"
+		} else if _, ok := err.(*json.UnmarshalTypeError); ok {
+			msg = "request body must be a JSON object"
+		} else if _, ok := err.(*json.SyntaxError); ok {
+			msg = "request body contains invalid JSON"
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
 

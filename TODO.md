@@ -79,7 +79,7 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 9 — Kubernetes (indépendant)
 
-- [ ] Supprimer la clé `version:` dépréciée dans les fichiers Docker Compose
+- [x] Supprimer la clé `version:` dépréciée dans les fichiers Docker Compose
 - [ ] Ajouter `resources` (limits/requests) dans le `Deployment`
 - [ ] Ajouter les routes `GET /healthz` (liveness) et `GET /readyz` (readiness, vérifie Minio) dans l'application
 - [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment` (dépend de la tâche précédente)
@@ -88,8 +88,9 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 
 ## Priorité 10 — Sécurité & Qualité (indépendant)
 
-- [ ] Épingler les versions CDN dans les templates : `redoc@latest` → version fixe, `@picocss/pico@latest` → version fixe
-- [ ] Compléter `.dockerignore` : ajouter `*.md`, `Makefile`, `gimme.yml`, `.air.toml`, `examples/`
+- [x] Épingler les versions CDN dans les templates : `redoc@latest` → version fixe, `@picocss/pico@latest` → version fixe
+- [x] Compléter `.dockerignore` : ajouter `*.md`, `Makefile`, `gimme.yml`, `.air.toml`, `examples/`
+- [x] `auth-controller.go` — `POST /create-token` : retourne `{"error":"EOF"}` si le body est absent et `{"error":"json: cannot unmarshal string into Go value of type api.CreateTokenRequest"}` si le body est une string vide — gérer ces cas avec un `400 Bad Request` explicite plutôt qu'exposer l'erreur interne de décodage
 
 ## Priorité 11 — Documentation (en dernier, une fois tout stabilisé)
 
