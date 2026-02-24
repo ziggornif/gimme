@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "**" ]
 
 jobs:
   test:
@@ -92,9 +92,23 @@ jobs:
       REPO: ${{ secrets.DOCKER_REPO }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Compute Docker tag
+        id: docker-tag
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            # Sanitize branch name: replace '/' and any non-alphanumeric chars with '-'
+            BRANCH=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            echo "tag=${BRANCH}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Docker login
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+
       - name: Build the Docker image
-        run: docker build -t $REPO:latest .
+        run: docker build -t $REPO:${{ steps.docker-tag.outputs.tag }} .
+
       - name: Publish Docker image
-        run: docker push $REPO:latest
+        run: docker push $REPO:${{ steps.docker-tag.outputs.tag }}
