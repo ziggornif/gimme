@@ -10,6 +10,5 @@ schema.png
 test
 dist
 *.md
-Makefile
 gimme.yml
 .air.toml
