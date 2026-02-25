@@ -8,8 +8,10 @@ import (
 
 	"github.com/gimme-cdn/gimme/internal/cache"
 	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/gimme-cdn/gimme/internal/metrics"
 	"github.com/gimme-cdn/gimme/test/mocks"
 	"github.com/minio/minio-go/v7"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -178,6 +180,56 @@ func TestContentService_DeletePackage_NoCacheManager(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	assert.Nil(t, err)
+}
+
+// --- Metrics instrumentation tests ---
+
+func TestContentService_CreatePackage_IncrementsUploadedCounter(t *testing.T) {
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
+	before := testutil.ToFloat64(metrics.PackagesUploadedTotal)
+
+	fileName := "../../test/test.zip"
+	fi, _ := os.Stat(fileName)
+	reader, _ := os.Open(fileName)
+	err := service.CreatePackage(context.Background(), "metric-test", "1.0.0", reader, fi.Size())
+	require.Nil(t, err)
+
+	assert.Equal(t, before+1, testutil.ToFloat64(metrics.PackagesUploadedTotal))
+}
+
+func TestContentService_DeletePackage_IncrementsDeletedCounter(t *testing.T) {
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
+	before := testutil.ToFloat64(metrics.PackagesDeletedTotal)
+
+	err := service.DeletePackage(context.Background(), "metric-test", "1.0.0")
+	require.Nil(t, err)
+
+	assert.Equal(t, before+1, testutil.ToFloat64(metrics.PackagesDeletedTotal))
+}
+
+func TestContentService_GetFile_CacheHit_IncrementsHitCounter(t *testing.T) {
+	cm := mocks.NewMockCacheManager()
+	cm.Seed("hit-pkg@1.1/file.js", &cache.CacheEntry{ObjectPath: "hit-pkg@1.1.1/file.js"})
+	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour)
+
+	before := testutil.ToFloat64(metrics.CacheHitsTotal)
+
+	_, err := service.GetFile(context.Background(), "hit-pkg", "1.1", "/file.js")
+	require.Nil(t, err)
+
+	assert.Equal(t, before+1, testutil.ToFloat64(metrics.CacheHitsTotal))
+}
+
+func TestContentService_GetFile_CacheMiss_IncrementsMissCounter(t *testing.T) {
+	cm := mocks.NewMockCacheManager()
+	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour)
+
+	before := testutil.ToFloat64(metrics.CacheMissesTotal)
+
+	_, err := service.GetFile(context.Background(), "miss-pkg", "1.1", "/file.js")
+	require.Nil(t, err)
+
+	assert.Equal(t, before+1, testutil.ToFloat64(metrics.CacheMissesTotal))
 }
 
 func TestIsPinnedVersion(t *testing.T) {

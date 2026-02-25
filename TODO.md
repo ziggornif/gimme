@@ -139,8 +139,8 @@ cache:
 
 ## Priorité 13 — Métriques métier
 
-- [ ] Ajouter des métriques applicatives Prometheus : nombre de requêtes par route (counter), latence S3 (histogram), cache hits/misses (counter), nombre de packages uploadés/supprimés (counter)
-- [ ] Documenter les métriques exposées dans le README
+- [x] Ajouter des métriques applicatives Prometheus : nombre de requêtes par route (counter), latence S3 (histogram), cache hits/misses (counter), nombre de packages uploadés/supprimés (counter)
+- [x] Documenter les métriques exposées dans le README
 
 ## Priorité 14 — Site de documentation (GitHub Pages)
 

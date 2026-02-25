@@ -374,7 +374,35 @@ cache:
 
 Each gimme instance exposes a `/metrics` endpoint in [OpenMetrics](https://openmetrics.io/) format, compatible with Prometheus.
 
-The endpoint exposes standard Go runtime and process metrics (goroutines, memory, GC, CPU) via the official `prometheus/client_golang` collector. No custom application-level metrics are currently exposed.
+In addition to the standard Go runtime and process metrics (goroutines, memory, GC, CPU), gimme exposes the following **application-level metrics**:
+
+### HTTP traffic
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `gimme_http_requests_total` | Counter | `route`, `method`, `status_code` | Total HTTP requests handled, partitioned by Gin route pattern (e.g. `/gimme/:package/*file`), HTTP method and response status code |
+
+### S3 / object storage latency
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `gimme_s3_operation_duration_seconds` | Histogram | `operation` | Duration of S3 operations in seconds. `operation` values: `AddObject`, `GetObject`, `ListObjects`, `ObjectExists`, `RemoveObjects`, `Ping` |
+
+### Internal cache (optional — requires `cache.enabled: true`)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `gimme_cache_hits_total` | Counter | — | Cache hits on partial-version resolution (e.g. `pkg@1.0` → resolved path served from cache) |
+| `gimme_cache_misses_total` | Counter | — | Cache misses on partial-version resolution |
+
+### Package lifecycle
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `gimme_packages_uploaded_total` | Counter | — | Total packages successfully uploaded via `POST /packages` |
+| `gimme_packages_deleted_total` | Counter | — | Total packages successfully deleted via `DELETE /packages/:package` |
+
+---
 
 A pre-configured Prometheus + Grafana stack is bundled in both Docker Compose examples (`with-garage/` and `with-managed-s3/`). Each stack includes its own `monitoring/` directory with the Prometheus config and Grafana dashboard.
 

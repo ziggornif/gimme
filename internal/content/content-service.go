@@ -11,6 +11,7 @@ import (
 
 	"github.com/gimme-cdn/gimme/internal/cache"
 	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/gimme-cdn/gimme/internal/metrics"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
@@ -115,6 +116,8 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	if err := eg.Wait(); err != nil {
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w", err))
 	}
+
+	metrics.PackagesUploadedTotal.Inc()
 	return nil
 }
 
@@ -153,8 +156,10 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 	if !pinned && svc.cacheManager != nil {
 		if entry, ok := svc.cacheManager.Get(ctx, cacheKey); ok {
 			logrus.Debugf("[ContentService] GetFile - Cache hit for %s", cacheKey)
+			metrics.CacheHitsTotal.Inc()
 			return svc.objectStorageManager.GetObject(ctx, entry.ObjectPath)
 		}
+		metrics.CacheMissesTotal.Inc()
 	}
 
 	var objectPath string
@@ -214,5 +219,6 @@ func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, versio
 		}
 	}
 
+	metrics.PackagesDeletedTotal.Inc()
 	return nil
 }

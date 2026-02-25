@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/gimme-cdn/gimme/internal/cache"
 	"github.com/gimme-cdn/gimme/internal/content"
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/gimme-cdn/gimme/internal/metrics"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -82,10 +84,42 @@ func prometheusHandler() gin.HandlerFunc {
 	}
 }
 
+// metricsMiddleware records HTTP request counts per route, method and status code.
+// The /metrics endpoint itself is excluded to avoid a feedback loop where scraping
+// inflates the counter, which then changes the metrics output on the next scrape.
+func metricsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		route := c.FullPath()
+		if route == "" {
+			route = "unknown"
+		}
+		// Exclude the metrics endpoint from the counter.
+		if route == "/metrics" {
+			return
+		}
+
+		status := c.Writer.Status()
+		// Status 0 can occur when the Recovery middleware catches a panic before
+		// WriteHeader is called. Normalise to 500 to keep the label set finite.
+		if status == 0 {
+			status = http.StatusInternalServerError
+		}
+
+		metrics.HTTPRequestsTotal.WithLabelValues(
+			route,
+			c.Request.Method,
+			strconv.Itoa(status),
+		).Inc()
+	}
+}
+
 // loadHttpServer load http (go gin) server
 func (app *Application) setupServer() {
 	router := gin.Default()
 	router.Use(cors.Default())
+	router.Use(metricsMiddleware())
 	router.Static("/docs", "./docs")
 	router.LoadHTMLGlob("templates/*.tmpl")
 

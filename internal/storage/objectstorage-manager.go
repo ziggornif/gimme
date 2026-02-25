@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/gimme-cdn/gimme/internal/metrics"
 
 	fileutils "github.com/gimme-cdn/gimme/pkg/file-utils"
 
@@ -84,6 +86,11 @@ func (osm *objectStorageManager) AddObject(ctx context.Context, objectName strin
 		return nil
 	}
 
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("AddObject").Observe(time.Since(start).Seconds())
+	}()
+
 	src, err := file.Open()
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] AddObject - Fail to open input file", err)
@@ -112,8 +119,15 @@ func (osm *objectStorageManager) AddObject(ctx context.Context, objectName strin
 	return nil
 }
 
-// GetObject get object from the bucket
+// GetObject get object from the bucket.
+// The histogram measures time-to-first-byte (TTFB): the Minio client returns a lazy
+// *minio.Object and actual data streaming happens when the caller reads from it.
 func (osm *objectStorageManager) GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError) {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("GetObject").Observe(time.Since(start).Seconds())
+	}()
+
 	object, err := osm.client.GetObject(ctx, osm.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] GetObject - Fail to get object from the object storage", err)
@@ -124,6 +138,11 @@ func (osm *objectStorageManager) GetObject(ctx context.Context, objectName strin
 
 // ListObjects list objects in parent
 func (osm *objectStorageManager) ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("ListObjects").Observe(time.Since(start).Seconds())
+	}()
+
 	var objects []minio.ObjectInfo
 	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
 		Prefix:    objectParentName,
@@ -138,6 +157,11 @@ func (osm *objectStorageManager) ListObjects(ctx context.Context, objectParentNa
 
 // ObjectExists return if object exists in bucket or not
 func (osm *objectStorageManager) ObjectExists(ctx context.Context, objectName string) bool {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("ObjectExists").Observe(time.Since(start).Seconds())
+	}()
+
 	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
 		Prefix:    objectName,
 		Recursive: true,
@@ -153,6 +177,11 @@ func (osm *objectStorageManager) ObjectExists(ctx context.Context, objectName st
 
 // Ping checks that the object storage is reachable by verifying the bucket exists
 func (osm *objectStorageManager) Ping(ctx context.Context) *errors.GimmeError {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("Ping").Observe(time.Since(start).Seconds())
+	}()
+
 	exists, err := osm.client.BucketExists(ctx, osm.bucketName)
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] Ping - Fail to reach object storage", err)
@@ -167,6 +196,11 @@ func (osm *objectStorageManager) Ping(ctx context.Context) *errors.GimmeError {
 
 // RemoveObjects remove objects from storage
 func (osm *objectStorageManager) RemoveObjects(ctx context.Context, objectParentName string) *errors.GimmeError {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("RemoveObjects").Observe(time.Since(start).Seconds())
+	}()
+
 	objectsCh := make(chan minio.ObjectInfo)
 
 	var removeErrors []RemoveError
