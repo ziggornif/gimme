@@ -141,3 +141,76 @@ cache:
 
 - [ ] Ajouter des métriques applicatives Prometheus : nombre de requêtes par route (counter), latence S3 (histogram), cache hits/misses (counter), nombre de packages uploadés/supprimés (counter)
 - [ ] Documenter les métriques exposées dans le README
+
+## Priorité 14 — Site de documentation (GitHub Pages)
+
+Site statique déployé sur GitHub Pages, hébergé dans `docs/` à la racine du repo.
+
+**Stack :** HTML/CSS/JS vanilla + libs pragmatiques (Tailwind CDN pour le design, highlight.js pour la coloration syntaxique) — zéro build step.
+
+**Contenu :**
+
+- [ ] Layout global : header, navigation latérale, footer, responsive
+- [ ] Page d'accueil : hero accrocheur, points forts du CDN, aperçu de l'architecture
+- [ ] Section Quickstart : configuration minimale, premier upload, premier `GET /gimme/...`
+- [ ] Section Configuration : tableau complet des options `gimme.yml`, exemples de fichiers
+- [ ] Section Deployment : Docker Compose (Garage, Minio, managed S3), Kubernetes/Helm, Systemd
+- [ ] Section API Reference : tableau de toutes les routes, exemples `curl` pour chaque route
+- [ ] GitHub Actions : workflow `.github/workflows/docs.yml` pour déployer `docs/` sur GitHub Pages
+- [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart
+
+## Priorité 15 — Refonte UI des templates
+
+Coup de frais complet sur les deux templates Go (`templates/`), avec accessibilité RGAA, sémantique HTML correcte et tests E2E.
+
+**État actuel :**
+- `index.tmpl` : page d'accueil = simple wrapper ReDoc (Swagger), minimaliste mais fonctionnel
+- `package.tmpl` : listing des fichiers d'un package — table basique Pico CSS, taille affichée en octets bruts (illisible), aucune hiérarchie visuelle, pas d'icônes de type de fichier, zéro indication de l'URL de chaque asset
+
+**Travaux :**
+
+- [ ] `package.tmpl` : refonte visuelle complète — design soigné, taille de fichier lisible (Ko/Mo), icône par type de fichier (JS, CSS, image…), URL copiable au clic, breadcrumb `package@version`, responsive
+- [ ] `package.tmpl` : accessibilité RGAA — landmarks sémantiques (`<main>`, `<nav>`, `<header>`), attributs `aria-*`, contrastes suffisants, navigation clavier, focus visible
+- [ ] `index.tmpl` : revoir la page d'accueil au-delà du simple ReDoc — ajouter un header avec identité visuelle Gimme, liens vers la doc GitHub Pages (P14), avant de charger la spec Swagger
+- [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`)
+
+## Priorité 16 — Helm chart
+
+Le déploiement Kubernetes "à plat" existe (`examples/deployment/kubernetes/`), mais il n'est pas paramétrable et nécessite des modifications manuelles. L'objectif est un chart Helm clé en main, publié sur GHCR en OCI.
+
+**Structure cible : `examples/deployment/helm/gimme/`**
+
+```
+Chart.yaml
+values.yaml
+templates/
+  _helpers.tpl
+  namespace.yaml
+  deployment.yaml
+  service.yaml
+  ingress.yaml
+  configmap.yaml
+  secret.yaml
+  hpa.yaml            # optionnel, activable via values
+  serviceaccount.yaml
+```
+
+**`values.yaml` — paramètres clés :**
+- image (repository, tag, pullPolicy)
+- replicaCount
+- resources (requests/limits)
+- config (port, secret, admin.user/password, s3.*)
+- cache (enabled, type, ttl, redis_url)
+- metrics (enabled)
+- ingress (enabled, className, host, tls)
+- hpa (enabled, minReplicas, maxReplicas, targetCPU)
+- serviceAccount (create, name)
+- redis (enabled: false par défaut) — **option C** : l'utilisateur fournit son propre `redis_url` OU active `redis.enabled: true` pour déployer un Redis via le sub-chart Bitnami (`Chart.yaml` > `dependencies`). Quand activé, `redis_url` est auto-résolu vers le service K8s interne.
+
+**Tâches :**
+
+- [ ] Créer le chart Helm dans `examples/deployment/helm/gimme/` avec tous les templates listés ci-dessus
+- [ ] Gérer les credentials sensibles dans un `Secret` K8s distinct du `ConfigMap` (secret JWT, admin password, S3 secret)
+- [ ] Valider le chart avec `helm lint` et `helm template`
+- [ ] Ajouter un `README.md` dans le chart avec les instructions d'installation (`helm install`, override via `--set` ou `-f`)
+- [ ] GitHub Actions : publier le chart sur GHCR en OCI (`helm package` + `helm push ghcr.io/<org>/charts/gimme`) déclenché sur release
