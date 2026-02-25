@@ -1,5 +1,5 @@
 FROM golang:1.26-alpine AS builder
-RUN apk add --no-cache make git
+RUN apk add --no-cache make git upx
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
