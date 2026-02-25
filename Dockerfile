@@ -4,7 +4,7 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 make build
+RUN CGO_ENABLED=0 make release
 
 FROM alpine:3.22
 RUN apk add --no-cache wget && adduser -D gimme

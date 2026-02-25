@@ -4,6 +4,10 @@ audit:
 
 .PHONY: build
 build:
+	go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
+
+.PHONY: release
+release:
 	rm -rf dist
 	mkdir dist
 	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --best ./gimme

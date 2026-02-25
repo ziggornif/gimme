@@ -80,12 +80,12 @@ Les tâches de la section suivante ne doivent pas être démarrées tant que les
 ## Priorité 9 — Kubernetes (indépendant)
 
 - [x] Supprimer la clé `version:` dépréciée dans les fichiers Docker Compose
-- [ ] Ajouter `resources` (limits/requests) dans le `Deployment`
-- [ ] Ajouter les routes `GET /healthz` (liveness) et `GET /readyz` (readiness, vérifie Minio) dans l'application
-- [ ] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment` (dépend de la tâche précédente)
-- [ ] Proposer un exemple d'`Ingress` en complément du `NodePort`
-- [ ] Proposer un Helm chart de déploiement dans `examples/deployment/helm/` (templates : Deployment, Service, Ingress, ConfigMap, Secret, HPA optionnel via `values.yaml`)
-- [ ] Publier le chart Helm sur GHCR (OCI) via une GitHub Action (`helm package` + `helm push` sur `ghcr.io/<org>/charts/gimme`) — déclenché sur release
+- [x] Ajouter `resources` (limits/requests) dans le `Deployment`
+- [x] Ajouter les routes `GET /healthz` (liveness) et `GET /readyz` (readiness, vérifie Minio) dans l'application
+- [x] Ajouter `livenessProbe` et `readinessProbe` dans le `Deployment` (dépend de la tâche précédente)
+- [x] Proposer un exemple d'`Ingress` en complément du `NodePort`
+- [x] Proposer un Helm chart de déploiement dans `examples/deployment/helm/` (templates : Deployment, Service, Ingress, ConfigMap, Secret, HPA optionnel via `values.yaml`)
+- [x] Publier le chart Helm sur GHCR (OCI) via une GitHub Action (`helm package` + `helm push` sur `ghcr.io/<org>/charts/gimme`) — déclenché sur release
 
 ## Priorité 10 — Sécurité & Qualité (indépendant)
 
@@ -135,4 +135,9 @@ cache:
 - [x] Invalider le cache au `DELETE /packages/:package` (suppression de toutes les entrées `pkg@version/*`)
 - [x] Ajouter les tests unitaires (mock `CacheManager`)
 - [x] Ajouter Valkey/Redis dans l'exemple Docker Compose `with-garage`
-- [ ] Documenter la stratégie de cache dans le README (niveaux 1 et 2)
+- [x] Documenter la stratégie de cache dans le README (niveaux 1 et 2)
+
+## Priorité 13 — Métriques métier
+
+- [ ] Ajouter des métriques applicatives Prometheus : nombre de requêtes par route (counter), latence S3 (histogram), cache hits/misses (counter), nombre de packages uploadés/supprimés (counter)
+- [ ] Documenter les métriques exposées dans le README

@@ -1,9 +1,7 @@
 # gimme
 
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
-[![Docker](https://img.shields.io/docker/v/ziggornif/gimme?label=Docker&logo=docker)](https://hub.docker.com/r/ziggornif/gimme)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/gimme-cdn/gimme/actions/workflows/build.yml/badge.svg)](https://github.com/gimme-cdn/gimme/actions/workflows/build.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gimme-cdn/gimme)](https://goreportcard.com/report/github.com/gimme-cdn/gimme)
 
 **A self-hosted CDN solution written in Go.**
 
@@ -16,10 +14,19 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 ## Table of Contents
 
 - [Architecture](#architecture)
+  - [Components](#components)
+  - [Upload flow](#upload-flow)
+  - [Serve flow](#serve-flow)
 - [Quick Start](#quick-start)
+  - [With a managed S3 provider](#with-a-managed-s3-provider-aws-r2-scaleway-)
+  - [With Garage (self-hosted S3)](#with-garage-self-hosted-s3)
+  - [From source](#from-source)
 - [Configuration](#configuration)
 - [API Usage](#api-usage)
 - [Deployment Examples](#deployment-examples)
+- [Caching Strategy](#caching-strategy)
+  - [Level 1 — HTTP Cache-Control headers](#level-1--http-cache-control-headers-zero-dependency)
+  - [Level 2 — Internal Redis cache](#level-2--internal-redis-cache-optional)
 - [Monitoring](#monitoring)
 
 ---
@@ -32,11 +39,13 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 graph LR
     Client["Client\n(browser / curl)"]
     Gimme["gimme\n:8080"]
-    S3["Any S3-compatible storage\n(AWS S3, OVH, Cellar, Garage, Minio, …)"]
+    S3["Any S3-compatible storage\n(AWS S3, OVH, Cellar, Garage, …)"]
     Cache["Cache layer\n(Nginx / CDN) — optional"]
+    Redis["Redis / Valkey\n(internal cache) — optional"]
 
     Client -->|"GET /gimme/pkg@1.0/file.js"| Cache
     Cache -->|cache miss| Gimme
+    Gimme -->|"version resolution (partial)"| Redis
     Gimme -->|stream object| S3
     Client -->|"POST /packages (JWT)"| Gimme
     Gimme -->|store objects| S3
@@ -52,7 +61,7 @@ sequenceDiagram
     participant S3 as Object Storage
 
     Dev->>API: POST /packages (Bearer JWT, multipart ZIP)
-    API->>Val: Validate ZIP (Content-Type: application/zip)
+    API->>Val: Validate ZIP (application/zip or application/octet-stream)
     Val-->>API: OK
     API->>S3: PutObject pkg@version/file (parallel goroutines)
     S3-->>API: 200 OK
@@ -68,8 +77,8 @@ sequenceDiagram
     participant S3 as Object Storage
 
     Browser->>API: GET /gimme/awesome-lib@1.0.0/awesome-lib.min.js
-    API->>S3: GetObject awesome-lib@1.0.0/awesome-lib.min.js
     Note over API: Semver partial match: 1.0 → latest 1.0.x
+    API->>S3: GetObject awesome-lib@1.0.3/awesome-lib.min.js
     S3-->>API: stream
     API-->>Browser: 200 OK (Content-Type: application/javascript)
 ```
@@ -92,15 +101,7 @@ s3:
   ssl: true
 ```
 
-Then run:
-
-```bash
-cp gimme.example.yml gimme.yml
-# Edit gimme.yml with your credentials
-make build && ./gimme
-```
-
-> See [with-managed-s3/](examples/deployment/docker-compose/with-managed-s3/) for a ready-to-use Docker Compose example.
+> See [with-managed-s3/](examples/deployment/docker-compose/with-managed-s3/) for a ready-to-use Docker Compose example with monitoring included.
 
 ### With Garage (self-hosted S3)
 
@@ -116,24 +117,17 @@ The `init-garage` service creates the bucket and writes the config automatically
 
 > See [with-garage/README.md](examples/deployment/docker-compose/with-garage/README.md) for configuration details.
 
-### With Minio (local dev)
-
-```bash
-cd examples/deployment/docker-compose/with-local-s3
-docker compose up -d
-```
-
-> You must create an access key / secret from the Minio admin console at <http://localhost:9001> and update `gimme.yml` accordingly.
-
 ### From source
 
+Requires Go 1.26+ and a running S3-compatible backend.
+
 ```bash
-# Requires Go 1.26+ and a running S3-compatible backend
 cp gimme.example.yml gimme.yml
 # Edit gimme.yml with your S3 credentials
-make build
-./gimme
+make build && ./gimme
 ```
+
+> `make build` compiles a native binary for your current OS/architecture. Use `make release` to produce a Linux/amd64 binary with `upx` compression (used by Docker and CI).
 
 ---
 
@@ -154,7 +148,7 @@ s3:
   secret: your-secret-key
   bucketName: gimme
   location: garage          # use region name matching your backend
-  ssl: false                # set true for remote/production backends
+  ssl: false                # default is true; set false for local backends (Garage, dev)
 # metrics: true             # optional — expose /metrics (Prometheus), defaults to true
 ```
 
@@ -171,6 +165,10 @@ s3:
 | `s3.location`     | S3 region / Garage zone                  | required |
 | `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
 | `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
+| `cache.enabled`   | Enable internal Redis cache              | `false`  |
+| `cache.type`      | Cache backend (`redis`)                  | `redis`  |
+| `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
+| `cache.redis_url` | Redis/Valkey connection URL              | `redis://localhost:6379` |
 
 ---
 
@@ -183,11 +181,10 @@ Use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
 ```bash
 curl -s -X POST http://localhost:8080/create-token \
   -u gimmeadmin:gimmeadmin \
-  -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'
 ```
 
-Response:
+Response: `201 Created`
 ```json
 {"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
 ```
@@ -222,10 +219,12 @@ curl http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js
 
 **Semver partial versions are supported** — `awesome-lib@1.0` resolves to the latest `1.0.x` available.
 
+> **CORS:** All routes include CORS headers with permissive defaults (`Access-Control-Allow-Origin: *`). Assets can be loaded directly from a browser without any proxy configuration.
+
 Use it directly in HTML:
 
 ```html
-<link rel="stylesheet" href="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome.min.css">
+<link rel="stylesheet" href="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.css">
 <script src="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js" type="module"></script>
 ```
 
@@ -238,10 +237,7 @@ GET /gimme/<package>@<version>
 Returns an HTML page listing all files in the package.
 
 ```bash
-# macOS
-open http://localhost:8080/gimme/awesome-lib@1.0.0
-# Linux
-xdg-open http://localhost:8080/gimme/awesome-lib@1.0.0
+curl http://localhost:8080/gimme/awesome-lib@1.0.0
 ```
 
 ### 5. Delete a package
@@ -252,8 +248,6 @@ curl -s -X DELETE http://localhost:8080/packages/awesome-lib@1.0.0 \
 ```
 
 Response: `204 No Content`
-
-> **CORS:** All routes include CORS headers with permissive defaults (`Access-Control-Allow-Origin: *`). This means you can load assets from gimme directly in a browser without any proxy configuration.
 
 ### API routes summary
 
@@ -278,9 +272,8 @@ The [`examples/deployment`](examples/deployment) directory contains ready-to-use
 
 | Stack                       | Path                                                         | Description                                              |
 |-----------------------------|--------------------------------------------------------------|----------------------------------------------------------|
-| Docker Compose + managed S3 | [`with-managed-s3/`](examples/deployment/docker-compose/with-managed-s3/) | gimme + any cloud S3 provider (AWS, OVH, Scaleway, Cellar, …) |
+| Docker Compose + managed S3 | [`with-managed-s3/`](examples/deployment/docker-compose/with-managed-s3/) | gimme + any cloud S3 provider (AWS, OVH, Scaleway, Cellar, …) + monitoring |
 | Docker Compose + Garage     | [`with-garage/`](examples/deployment/docker-compose/with-garage/) | Self-provisioning stack with self-hosted Garage + monitoring |
-| Docker Compose + Minio      | [`with-local-s3/`](examples/deployment/docker-compose/with-local-s3/) | Local dev stack with Minio + monitoring              |
 | Kubernetes                  | [`kubernetes/`](examples/deployment/kubernetes/)             | Namespace, Deployment, Service, Ingress                  |
 | systemd                     | [`systemd/`](examples/deployment/systemd/)                   | Linux systemd unit file                                  |
 
@@ -292,105 +285,87 @@ docker run -p 8080:8080 \
   ziggornif/gimme:latest
 ```
 
-### HTTP Cache-Control headers
+> The Docker image reads its config from `/config/gimme.yml`. Mount your local `gimme.yml` to that path as shown above.
 
-Gimme automatically emits `Cache-Control` headers on every file response:
+---
 
-| Version type | Example | Header |
+## Caching Strategy
+
+Gimme implements two independent, composable caching levels:
+
+```
+Browser → [Level 1: external proxy / CDN] → [gimme + Level 2: internal Redis cache] → [S3]
+```
+
+### Level 1 — HTTP Cache-Control headers (zero dependency)
+
+Gimme automatically emits `Cache-Control` headers on every file response, allowing any HTTP cache (browser, CDN, reverse proxy) to cache assets without any extra configuration.
+
+| Version type | Example | `Cache-Control` header |
 |---|---|---|
 | Pinned (3-part semver) | `pkg@1.0.0` | `public, max-age=31536000, immutable` |
 | Partial | `pkg@1.0` or `pkg@1` | `public, max-age=300` |
 | Not found (404) | any | `no-store` |
 
-Pinned versions are **immutable by design** — a `pkg@1.0.0` URL always resolves to the exact same files, so browsers and proxies can cache them for up to 1 year without revalidation.
+**Pinned versions** (`pkg@1.0.0`) are immutable by design — the same URL always resolves to exactly the same files. Browsers and proxies can cache them for up to 1 year with no revalidation.
 
-Partial versions (e.g. `pkg@1.0`) resolve to the latest matching patch at request time, so they are only cached for 5 minutes.
+**Partial versions** (`pkg@1.0`) resolve to the latest matching patch at request time, so they are only cached for 5 minutes.
 
-### Cache with Nginx
+**404 responses** are never cached, to avoid propagating transient misses.
 
-Add a Nginx reverse proxy with caching in front of gimme. Nginx will respect the `Cache-Control` headers emitted by gimme and cache responses accordingly.
+#### Using a reverse proxy or CDN
+
+Any HTTP cache that honours `Cache-Control` headers will work in front of gimme — Nginx, Varnish, Caddy (with the [`cache-handler`](https://github.com/caddyserver/cache-handler) plugin), Cloudflare, Fastly, etc.
+
+Configure your proxy to cache `/gimme/*` responses and pass the `Cache-Control` header through. The headers emitted by gimme are enough to drive the caching policy:
+
+- Pinned versions (`pkg@1.0.0`) — `immutable`, safe to cache for 1 year.
+- Partial versions (`pkg@1.0`) — `max-age=300`, revalidated every 5 minutes.
+- 404 / errors — `no-store`, never cached.
+
+### Level 2 — Internal Redis cache (optional)
+
+Gimme includes an optional internal cache backed by **Redis / Valkey**. When enabled, it caches the result of partial version resolution (`pkg@1.0` → `pkg@1.0.3`) so that S3 `ListObjects` calls are avoided on repeated requests.
+
+> The file body is always streamed directly from S3 — only the resolved S3 object path is cached.
+
+#### How it works
+
+1. A request arrives for `GET /gimme/pkg@1.0/file.js` (partial version).
+2. Gimme looks up the key `pkg@1.0/file.js` in Redis.
+3. **Cache hit** → the resolved path (e.g. `pkg@1.0.3/file.js`) is returned immediately; S3 `ListObjects` is skipped.
+4. **Cache miss** → gimme resolves the latest version via S3, stores the result in Redis with the configured TTL, then streams the file.
+5. When a package is deleted (`DELETE /packages/pkg@1.0.3`), cache entries whose key starts with `pkg@1.0.3` are invalidated. Partial-version entries (e.g. `pkg@1.0/file.js`) are not touched — they will naturally expire via the TTL and resolve to the next available version on the following request.
+
+Pinned versions (`pkg@1.0.0`) are **not** stored in Redis — their path is deterministic and requires no resolution.
+
+#### Configuration
 
 ```yaml
-services:
-  nginx:
-    image: nginx:alpine
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-    ports:
-      - "80:80"
-  gimme:
-    image: ziggornif/gimme:latest
-    volumes:
-      - ./gimme.yml:/config/gimme.yml
+cache:
+  enabled: true
+  type: redis          # only "redis" is supported; "memory" is reserved for future use
+  ttl: 3600            # TTL in seconds (default: 3600)
+  redis_url: redis://localhost:6379
 ```
 
-`nginx.conf`:
-```nginx
-events {}
-http {
-  proxy_cache_path /cache levels=1:2 keys_zone=CDN:10m inactive=24h max_size=1g;
-  server {
-    listen 80;
+| Key               | Description                              | Default                      |
+|-------------------|------------------------------------------|------------------------------|
+| `cache.enabled`   | Enable the internal cache                | `false`                      |
+| `cache.type`      | Cache backend (`redis`)                  | `redis`                      |
+| `cache.ttl`       | Entry TTL in seconds                     | `3600`                       |
+| `cache.redis_url` | Redis/Valkey connection URL              | `redis://localhost:6379`     |
 
-    location /gimme/ {
-      proxy_pass         http://gimme:8080;
-      proxy_cache        CDN;
-      # respect Cache-Control headers emitted by gimme:
-      # - pinned versions (pkg@1.0.0) → immutable, cached up to 1 year
-      # - partial versions (pkg@1.0)  → cached 5 minutes
-      # - errors / 404               → no-store, never cached
-      proxy_cache_valid  200 1y;
-      proxy_buffering    on;
-    }
+#### Docker Compose example
 
-    location / {
-      proxy_pass http://gimme:8080;
-    }
-  }
-}
-```
+A ready-to-use stack with Garage + Valkey is available in [`examples/deployment/docker-compose/with-garage/`](examples/deployment/docker-compose/with-garage/). Add the following to your `gimme.yml` to enable the cache:
 
-### Cache with Caddy
-
-Standard Caddy does **not** cache by default — it requires the [`cache-handler`](https://github.com/caddyserver/cache-handler) plugin (available in [Caddy with plugins](https://caddyserver.com/download)).
-
-Once the plugin is compiled in, Caddy respects `Cache-Control` headers automatically:
-
-```caddy
-:80 {
-  route /gimme/* {
-    cache
-    reverse_proxy gimme:8080
-  }
-
-  reverse_proxy gimme:8080
-}
-```
-
-Without the plugin, Caddy acts as a plain reverse proxy and forwards all requests to gimme with no caching.
-
-### Cache with Varnish
-
-```vcl
-vcl 4.1;
-
-backend gimme {
-  .host = "gimme";
-  .port = "8080";
-}
-
-sub vcl_backend_response {
-  # cache based on Cache-Control sent by gimme
-  if (beresp.http.Cache-Control ~ "immutable") {
-    set beresp.ttl = 365d;
-  } else if (beresp.http.Cache-Control ~ "max-age=300") {
-    set beresp.ttl = 5m;
-  } else {
-    # no-store: do not cache
-    set beresp.uncacheable = true;
-    set beresp.ttl = 0s;
-  }
-}
+```yaml
+cache:
+  enabled: true
+  type: redis
+  ttl: 3600
+  redis_url: redis://valkey:6379
 ```
 
 ---
@@ -399,9 +374,10 @@ sub vcl_backend_response {
 
 Each gimme instance exposes a `/metrics` endpoint in [OpenMetrics](https://openmetrics.io/) format, compatible with Prometheus.
 
-A pre-configured Prometheus + Grafana stack is included in the Docker Compose examples.  
-See [`examples/monitoring/`](examples/monitoring/) for the Prometheus config and Grafana dashboard.
+The endpoint exposes standard Go runtime and process metrics (goroutines, memory, GC, CPU) via the official `prometheus/client_golang` collector. No custom application-level metrics are currently exposed.
 
-Access:
+A pre-configured Prometheus + Grafana stack is bundled in both Docker Compose examples (`with-garage/` and `with-managed-s3/`). Each stack includes its own `monitoring/` directory with the Prometheus config and Grafana dashboard.
+
+Once a stack is running:
 - Prometheus: <http://localhost:9090>
-- Grafana: <http://localhost:3000> (anonymous access enabled in the example)
+- Grafana: <http://localhost:3000> (anonymous access enabled)
