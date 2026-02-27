@@ -172,7 +172,7 @@ Coup de frais complet sur les deux templates Go (`templates/`), avec accessibili
 - [x] `package.tmpl` : refonte visuelle complète — design soigné, taille de fichier lisible (Ko/Mo), icône par type de fichier (JS, CSS, image…), URL copiable au clic, breadcrumb `package@version`, responsive
 - [x] `package.tmpl` : accessibilité RGAA — landmarks sémantiques (`<main>`, `<nav>`, `<header>`), attributs `aria-*`, contrastes suffisants, navigation clavier, focus visible
 - [x] `index.tmpl` : revoir la page d'accueil au-delà du simple ReDoc — ajouter un header avec identité visuelle Gimme, liens vers la doc GitHub Pages (P14), avant de charger la spec Swagger
-- [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`)
+- [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`) — **non prioritaire**
 
 ## Priorité 16 — Helm chart
 
