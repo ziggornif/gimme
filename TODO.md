@@ -157,7 +157,7 @@ Site statique déployé sur GitHub Pages, hébergé dans `docs/` à la racine du
 - [x] Section Deployment : Docker Compose (Garage, Minio, managed S3), Kubernetes/Helm, Systemd
 - [x] Section API Reference : tableau de toutes les routes, exemples `curl` pour chaque route
 - [x] GitHub Actions : workflow `.github/workflows/docs.yml` pour déployer `docs/` sur GitHub Pages
-- [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart
+- [ ] ~~Vidéo embarquée~~ — **déplacé en P18**
 
 ## Priorité 15 — Refonte UI des templates
 
@@ -172,7 +172,7 @@ Coup de frais complet sur les deux templates Go (`templates/`), avec accessibili
 - [x] `package.tmpl` : refonte visuelle complète — design soigné, taille de fichier lisible (Ko/Mo), icône par type de fichier (JS, CSS, image…), URL copiable au clic, breadcrumb `package@version`, responsive
 - [x] `package.tmpl` : accessibilité RGAA — landmarks sémantiques (`<main>`, `<nav>`, `<header>`), attributs `aria-*`, contrastes suffisants, navigation clavier, focus visible
 - [x] `index.tmpl` : revoir la page d'accueil au-delà du simple ReDoc — ajouter un header avec identité visuelle Gimme, liens vers la doc GitHub Pages (P14), avant de charger la spec Swagger
-- [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`) — **non prioritaire**
+- [ ] ~~Tests E2E Playwright~~ — **déplacé en P18**
 
 ## Priorité 16 — Helm chart
 
@@ -209,13 +209,46 @@ templates/
 
 **Tâches :**
 
-- [ ] Créer le chart Helm dans `examples/deployment/helm/gimme/` avec tous les templates listés ci-dessus
-- [ ] Gérer les credentials sensibles dans un `Secret` K8s distinct du `ConfigMap` (secret JWT, admin password, S3 secret)
-- [ ] Valider le chart avec `helm lint` et `helm template`
-- [ ] Ajouter un `README.md` dans le chart avec les instructions d'installation (`helm install`, override via `--set` ou `-f`)
-- [ ] GitHub Actions : publier le chart sur GHCR en OCI (`helm package` + `helm push ghcr.io/<org>/charts/gimme`) déclenché sur release
+- [x] Créer le chart Helm dans `examples/deployment/helm/gimme/` avec tous les templates listés ci-dessus
+- [x] Gérer les credentials sensibles dans un `Secret` K8s distinct du `ConfigMap` (secret JWT, admin password, S3 secret)
+- [x] Valider le chart avec `helm lint` et `helm template`
+- [x] Ajouter un `README.md` dans le chart avec les instructions d'installation (`helm install`, override via `--set` ou `-f`)
+- [x] GitHub Actions : publier le chart sur GHCR en OCI (`helm package` + `helm push ghcr.io/<org>/charts/gimme`) déclenché sur release
 
-## Priorité 17 — Identité visuelle & contenu à clarifier
+## Priorité 17 — Authentification & gestion des tokens
+
+L'objectif est de remplacer le système Basic Auth + JWT artisanal par quelque chose de plus robuste et opérable, tout en conservant la compatibilité avec le mode simple actuel.
+
+### Niveau 1 — Révocation des tokens & UI de gestion des API keys
+
+- [ ] Clarifier et corriger la section JWT sur le site de documentation (comportement de `expirationDate`, durée de validité par défaut)
+- [ ] Stocker les tokens émis en base (Redis ou autre) pour permettre la révocation explicite — aujourd'hui un token valide ne peut pas être invalidé avant expiration
+- [ ] Ajouter un endpoint `DELETE /tokens/:id` (Bearer admin) pour révoquer un token spécifique
+- [ ] Modifier le middleware auth pour vérifier la présence du token dans le store à chaque requête (blacklist ou whitelist selon le choix d'implémentation)
+- [ ] Créer une page d'administration (`/admin`) pour créer, lister et révoquer des API keys via une interface web
+
+### Niveau 2 — Support OIDC / SSO (optionnel, activable via config)
+
+Permettre de sécuriser la page `/admin` et l'émission de tokens via un fournisseur OIDC externe (Keycloak, Dex, Auth0, etc.) en remplacement ou en complément du Basic Auth actuel.
+
+```yaml
+auth:
+  mode: basic        # "basic" (défaut, comportement actuel) | "oidc"
+  oidc:
+    issuer: https://keycloak.example.com/realms/gimme
+    client_id: gimme
+    client_secret: ""
+    redirect_url: https://gimme.example.com/auth/callback
+```
+
+- [ ] Définir l'interface `AuthProvider` (`Authenticate(ctx) (claims, error)`) pour abstraire Basic Auth et OIDC
+- [ ] Implémenter le provider OIDC (authorization code flow, `golang.org/x/oauth2` + `coreos/go-oidc`)
+- [ ] Protéger `/admin` avec le provider configuré
+- [ ] Documenter la configuration OIDC avec un exemple Keycloak
+- [ ] Mettre à jour le Helm chart : ajouter les paramètres `auth.mode`, `auth.oidc.*` dans `values.yaml` et le `ConfigMap`
+
+## Priorité 18 — Finitions visuelles & contenu (non prioritaire)
 
 - [ ] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS
-- [ ] Vérifier et clarifier la section JWT sur le site de documentation (doutes sur l'exactitude du contenu, notamment le comportement de `expirationDate` et la durée de validité par défaut)
+- [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart du site de documentation
+- [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`)
