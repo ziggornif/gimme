@@ -39,3 +39,29 @@ jobs:
         run: docker build -t $REPO:${{ github.ref_name }} .
       - name: Publish Docker image
         run: docker push $REPO:${{ github.ref_name }}
+  release-helm:
+    needs: release-docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.17.1"
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Update chart version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          # Strip leading 'v' if present (e.g. v1.2.3 -> 1.2.3)
+          CHART_VERSION="${VERSION#v}"
+          echo "CHART_VERSION=${CHART_VERSION}" >> "$GITHUB_ENV"
+          sed -i "s/^version:.*/version: ${CHART_VERSION}/" examples/deployment/helm/gimme/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" examples/deployment/helm/gimme/Chart.yaml
+      - name: Package Helm chart
+        run: helm package examples/deployment/helm/gimme/
+      - name: Push Helm chart to GHCR
+        run: helm push "gimme-${CHART_VERSION}.tgz" oci://ghcr.io/${{ github.repository_owner }}/charts

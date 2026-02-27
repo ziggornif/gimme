@@ -17,5 +17,5 @@
 .idea
 .DS_Store
 dist
-gimme
+/gimme
 gimme.yml

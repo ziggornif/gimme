@@ -1,0 +1,109 @@
+# Default values for gimme.
+# Override with: helm install gimme . -f my-values.yaml
+# or: helm install gimme . --set key=value
+
+# Number of replicas
+replicaCount: 1
+
+# Container image
+image:
+  repository: ziggornif/gimme
+  tag: ""  # defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Resource requests and limits
+resources:
+  requests:
+    cpu: "100m"
+    memory: "64Mi"
+  limits:
+    cpu: "500m"
+    memory: "128Mi"
+
+# Gimme application configuration
+config:
+  port: 8080
+  metrics: true
+
+# Sensitive credentials (stored in a Kubernetes Secret)
+# All values are required
+credentials:
+  # JWT signing secret
+  secret: ""
+  # Admin credentials (used for POST /create-token via Basic Auth)
+  admin:
+    user: ""
+    password: ""
+  # S3 / Garage / Minio credentials
+  s3:
+    key: ""
+    secret: ""
+
+# S3 / Garage configuration (non-sensitive, stored in ConfigMap)
+s3:
+  url: ""
+  bucketName: gimme
+  location: us-east-1
+  ssl: true
+
+# Optional Redis/Valkey cache
+cache:
+  enabled: false
+  type: redis
+  ttl: 3600
+  # Required when cache.enabled is true
+  redisUrl: ""
+
+# Kubernetes Service
+service:
+  type: ClusterIP
+  port: 80
+
+# Ingress
+ingress:
+  enabled: false
+  className: nginx
+  host: gimme.example.com
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: false
+    secretName: gimme-tls
+
+# Horizontal Pod Autoscaler
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# Node selector, tolerations and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}

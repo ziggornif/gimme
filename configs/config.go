@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 
@@ -37,6 +38,12 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")       // local path
 	viper.AddConfigPath("/config") // docker path
+	// Enable env var overrides with GIMME_ prefix.
+	// e.g. GIMME_SECRET overrides config key "secret",
+	//      GIMME_ADMIN_USER overrides "admin.user",
+	//      GIMME_S3_KEY overrides "s3.key", etc.
+	viper.SetEnvPrefix("GIMME")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	viper.SetDefault("port", "8080")

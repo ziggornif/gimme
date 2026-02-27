@@ -1,0 +1,16 @@
+apiVersion: v2
+name: gimme
+description: A self-hosted CDN — upload ZIP packages and serve static assets via S3-compatible storage
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - cdn
+  - s3
+  - static-assets
+home: https://github.com/ziggornif/gimme
+sources:
+  - https://github.com/ziggornif/gimme
+maintainers:
+  - name: ziggornif
+    url: https://github.com/ziggornif

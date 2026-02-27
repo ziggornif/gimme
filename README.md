@@ -1,7 +1,7 @@
 # gimme
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/gimme-cdn/gimme)](https://goreportcard.com/report/github.com/gimme-cdn/gimme)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ziggornif/gimme)](https://goreportcard.com/report/github.com/ziggornif/gimme)
 
 **A self-hosted CDN solution written in Go.**
 

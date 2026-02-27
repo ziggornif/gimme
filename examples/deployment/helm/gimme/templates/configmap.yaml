@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gimme.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gimme.labels" . | nindent 4 }}
+data:
+  gimme.yml: |-
+    port: {{ .Values.config.port }}
+    metrics: {{ .Values.config.metrics }}
+    s3:
+      url: {{ required "s3.url is required" .Values.s3.url | quote }}
+      bucketName: {{ .Values.s3.bucketName | quote }}
+      location: {{ .Values.s3.location | quote }}
+      ssl: {{ .Values.s3.ssl }}
+    {{- if .Values.cache.enabled }}
+    cache:
+      enabled: true
+      type: {{ .Values.cache.type | quote }}
+      ttl: {{ .Values.cache.ttl }}
+      redis_url: {{ .Values.cache.redisUrl | quote }}
+    {{- end }}

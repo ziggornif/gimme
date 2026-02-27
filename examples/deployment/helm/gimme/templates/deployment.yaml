@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gimme.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gimme.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "gimme.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "gimme.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "gimme.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ include "gimme.imageTag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.port }}
+              protocol: TCP
+          env:
+            - name: GIMME_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: secret
+            - name: GIMME_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: admin-user
+            - name: GIMME_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: admin-password
+            - name: GIMME_S3_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: s3-key
+            - name: GIMME_S3_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: s3-secret
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config/
+              readOnly: true
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "gimme.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

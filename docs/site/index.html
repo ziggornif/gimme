@@ -34,7 +34,7 @@
         <a href="#configuration">Configuration</a>
         <a href="#api">API</a>
         <a href="#deployment">Deployment</a>
-        <a href="https://github.com/gimme-cdn/gimme" class="btn-github" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub (opens in new tab)">
+        <a href="https://github.com/ziggornif/gimme" class="btn-github" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub (opens in new tab)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
@@ -94,7 +94,7 @@
         </p>
         <div class="hero-actions">
           <a href="#quickstart" class="btn-primary">Get started</a>
-          <a href="https://github.com/gimme-cdn/gimme" class="btn-outline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/ziggornif/gimme" class="btn-outline" target="_blank" rel="noopener noreferrer">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
             View on GitHub
           </a>
@@ -254,7 +254,7 @@ my-lib@2.1.1/my-lib.min.js   ← next patch</code></pre>
 
         <div id="tab-garage" class="tab-content active" role="tabpanel" aria-labelledby="btn-garage" tabindex="0">
           <p><a href="https://garagehq.deuxfleurs.fr/" target="_blank" rel="noopener noreferrer">Garage</a> is a lightweight open-source S3 store. The stack provisions itself — no manual bucket or key setup needed.</p>
-          <pre><code class="language-bash">git clone https://github.com/gimme-cdn/gimme
+          <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
 cd gimme/examples/deployment/docker-compose/with-garage
 docker compose up -d</code></pre>
           <p>Gimme starts at <code>http://localhost:8080</code>. Prometheus and Grafana are included. An optional Valkey cache is pre-configured — just enable it in <code>gimme.yml</code>.</p>
@@ -286,7 +286,7 @@ s3:
 
         <div id="tab-source" class="tab-content" role="tabpanel" aria-labelledby="btn-source" tabindex="0" hidden>
           <p>Requires Go 1.26+ and a running S3-compatible backend.</p>
-          <pre><code class="language-bash">git clone https://github.com/gimme-cdn/gimme
+          <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
 cd gimme
 cp gimme.example.yml gimme.yml
 # Edit gimme.yml with your S3 credentials
@@ -401,7 +401,7 @@ cache:
               <h3>Docker Compose + Garage</h3>
             </div>
             <p>Zero-setup stack with self-hosted Garage storage, Valkey cache and Prometheus/Grafana monitoring bundled in.</p>
-            <a class="deploy-link" href="https://github.com/gimme-cdn/gimme/tree/main/examples/deployment/docker-compose/with-garage" target="_blank" rel="noopener noreferrer">
+            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-garage" target="_blank" rel="noopener noreferrer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
               View on GitHub
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -413,7 +413,7 @@ cache:
               <h3>Docker Compose + managed S3</h3>
             </div>
             <p>Connect to any managed provider (AWS S3, OVH, Scaleway, Cellar, R2). Monitoring included.</p>
-            <a class="deploy-link" href="https://github.com/gimme-cdn/gimme/tree/main/examples/deployment/docker-compose/with-managed-s3" target="_blank" rel="noopener noreferrer">
+            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-managed-s3" target="_blank" rel="noopener noreferrer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
               View on GitHub
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -425,7 +425,19 @@ cache:
               <h3>Kubernetes</h3>
             </div>
             <p>Namespace, Deployment, Service and Ingress manifests. Liveness and readiness probes pre-configured.</p>
-            <a class="deploy-link" href="https://github.com/gimme-cdn/gimme/tree/main/examples/deployment/kubernetes" target="_blank" rel="noopener noreferrer">
+            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/kubernetes" target="_blank" rel="noopener noreferrer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              View on GitHub
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+          </li>
+          <li class="deploy-card">
+            <div class="deploy-card-head">
+              <span class="deploy-icon" aria-hidden="true">⎈</span>
+              <h3>Helm chart</h3>
+            </div>
+            <p>Production-ready Helm chart published on GHCR. Secrets, Ingress, HPA and Redis cache configurable via <code>values.yaml</code>.</p>
+            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/helm/gimme" target="_blank" rel="noopener noreferrer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
               View on GitHub
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -437,13 +449,81 @@ cache:
               <h3>systemd</h3>
             </div>
             <p>Run as a Linux system service with automatic restarts and environment file support.</p>
-            <a class="deploy-link" href="https://github.com/gimme-cdn/gimme/tree/main/examples/deployment/systemd" target="_blank" rel="noopener noreferrer">
+            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/systemd" target="_blank" rel="noopener noreferrer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
               View on GitHub
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </a>
           </li>
         </ul>
+
+        <h3 id="helm-chart">Helm chart</h3>
+        <p>The Helm chart is published on GHCR (OCI) and provides a production-ready deployment with credentials in a dedicated Kubernetes <code>Secret</code>, optional Ingress with TLS, HPA and Redis cache.</p>
+
+        <h4>Install</h4>
+        <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
+  --namespace gimme \
+  --create-namespace \
+  --set credentials.secret=&lt;jwt-secret&gt; \
+  --set credentials.admin.user=&lt;admin-user&gt; \
+  --set credentials.admin.password=&lt;admin-password&gt; \
+  --set credentials.s3.key=&lt;s3-key&gt; \
+  --set credentials.s3.secret=&lt;s3-secret&gt; \
+  --set s3.url=&lt;s3-endpoint-url&gt;</code></pre>
+
+        <p>Or with a <code>values.yaml</code> file:</p>
+        <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
+  --namespace gimme --create-namespace \
+  -f my-values.yaml</code></pre>
+
+        <h4>Minimal <code>values.yaml</code></h4>
+        <pre><code class="language-yaml">credentials:
+  secret: "your-jwt-secret"
+  admin:
+    user: "admin"
+    password: "strongpassword"
+  s3:
+    key: "your-s3-access-key"
+    secret: "your-s3-secret-key"
+
+s3:
+  url: "https://s3.example.com"
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true</code></pre>
+
+        <h4>Enable Ingress with TLS</h4>
+        <pre><code class="language-yaml">ingress:
+  enabled: true
+  className: nginx
+  host: cdn.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: gimme-tls</code></pre>
+
+        <h4>Enable Redis cache</h4>
+        <pre><code class="language-yaml">cache:
+  enabled: true
+  type: redis
+  ttl: 3600
+  redisUrl: redis://my-redis-service:6379</code></pre>
+
+        <h4>Enable HPA (auto-scaling)</h4>
+        <pre><code class="language-yaml">hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70</code></pre>
+
+        <h4>Upgrade / Uninstall</h4>
+        <pre><code class="language-bash"># Upgrade
+helm upgrade gimme oci://ghcr.io/ziggornif/charts/gimme \
+  --namespace gimme -f my-values.yaml
+
+# Uninstall
+helm uninstall gimme --namespace gimme</code></pre>
 
         <h3>Single Docker container</h3>
         <pre><code class="language-bash">docker run -p 8080:8080 \
@@ -661,12 +741,12 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
           </svg>
         </span>
         <span class="footer-brand-name">gimme</span>
-        <span class="footer-copy">Released under the <a href="https://github.com/gimme-cdn/gimme/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></span>
+        <span class="footer-copy">Released under the <a href="https://github.com/ziggornif/gimme/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></span>
       </div>
       <nav class="footer-nav" aria-label="Footer links">
-        <a href="https://github.com/gimme-cdn/gimme" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/gimme-cdn/gimme/issues" target="_blank" rel="noopener noreferrer">Issues</a>
-        <a href="https://github.com/gimme-cdn/gimme/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/ziggornif/gimme" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/ziggornif/gimme/issues" target="_blank" rel="noopener noreferrer">Issues</a>
+        <a href="https://github.com/ziggornif/gimme/releases" target="_blank" rel="noopener noreferrer">Releases</a>
       </nav>
     </div>
   </footer>
