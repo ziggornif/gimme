@@ -150,13 +150,13 @@ Site statique déployé sur GitHub Pages, hébergé dans `docs/` à la racine du
 
 **Contenu :**
 
-- [ ] Layout global : header, navigation latérale, footer, responsive
-- [ ] Page d'accueil : hero accrocheur, points forts du CDN, aperçu de l'architecture
-- [ ] Section Quickstart : configuration minimale, premier upload, premier `GET /gimme/...`
-- [ ] Section Configuration : tableau complet des options `gimme.yml`, exemples de fichiers
-- [ ] Section Deployment : Docker Compose (Garage, Minio, managed S3), Kubernetes/Helm, Systemd
-- [ ] Section API Reference : tableau de toutes les routes, exemples `curl` pour chaque route
-- [ ] GitHub Actions : workflow `.github/workflows/docs.yml` pour déployer `docs/` sur GitHub Pages
+- [x] Layout global : header, navigation latérale, footer, responsive
+- [x] Page d'accueil : hero accrocheur, points forts du CDN, aperçu de l'architecture
+- [x] Section Quickstart : configuration minimale, premier upload, premier `GET /gimme/...`
+- [x] Section Configuration : tableau complet des options `gimme.yml`, exemples de fichiers
+- [x] Section Deployment : Docker Compose (Garage, Minio, managed S3), Kubernetes/Helm, Systemd
+- [x] Section API Reference : tableau de toutes les routes, exemples `curl` pour chaque route
+- [x] GitHub Actions : workflow `.github/workflows/docs.yml` pour déployer `docs/` sur GitHub Pages
 - [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart
 
 ## Priorité 15 — Refonte UI des templates
@@ -214,3 +214,8 @@ templates/
 - [ ] Valider le chart avec `helm lint` et `helm template`
 - [ ] Ajouter un `README.md` dans le chart avec les instructions d'installation (`helm install`, override via `--set` ou `-f`)
 - [ ] GitHub Actions : publier le chart sur GHCR en OCI (`helm package` + `helm push ghcr.io/<org>/charts/gimme`) déclenché sur release
+
+## Priorité 17 — Identité visuelle & contenu à clarifier
+
+- [ ] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS
+- [ ] Vérifier et clarifier la section JWT sur le site de documentation (doutes sur l'exactitude du contenu, notamment le comportement de `expirationDate` et la durée de validité par défaut)
