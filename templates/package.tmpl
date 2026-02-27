@@ -1,33 +1,697 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset='utf-8'>
-    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>{{ .packageName }} content</title>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.1.1/css/pico.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ .packageName }} — Gimme CDN</title>
+  <meta name="description" content="Files served by Gimme CDN for package {{ .packageName }}" />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       GIMME — package.tmpl
+       Design: coherent with docs/site/style.css
+       Palette: #FFFFFF base · #2563EB accent · #0F172A text
+       ============================================================ */
+
+    :root {
+      --bg:            #FFFFFF;
+      --bg-subtle:     #F8FAFC;
+      --bg-muted:      #F1F5F9;
+      --border:        #E2E8F0;
+      --border-strong: #CBD5E1;
+      --text-primary:  #0F172A;
+      --text-secondary:#475569;
+      --text-muted:    #94A3B8;
+      --accent:        #2563EB;
+      --accent-hover:  #1D4ED8;
+      --accent-light:  #EFF6FF;
+      --accent-mid:    #BFDBFE;
+      --green:         #16A34A;
+      --green-light:   #F0FDF4;
+
+      --font-display:  'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body:     'Inter', system-ui, sans-serif;
+      --font-mono:     'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+
+      --header-height: 64px;
+      --radius:        10px;
+      --radius-sm:     6px;
+      --radius-xs:     4px;
+      --shadow-sm:     0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow:        0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      --transition:    180ms ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Skip link ---- */
+    .skip-link {
+      position: absolute;
+      top: -48px;
+      left: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      z-index: 9999;
+      transition: top var(--transition);
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 8px; }
+
+    /* ---- Header ---- */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-height);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 100%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: color var(--transition);
+    }
+    .logo:hover { color: var(--accent); }
+    .logo:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: var(--radius-xs);
+    }
+    .logo-text { letter-spacing: -0.03em; }
+
+    /* ---- Breadcrumb ---- */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-left: auto;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      min-width: 0;
+    }
+
+    .breadcrumb a {
+      color: var(--text-muted);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color var(--transition);
+    }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-xs);
+    }
+
+    .breadcrumb-sep { color: var(--border-strong); flex-shrink: 0; }
+
+    .breadcrumb-current {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      padding: 2px 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    /* ---- Main ---- */
+    main {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* ---- Page header ---- */
+    .page-header { margin-bottom: 2rem; }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .page-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .pkg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 100px;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent-mid);
+    }
+
+    .file-count {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    /* ---- Table wrapper ---- */
+    .table-wrapper {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ---- Table ---- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    thead { background: var(--bg-subtle); }
+
+    th {
+      text-align: left;
+      padding: 0.7rem 1rem;
+      font-weight: 600;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th.col-size { text-align: right; width: 8rem; }
+
+    td {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    tbody tr:first-child td { border-top: none; }
+    tbody tr:hover td { background: var(--bg-subtle); }
+    tbody tr:focus-within td { background: var(--accent-light); }
+
+    /* ---- File cell ---- */
+    .file-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+
+    /* ---- File icon ---- */
+    .file-icon {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .file-icon-js   { background: #FFFBEB; color: #D97706; }
+    .file-icon-css  { background: #EFF6FF; color: #2563EB; }
+    .file-icon-img  { background: #F0FDF4; color: #16A34A; }
+    .file-icon-map  { background: #F5F3FF; color: #7C3AED; }
+    .file-icon-font { background: #FFF7ED; color: #EA580C; }
+    .file-icon-html { background: #FEF3C7; color: #B45309; }
+    .file-icon-def  { background: var(--bg-muted); color: var(--text-muted); }
+
+    /* ---- File link ---- */
+    .file-link {
+      display: block;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 500;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      transition: color var(--transition);
+    }
+    .file-link:hover { color: var(--accent); }
+    .file-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-xs);
+    }
+
+    /* ---- Copy button ---- */
+    .copy-btn {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      background: var(--bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color var(--transition), border-color var(--transition),
+                  background var(--transition), box-shadow var(--transition);
+    }
+    .copy-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .copy-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-mid);
+      background: var(--accent-light);
+    }
+    .copy-btn.copied {
+      color: var(--green);
+      border-color: #BBF7D0;
+      background: var(--green-light);
+    }
+
+    /* ---- Size cell ---- */
+    .col-size-data {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    .empty-state svg { margin-bottom: 1rem; opacity: 0.4; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--text-primary);
+      color: #fff;
+      font-size: 0.84rem;
+      font-weight: 500;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity var(--transition), transform var(--transition);
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ---- Footer ---- */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      background: var(--bg-subtle);
+      margin-top: auto;
+    }
+
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .footer-brand-name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+
+    .footer-copy { font-size: 0.78rem; color: var(--text-muted); }
+
+    .footer-nav { display: flex; gap: 1.25rem; }
+
+    .footer-nav a {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .footer-nav a:hover { color: var(--text-primary); }
+    .footer-nav a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-xs);
+    }
+
+    /* ---- Reduced motion ---- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 640px) {
+      .breadcrumb { display: none; }
+      .page-title { font-size: 1.35rem; }
+      main { padding: 1.75rem 1rem 3rem; }
+      th, td { padding: 0.6rem 0.75rem; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  </style>
 </head>
 <body>
-<main class="container">
-    <h1>{{ .packageName }} content</h1>
-    <div>
-        <table>
-            <thead>
-            <tr>
-                <th scope="col">File</th>
-                <th scope="col">Size (bytes)</th>
-            </tr>
-            </thead>
-            <tbody>
-            {{ range .files }}
-            <tr>
-                <td><a href="/gimme/{{.Name}}">{{.Name}}</a></td>
-                <td>{{.Size}}</td>
-            </tr>
-            {{ end }}
-            </tbody>
-        </table>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="logo" aria-label="Gimme CDN — back to home">
+        <span aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="28" height="28" rx="7" fill="#2563EB"/>
+            <path d="M8 14.5L12.5 19L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="logo-text">gimme</span>
+      </a>
+
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span class="breadcrumb-sep" aria-hidden="true">/</span>
+        <span class="breadcrumb-current" aria-current="page" title="{{ .packageName }}">{{ .packageName }}</span>
+      </nav>
     </div>
-</main>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main-content">
+
+    <div class="page-header">
+      <h1 class="page-title">Package files</h1>
+      <div class="page-meta">
+        <span class="pkg-badge" aria-label="Package: {{ .packageName }}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          </svg>
+          {{ .packageName }}
+        </span>
+        <span class="file-count" id="file-count" aria-live="polite"></span>
+      </div>
+    </div>
+
+    {{ if .files }}
+    <div class="table-wrapper">
+      <table aria-label="Files in package {{ .packageName }}" aria-describedby="file-count">
+        <thead>
+          <tr>
+            <th scope="col">File</th>
+            <th scope="col" class="col-size">Size</th>
+          </tr>
+        </thead>
+        <tbody id="file-tbody">
+          {{ range .files }}
+          <tr data-url="/gimme/{{ .Name }}" data-size="{{ .Size }}">
+            <td>
+              <div class="file-cell">
+                <span class="file-icon" data-filename="{{ .Name }}" aria-hidden="true"></span>
+                <a class="file-link" href="/gimme/{{ .Name }}" title="{{ .Name }}">{{ .Name }}</a>
+                <button
+                  class="copy-btn"
+                  type="button"
+                  aria-label="Copy URL for {{ .Name }}"
+                  data-url="/gimme/{{ .Name }}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+              </div>
+            </td>
+            <td class="col-size-data" data-raw="{{ .Size }}">{{ .Size }}</td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+    {{ else }}
+    <div class="empty-state" role="status">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      </svg>
+      <p>No files found in this package.</p>
+    </div>
+    {{ end }}
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="28" height="28" rx="7" fill="#2563EB"/>
+            <path d="M8 14.5L12.5 19L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="footer-brand-name">gimme</span>
+        <span class="footer-copy">Self-hosted CDN</span>
+      </div>
+      <nav class="footer-nav" aria-label="Footer links">
+        <a href="/docs">API docs</a>
+        <a href="https://github.com/gimme-cdn/gimme" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">URL copied!</div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---- File icon helpers ---- */
+      var ICONS = {
+        js:   { cls: 'file-icon-js',   svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+        mjs:  { cls: 'file-icon-js',   svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+        cjs:  { cls: 'file-icon-js',   svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+        ts:   { cls: 'file-icon-js',   svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+        css:  { cls: 'file-icon-css',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>' },
+        scss: { cls: 'file-icon-css',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>' },
+        less: { cls: 'file-icon-css',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="12" y1="8" x2="12" y2="16"/></svg>' },
+        png:  { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        jpg:  { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        jpeg: { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        gif:  { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        svg:  { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        webp: { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        avif: { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        ico:  { cls: 'file-icon-img',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+        map:  { cls: 'file-icon-map',  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>' },
+        woff: { cls: 'file-icon-font', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>' },
+        woff2:{ cls: 'file-icon-font', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>' },
+        ttf:  { cls: 'file-icon-font', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>' },
+        otf:  { cls: 'file-icon-font', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>' },
+        html: { cls: 'file-icon-html', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+        htm:  { cls: 'file-icon-html', svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+      };
+
+      var DEFAULT_ICON = {
+        cls: 'file-icon-def',
+        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>'
+      };
+
+      function getExt(name) {
+        var parts = name.split('.');
+        if (parts.length < 2) return '';
+        return parts[parts.length - 1].toLowerCase();
+      }
+
+      /* ---- Humanise size ---- */
+      function humanSize(bytes) {
+        if (bytes <= 0) return '0\u00a0B';
+        var units = ['B', 'KB', 'MB', 'GB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(1024));
+        if (i < 0 || i >= units.length) i = 0;
+        var val = bytes / Math.pow(1024, i);
+        return (i === 0 ? val.toFixed(0) : val.toFixed(val < 10 ? 1 : 0)) + '\u00a0' + units[i];
+      }
+
+      /* ---- Render icons and rewrite sizes ---- */
+      document.querySelectorAll('#file-tbody tr').forEach(function (row) {
+        /* icon */
+        var iconEl = row.querySelector('.file-icon');
+        if (iconEl) {
+          var filename = iconEl.dataset.filename || '';
+          var ext = getExt(filename);
+          var info = ICONS[ext] || DEFAULT_ICON;
+          iconEl.className = 'file-icon ' + info.cls;
+          iconEl.innerHTML = info.svg;
+        }
+
+        /* size */
+        var sizeEl = row.querySelector('.col-size-data');
+        if (sizeEl) {
+          var raw = parseInt(sizeEl.dataset.raw, 10);
+          if (!isNaN(raw)) {
+            var pretty = humanSize(raw);
+            sizeEl.textContent = pretty;
+            sizeEl.setAttribute('aria-label', pretty);
+          }
+        }
+      });
+
+      /* ---- File count ---- */
+      var rows = document.querySelectorAll('#file-tbody tr');
+      var countEl = document.getElementById('file-count');
+      if (countEl && rows.length > 0) {
+        countEl.textContent = rows.length + ' file' + (rows.length !== 1 ? 's' : '');
+      }
+
+      /* ---- Toast ---- */
+      var toast = document.getElementById('toast');
+      var toastTimer;
+
+      function showToast(msg, isError) {
+        if (!toast) return;
+        toast.textContent = msg || 'URL copied!';
+        toast.style.background = isError ? '#DC2626' : '';
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.classList.remove('show');
+          toast.style.background = '';
+        }, 2000);
+      }
+
+      /* ---- Copy URL ---- */
+      function copyURL(url, btn) {
+        var absolute = window.location.origin + url;
+        var prevFocus = document.activeElement;
+
+        function onSuccess() {
+          if (btn) {
+            btn.classList.add('copied');
+            setTimeout(function () { btn.classList.remove('copied'); }, 2000);
+          }
+          showToast('URL copied!', false);
+        }
+
+        function onError() {
+          showToast('Copy failed', true);
+          if (prevFocus && prevFocus.focus) prevFocus.focus();
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(absolute).then(onSuccess).catch(function () {
+            fallback(absolute, btn, onSuccess, onError, prevFocus);
+          });
+        } else {
+          fallback(absolute, btn, onSuccess, onError, prevFocus);
+        }
+      }
+
+      function fallback(text, btn, onSuccess, onError, prevFocus) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+        document.body.removeChild(ta);
+        if (prevFocus && prevFocus.focus) prevFocus.focus();
+        if (ok) { onSuccess(); } else { onError(); }
+      }
+
+      /* Attach events */
+      document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          copyURL(btn.dataset.url, btn);
+        });
+      });
+
+    })();
+  </script>
+
 </body>
 </html>
