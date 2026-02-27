@@ -247,8 +247,34 @@ auth:
 - [ ] Documenter la configuration OIDC avec un exemple Keycloak
 - [ ] Mettre à jour le Helm chart : ajouter les paramètres `auth.mode`, `auth.oidc.*` dans `values.yaml` et le `ConfigMap`
 
-## Priorité 18 — Finitions visuelles & contenu (non prioritaire)
+## Priorité 18 — Tokens opaques & base de données relationnelle
+
+Remplacer les JWT utilisés comme API keys par des tokens opaques stockés en base, aligné sur le modèle GitHub/GitLab. Nécessite l'introduction d'une base de données relationnelle (PostgreSQL recommandé).
+
+### Niveau 1 — Modélisation des tokens dans Redis
+
+Redis est déjà présent (cache P12) — pas de nouvelle dépendance. Les tokens sont stockés comme hash sets : `HSET token:<id> hash <sha256> name <name> created_at <ts> expires_at <ts> revoked_at <ts> last_used_at <ts>`
+
+- [ ] Définir la structure de stockage Redis pour les tokens opaques (préfixe `token:`, TTL aligné sur `expires_at`)
+- [ ] S'assurer que Redis est obligatoire quand les tokens opaques sont activés (erreur au démarrage sinon)
+
+### Niveau 2 — Migration des API keys vers tokens opaques
+
+**Breaking change** : les tokens JWT existants ne sont pas migrés et deviennent invalides. Documenter dans le CHANGELOG et les release notes.
+
+- [ ] Générer les tokens opaques côté serveur (`crypto/rand`, format `gim_<base62>`, ~40 chars)
+- [ ] Stocker uniquement le hash (`sha256`) en base — jamais le token en clair
+- [ ] Retourner le token en clair **une seule fois** à la création (comportement GitHub/GitLab)
+- [ ] Mettre à jour le middleware auth : `sha256(token reçu)` → lookup en base → vérification `expires_at` et `revoked_at`
+- [ ] Mettre à jour `DELETE /tokens/:id` pour écrire `revoked_at` en base (au lieu de Redis)
+- [ ] Mettre à jour la page `/admin` pour afficher le token en clair une seule fois à la création
+- [ ] Supprimer la dépendance Redis pour la gestion des tokens (Redis reste pour le cache P12)
+- [ ] Mettre à jour les tests
+- [ ] Documenter le breaking change : indiquer que tous les tokens JWT émis avant cette version sont invalides et doivent être régénérés via `/admin`
+
+## Priorité 19 — Finitions visuelles & contenu (non prioritaire)
 
 - [ ] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS
 - [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart du site de documentation
 - [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`)
+
