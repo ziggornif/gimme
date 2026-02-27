@@ -21,3 +21,12 @@ data:
       ttl: {{ .Values.cache.ttl }}
       redis_url: {{ .Values.cache.redisUrl | quote }}
     {{- end }}
+    {{- if eq .Values.auth.mode "oidc" }}
+    auth:
+      mode: oidc
+      oidc:
+        issuer: {{ required "auth.oidc.issuer is required when auth.mode is oidc" .Values.auth.oidc.issuer | quote }}
+        client_id: {{ required "auth.oidc.clientId is required when auth.mode is oidc" .Values.auth.oidc.clientId | quote }}
+        redirect_url: {{ required "auth.oidc.redirectUrl is required when auth.mode is oidc" .Values.auth.oidc.redirectUrl | quote }}
+        secure_cookies: {{ .Values.auth.oidc.secureCookies }}
+    {{- end }}

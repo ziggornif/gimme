@@ -60,6 +60,44 @@ All parameters are passed as environment variables on the `init-garage` service 
 └─────────────┘             └──────────────┘               └─────────┘
 ```
 
+## OIDC authentication (optional)
+
+This stack includes a commented-out Keycloak service you can enable to protect `/admin` and the token management API with OpenID Connect.
+
+### 1. Uncomment Keycloak in `docker-compose.yml`
+
+Uncomment the `keycloak-db`, `keycloak` services and the `keycloak-db` volume, then also uncomment the `keycloak` dependency under `gimme.depends_on`.
+
+### 2. Set the OIDC environment variables on `init-garage`
+
+```yaml
+# in docker-compose.yml, under init-garage > environment:
+AUTH_MODE: oidc
+AUTH_OIDC_ISSUER: http://keycloak:8180/realms/gimme
+AUTH_OIDC_CLIENT_ID: gimme
+AUTH_OIDC_CLIENT_SECRET: change_me_oidc_secret
+AUTH_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
+```
+
+### 3. Start the stack
+
+```bash
+docker compose up -d
+```
+
+### 4. Configure Keycloak
+
+Once the stack is up, open <http://localhost:8180> and log in with `admin` / `admin_password_change_me`.
+
+1. **Create a realm** named `gimme`
+2. **Create a client** named `gimme`:
+   - Client authentication: **On**
+   - Valid redirect URIs: `http://localhost:8080/auth/callback`
+   - Copy the **client secret** from the *Credentials* tab → set it as `AUTH_OIDC_CLIENT_SECRET` and restart the stack
+3. **Create a user** in the `gimme` realm → set a password → log in at <http://localhost:8080/auth/login>
+
+> **Note:** The `AUTH_OIDC_ISSUER` must be reachable by the Gimme container at runtime. Inside Docker Compose, use the container hostname (`keycloak:8180`). The browser-facing `redirect_url` uses `localhost:8080`.
+
 ## Notes
 
 - The `init-garage` script is idempotent: restarting the stack does not create duplicate keys or buckets.

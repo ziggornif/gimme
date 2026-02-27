@@ -10,7 +10,15 @@ build:
 release:
 	rm -rf dist
 	mkdir dist
-	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --best ./gimme
+	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --fast ./gimme
+	cp -R gimme docs templates ./dist
+
+# release-fast skips UPX compression — useful for quick local Docker builds
+.PHONY: release-fast
+release-fast:
+	rm -rf dist
+	mkdir dist
+	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
 	cp -R gimme docs templates ./dist
 
 .PHONY: test

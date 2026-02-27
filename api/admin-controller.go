@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
 	"github.com/gin-gonic/gin"
 )
@@ -68,17 +67,15 @@ func (ctrl *AdminController) deleteToken(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// NewAdminController registers admin routes under Basic Auth.
-func NewAdminController(router *gin.Engine, authManager *auth.AuthManager, appConfig *configs.Configuration) {
+// NewAdminController registers admin routes protected by the given AuthProvider.
+func NewAdminController(router *gin.Engine, authManager *auth.AuthManager, authProvider auth.AuthProvider) {
 	controller := AdminController{
 		authManager: authManager,
 	}
 
-	basicAuth := gin.BasicAuth(gin.Accounts{
-		appConfig.AdminUser: appConfig.AdminPassword,
-	})
+	loginMW := authProvider.LoginMiddleware()
 
-	router.GET("/admin", basicAuth, controller.getAdmin)
-	router.POST("/tokens", basicAuth, controller.createToken)
-	router.DELETE("/tokens/:id", basicAuth, controller.deleteToken)
+	router.GET("/admin", loginMW, controller.getAdmin)
+	router.POST("/tokens", loginMW, controller.createToken)
+	router.DELETE("/tokens/:id", loginMW, controller.deleteToken)
 }

@@ -70,6 +70,13 @@ spec:
                 secretKeyRef:
                   name: {{ include "gimme.fullname" . }}-credentials
                   key: s3-secret
+            {{- if eq .Values.auth.mode "oidc" }}
+            - name: GIMME_AUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: oidc-client-secret
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

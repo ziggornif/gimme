@@ -241,11 +241,11 @@ auth:
     redirect_url: https://gimme.example.com/auth/callback
 ```
 
-- [ ] Définir l'interface `AuthProvider` (`Authenticate(ctx) (claims, error)`) pour abstraire Basic Auth et OIDC
-- [ ] Implémenter le provider OIDC (authorization code flow, `golang.org/x/oauth2` + `coreos/go-oidc`)
-- [ ] Protéger `/admin` avec le provider configuré
-- [ ] Documenter la configuration OIDC avec un exemple Keycloak
-- [ ] Mettre à jour le Helm chart : ajouter les paramètres `auth.mode`, `auth.oidc.*` dans `values.yaml` et le `ConfigMap`
+- [x] Définir l'interface `AuthProvider` (`Authenticate(ctx) (claims, error)`) pour abstraire Basic Auth et OIDC
+- [x] Implémenter le provider OIDC (authorization code flow, `golang.org/x/oauth2` + `coreos/go-oidc`)
+- [x] Protéger `/admin` avec le provider configuré
+- [x] Documenter la configuration OIDC avec un exemple Keycloak
+- [x] Mettre à jour le Helm chart : ajouter les paramètres `auth.mode`, `auth.oidc.*` dans `values.yaml` et le `ConfigMap`
 
 ## Priorité 18 — Tokens opaques & base de données relationnelle
 

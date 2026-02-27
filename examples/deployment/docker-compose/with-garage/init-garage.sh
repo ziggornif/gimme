@@ -154,6 +154,7 @@ fi
 CACHE_ENABLED="${CACHE_ENABLED:-true}"
 CACHE_REDIS_URL="${CACHE_REDIS_URL:-redis://redis:6379}"
 CACHE_TTL="${CACHE_TTL:-3600}"
+AUTH_MODE="${AUTH_MODE:-basic}"
 
 log "Writing ${GIMME_CONFIG_PATH}..."
 mkdir -p "$(dirname "$GIMME_CONFIG_PATH")"
@@ -177,6 +178,26 @@ cache:
   ttl: ${CACHE_TTL}
   redis_url: ${CACHE_REDIS_URL}
 EOF
+
+# Append OIDC block only when AUTH_MODE=oidc
+if [ "${AUTH_MODE}" = "oidc" ]; then
+  if [ -z "${AUTH_OIDC_ISSUER}" ] || [ -z "${AUTH_OIDC_CLIENT_ID}" ] || [ -z "${AUTH_OIDC_REDIRECT_URL}" ]; then
+    log "ERROR: AUTH_MODE=oidc requires AUTH_OIDC_ISSUER, AUTH_OIDC_CLIENT_ID and AUTH_OIDC_REDIRECT_URL."
+    exit 1
+  fi
+  cat >> "$GIMME_CONFIG_PATH" <<EOF
+auth:
+  mode: oidc
+  oidc:
+    issuer: ${AUTH_OIDC_ISSUER}
+    client_id: ${AUTH_OIDC_CLIENT_ID}
+    client_secret: ${AUTH_OIDC_CLIENT_SECRET:-}
+    redirect_url: ${AUTH_OIDC_REDIRECT_URL}
+EOF
+  log "  auth.mode = oidc (issuer: ${AUTH_OIDC_ISSUER})"
+else
+  log "  auth.mode = basic"
+fi
 
 log "Done."
 log "  s3.key = ${KEY_ID}"

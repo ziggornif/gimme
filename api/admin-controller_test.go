@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/configs"
 	"github.com/gimme-cdn/gimme/internal/auth"
 	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
@@ -19,8 +18,8 @@ func newAdminRouter() (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
 	store := auth.NewMemoryTokenStore()
 	authManager := auth.NewAuthManager("secret", store)
-	cfg := &configs.Configuration{AdminUser: "test", AdminPassword: "test"}
-	NewAdminController(router, authManager, cfg)
+	provider := auth.NewBasicAuthProvider("test", "test")
+	NewAdminController(router, authManager, provider)
 	return router, authManager
 }
 
@@ -28,10 +27,10 @@ func newAdminRouterWithTemplates() (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
 	store := auth.NewMemoryTokenStore()
 	authManager := auth.NewAuthManager("secret", store)
-	cfg := &configs.Configuration{AdminUser: "test", AdminPassword: "test"}
+	provider := auth.NewBasicAuthProvider("test", "test")
 	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
-	NewAdminController(router, authManager, cfg)
+	NewAdminController(router, authManager, provider)
 	return router, authManager
 }
 

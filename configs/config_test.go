@@ -54,6 +54,12 @@ func TestNewConfig(t *testing.T) {
 			TTL:      3600,
 			RedisURL: "redis://localhost:6379",
 		},
+		Auth: AuthConfig{
+			Mode: "basic",
+			OIDC: OIDCConfig{
+				SecureCookies: true,
+			},
+		},
 	}, confObj)
 	assert.Nil(t, err)
 }
@@ -155,4 +161,48 @@ func TestNewConfigValidationErrCacheNoRedisURL(t *testing.T) {
 	_, err := NewConfig()
 
 	assert.Equal(t, "configuration is not valid: cache.redis_url is required when cache is enabled", err.Error())
+}
+
+func TestNewConfigValidationErrAuthInvalidMode(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "auth-invalid-mode.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: auth.mode "saml" is not supported (supported: "basic", "oidc")`, err.Error())
+}
+
+func TestNewConfigValidationErrOIDCNoIssuer(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "oidc-no-issuer.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: auth.oidc.issuer is required when auth.mode is "oidc"`, err.Error())
+}
+
+func TestNewConfigValidationErrOIDCNoClientID(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "oidc-no-client-id.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: auth.oidc.client_id is required when auth.mode is "oidc"`, err.Error())
+}
+
+func TestNewConfigValidationErrOIDCNoRedirectURL(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "oidc-no-redirect-url.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: auth.oidc.redirect_url is required when auth.mode is "oidc"`, err.Error())
 }

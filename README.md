@@ -169,6 +169,43 @@ s3:
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
 | `cache.redis_url` | Redis/Valkey connection URL              | `redis://localhost:6379` |
+| `auth.mode`       | Admin auth mode (`basic` or `oidc`)      | `basic`  |
+| `auth.oidc.issuer`       | OIDC issuer URL                 | required if `oidc` |
+| `auth.oidc.client_id`    | OIDC client ID                  | required if `oidc` |
+| `auth.oidc.client_secret`| OIDC client secret              | optional |
+| `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
+
+### OIDC authentication (optional)
+
+By default, Gimme uses HTTP Basic Auth to protect `/admin` and the token management API.
+You can switch to an external OIDC provider (Keycloak, Dex, Auth0, …) with:
+
+```yaml
+auth:
+  mode: oidc
+  oidc:
+    issuer: https://keycloak.example.com/realms/gimme
+    client_id: gimme
+    client_secret: ""        # leave empty if your client is public
+    redirect_url: https://gimme.example.com/auth/callback
+```
+
+**How it works:**
+- Unauthenticated requests to `/admin`, `POST /tokens`, `DELETE /tokens/:id` are redirected to `GET /auth/login`.
+- `GET /auth/login` starts the OAuth2 authorization code flow (CSRF-protected with a state cookie).
+- `GET /auth/callback` validates the OIDC ID token, then issues a signed session cookie (HS256 JWT, 8 h TTL).
+
+**Keycloak quick setup:**
+
+1. Create a realm named `gimme`
+2. Create a client named `gimme`:
+   - Client authentication: **On**
+   - Valid redirect URIs: `https://gimme.example.com/auth/callback`
+3. Copy the client secret → set it as `auth.oidc.client_secret`
+4. Create users in the realm — they will be able to log in to `/admin`
+
+> The Docker Compose `with-garage` example includes a commented-out Keycloak service.
+> See `examples/deployment/docker-compose/with-garage/README.md` for step-by-step instructions.
 
 ---
 

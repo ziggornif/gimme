@@ -18,6 +18,24 @@ type CacheConfig struct {
 	RedisURL string
 }
 
+// OIDCConfig holds the configuration for the OIDC provider.
+// Only used when AuthConfig.Mode is "oidc".
+type OIDCConfig struct {
+	Issuer        string
+	ClientID      string
+	ClientSecret  string
+	RedirectURL   string
+	SecureCookies bool // set to true when Gimme is served over HTTPS (default: true)
+}
+
+// AuthConfig controls the authentication mode for the admin interface.
+// Mode "basic" (default) uses HTTP Basic Auth with admin credentials.
+// Mode "oidc" delegates authentication to an external OIDC provider.
+type AuthConfig struct {
+	Mode string // "basic" (default) | "oidc"
+	OIDC OIDCConfig
+}
+
 type Configuration struct {
 	AppPort       string
 	AdminUser     string
@@ -31,6 +49,7 @@ type Configuration struct {
 	S3SSL         bool
 	EnableMetrics bool
 	Cache         CacheConfig
+	Auth          AuthConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -54,6 +73,8 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
 	viper.SetDefault("cache.redis_url", "redis://localhost:6379")
+	viper.SetDefault("auth.mode", "basic")
+	viper.SetDefault("auth.oidc.secure_cookies", true)
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -79,6 +100,16 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 		TTL:      viper.GetInt("cache.ttl"),
 		RedisURL: viper.GetString("cache.redis_url"),
 	}
+	config.Auth = AuthConfig{
+		Mode: viper.GetString("auth.mode"),
+		OIDC: OIDCConfig{
+			Issuer:        viper.GetString("auth.oidc.issuer"),
+			ClientID:      viper.GetString("auth.oidc.client_id"),
+			ClientSecret:  viper.GetString("auth.oidc.client_secret"),
+			RedirectURL:   viper.GetString("auth.oidc.redirect_url"),
+			SecureCookies: viper.GetBool("auth.oidc.secure_cookies"),
+		},
+	}
 
 	if err := validateConfig(&config); err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
@@ -89,11 +120,16 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 }
 
 func validateConfig(config *Configuration) error {
-	if config.AdminUser == "" {
-		return fmt.Errorf("AdminUser is not set")
-	}
-	if config.AdminPassword == "" {
-		return fmt.Errorf("AdminPassword is not set")
+	// Admin credentials are only required in "basic" mode.
+	// In "oidc" mode they are ignored (POST /create-token still uses Basic Auth,
+	// but that endpoint is separate from the admin UI protected by OIDC).
+	if config.Auth.Mode != "oidc" {
+		if config.AdminUser == "" {
+			return fmt.Errorf("AdminUser is not set")
+		}
+		if config.AdminPassword == "" {
+			return fmt.Errorf("AdminPassword is not set")
+		}
 	}
 	if config.Secret == "" {
 		return fmt.Errorf("Secret is not set")
@@ -117,6 +153,25 @@ func validateConfig(config *Configuration) error {
 		if config.Cache.RedisURL == "" {
 			return fmt.Errorf("cache.redis_url is required when cache is enabled")
 		}
+	}
+	switch config.Auth.Mode {
+	case "basic":
+		// no additional fields required
+	case "oidc":
+		if config.Auth.OIDC.Issuer == "" {
+			return fmt.Errorf("auth.oidc.issuer is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.ClientID == "" {
+			return fmt.Errorf("auth.oidc.client_id is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.RedirectURL == "" {
+			return fmt.Errorf("auth.oidc.redirect_url is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.ClientSecret == "" {
+			logrus.Warn("auth.oidc.client_secret is empty — token exchange may fail with confidential clients")
+		}
+	default:
+		return fmt.Errorf("auth.mode %q is not supported (supported: \"basic\", \"oidc\")", config.Auth.Mode)
 	}
 	return nil
 }

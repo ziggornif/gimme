@@ -2,6 +2,9 @@ package application
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -29,6 +32,7 @@ import (
 type Application struct {
 	config         *configs.Configuration
 	authManager    *auth.AuthManager
+	authProvider   auth.AuthProvider
 	contentService content.ContentService
 	storageManager storage.ObjectStorageManager
 }
@@ -52,6 +56,31 @@ func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
 	tokenStore := auth.NewMemoryTokenStore()
 	app.authManager = auth.NewAuthManager(app.config.Secret, tokenStore)
+
+	switch app.config.Auth.Mode {
+	case "oidc":
+		oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer oidcCancel()
+		// Derive a domain-separated signing secret for OIDC session cookies so that
+		// API tokens (signed with app.config.Secret) cannot be replayed as session
+		// cookies and vice versa.
+		oidcSigningSecret := deriveSecret(app.config.Secret, "oidc-session")
+		oidcProvider, oidcErr := auth.NewOIDCProvider(
+			oidcCtx,
+			app.config.Auth.OIDC.Issuer,
+			app.config.Auth.OIDC.ClientID,
+			app.config.Auth.OIDC.ClientSecret,
+			app.config.Auth.OIDC.RedirectURL,
+			oidcSigningSecret,
+			app.config.Auth.OIDC.SecureCookies,
+		)
+		if oidcErr != nil {
+			log.Fatalf("failed to initialise OIDC provider: %v", oidcErr)
+		}
+		app.authProvider = oidcProvider
+	default: // "basic"
+		app.authProvider = auth.NewBasicAuthProvider(app.config.AdminUser, app.config.AdminPassword)
+	}
 
 	osmClient, err := storage.NewObjectStorageClient(app.config)
 	if err != nil {
@@ -125,9 +154,11 @@ func (app *Application) setupServer() {
 	router.SetFuncMap(api.TemplateFuncs())
 	router.LoadHTMLGlob("templates/*.tmpl")
 
+	app.authProvider.RegisterRoutes(router)
+
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)
-	api.NewAdminController(router, app.authManager, app.config)
+	api.NewAdminController(router, app.authManager, app.authProvider)
 	api.NewPackageController(router, app.authManager, app.contentService)
 	api.NewHealthController(router, app.storageManager)
 
@@ -141,7 +172,7 @@ func (app *Application) setupServer() {
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logrus.Error(err)
 		}
 	}()
@@ -168,4 +199,14 @@ func (app *Application) Run() {
 	app.loadConfig()
 	app.loadModules()
 	app.setupServer()
+}
+
+// deriveSecret produces a domain-separated key from a master secret and a label
+// using HMAC-SHA256. This ensures that keys used for different purposes (e.g.
+// API token signing vs. OIDC session cookies) are cryptographically independent
+// even when they share the same master secret.
+func deriveSecret(masterSecret, label string) string {
+	mac := hmac.New(sha256.New, []byte(masterSecret))
+	mac.Write([]byte(label))
+	return hex.EncodeToString(mac.Sum(nil))
 }

@@ -64,6 +64,8 @@ credentials:
   s3:
     key: ""
     secret: ""
+  # OIDC client secret — required when auth.mode is "oidc"
+  oidcClientSecret: ""
 
 # S3 / Garage configuration (non-sensitive, stored in ConfigMap)
 s3:
@@ -79,6 +81,19 @@ cache:
   ttl: 3600
   # Required when cache.enabled is true
   redisUrl: ""
+
+# Authentication mode for the admin interface
+# mode: "basic" (default) — HTTP Basic Auth using credentials.admin.user/password
+# mode: "oidc"            — Delegates to an external OIDC provider (Keycloak, Dex, Auth0…)
+auth:
+  mode: basic
+  oidc:
+    # Required when auth.mode is "oidc"
+    issuer: ""           # e.g. https://keycloak.example.com/realms/gimme
+    clientId: ""         # OIDC client ID registered in the provider
+    redirectUrl: ""      # Must match the redirect URI configured in the provider
+    secureCookies: true  # set to false only for local dev (HTTP)
+    # clientSecret is stored in credentials.oidcClientSecret (Secret) — see below
 
 # Kubernetes Service
 service:

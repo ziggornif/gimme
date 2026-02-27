@@ -18,3 +18,13 @@ s3:
 #   type: redis        # "redis" supported ; "memory" reserved for future use
 #   ttl: 3600          # seconds
 #   redis_url: redis://localhost:6379
+
+# Authentication mode for the admin interface (default: basic)
+# auth:
+#   mode: basic        # "basic" (HTTP Basic Auth) | "oidc" (external OIDC provider)
+#   oidc:              # required when mode is "oidc"
+#     issuer: https://keycloak.example.com/realms/gimme
+#     client_id: gimme
+#     client_secret: your-oidc-client-secret
+#     redirect_url: https://gimme.example.com/auth/callback
+#     secure_cookies: true   # set false only for local dev (HTTP)

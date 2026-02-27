@@ -41,6 +41,15 @@ services:
       GIMME_ADMIN_USER: gimmeadmin
       GIMME_ADMIN_PASSWORD: gimmeadmin
       GIMME_SECRET: change_me_use_a_real_secret
+      # OIDC configuration — uncomment and set AUTH_MODE=oidc to enable.
+      # Requires the keycloak and keycloak-db services below to be uncommented first.
+      # Also add "127.0.0.1 keycloak" to your /etc/hosts so the browser reaches
+      # Keycloak on the same hostname used internally by the containers.
+      # AUTH_MODE: oidc
+      # AUTH_OIDC_ISSUER: http://keycloak:8180/realms/gimme
+      # AUTH_OIDC_CLIENT_ID: gimme
+      # AUTH_OIDC_CLIENT_SECRET: change_me_oidc_secret
+      # AUTH_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
     entrypoint: ["/bin/sh", "/init-garage.sh"]
     restart: "no"
 
@@ -53,6 +62,60 @@ services:
       timeout: 3s
       retries: 5
 
+  # Optional: Keycloak OIDC provider
+  # Uncomment the keycloak-db and keycloak services (and the keycloak-db volume at the
+  # bottom of this file) to enable OIDC authentication. Then also:
+  #   1. Set AUTH_MODE=oidc and the AUTH_OIDC_* variables on init-garage above.
+  #   2. Uncomment the keycloak dependency under gimme.depends_on below.
+  #
+  # keycloak-db:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     POSTGRES_DB: keycloak
+  #     POSTGRES_USER: keycloak
+  #     POSTGRES_PASSWORD: keycloak_password_change_me
+  #   volumes:
+  #     - keycloak-db:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U keycloak"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+  #
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:26.2
+  #   command: start-dev --http-port=8180
+  #   environment:
+  #     KC_DB: postgres
+  #     KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+  #     KC_DB_USERNAME: keycloak
+  #     KC_DB_PASSWORD: keycloak_password_change_me
+  #     KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  #     KC_BOOTSTRAP_ADMIN_PASSWORD: admin_password_change_me
+  #     KC_HTTP_ENABLED: "true"
+  #     # KC_HOSTNAME_STRICT=false + no KC_HOSTNAME → Keycloak reflects the incoming
+  #     # Host header as the issuer. Both the browser and Gimme must use the same
+  #     # hostname. Add "127.0.0.1 keycloak" to your /etc/hosts so the browser can
+  #     # reach http://keycloak:8180 — same hostname the containers use internally.
+  #     KC_HOSTNAME_STRICT: "false"
+  #   ports:
+  #     - "8180:8180"
+  #   depends_on:
+  #     keycloak-db:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     # The Keycloak image ships neither curl nor wget. Use bash /dev/tcp to
+  #     # check that the HTTP port is accepting connections.
+  #     test:
+  #       [
+  #         "CMD-SHELL",
+  #         "exec 3<>/dev/tcp/localhost/8180 && echo -e 'GET / HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q 'HTTP/' <(cat <&3) && exec 3>&-",
+  #       ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 30s
+
   gimme:
     image: ziggornif/gimme:latest
     ports:
@@ -64,6 +127,9 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      # Uncomment if AUTH_MODE=oidc is enabled:
+      # keycloak:
+      #   condition: service_healthy
     restart: on-failure
 
   prometheus:
@@ -88,3 +154,4 @@ volumes:
   garage-meta:
   garage-data:
   gimme-config:
+  # keycloak-db: # Uncomment if Keycloak is enabled

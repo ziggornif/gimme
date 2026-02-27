@@ -1,0 +1,18 @@
+# OIDC mode without client_id
+admin:
+  user: test
+  password: test
+port: 8080
+secret: secret
+s3:
+  url: test.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
+auth:
+  mode: oidc
+  oidc:
+    issuer: https://keycloak.example.com/realms/gimme
+    redirect_url: https://gimme.example.com/auth/callback
