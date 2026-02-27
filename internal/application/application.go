@@ -28,7 +28,7 @@ import (
 
 type Application struct {
 	config         *configs.Configuration
-	authManager    auth.AuthManager
+	authManager    *auth.AuthManager
 	contentService content.ContentService
 	storageManager storage.ObjectStorageManager
 }
@@ -50,7 +50,8 @@ func (app *Application) loadConfig() {
 // loadModules load app modules
 func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
-	app.authManager = auth.NewAuthManager(app.config.Secret)
+	tokenStore := auth.NewMemoryTokenStore()
+	app.authManager = auth.NewAuthManager(app.config.Secret, tokenStore)
 
 	osmClient, err := storage.NewObjectStorageClient(app.config)
 	if err != nil {
@@ -121,10 +122,12 @@ func (app *Application) setupServer() {
 	router.Use(cors.Default())
 	router.Use(metricsMiddleware())
 	router.Static("/docs", "./docs")
+	router.SetFuncMap(api.TemplateFuncs())
 	router.LoadHTMLGlob("templates/*.tmpl")
 
 	api.NewRootController(router)
 	api.NewAuthController(router, app.authManager, app.config)
+	api.NewAdminController(router, app.authManager, app.config)
 	api.NewPackageController(router, app.authManager, app.contentService)
 	api.NewHealthController(router, app.storageManager)
 

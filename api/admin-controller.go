@@ -1,0 +1,84 @@
+package api
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gimme-cdn/gimme/configs"
+	"github.com/gimme-cdn/gimme/internal/auth"
+	"github.com/gin-gonic/gin"
+)
+
+// AdminController handles the admin UI and token management API.
+type AdminController struct {
+	authManager *auth.AuthManager
+}
+
+// tokenResponse is the JSON shape returned when a token is created.
+type tokenResponse struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"createdAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+func (ctrl *AdminController) getAdmin(c *gin.Context) {
+	tokens := ctrl.authManager.ListTokens()
+	c.HTML(http.StatusOK, "admin.tmpl", gin.H{
+		"tokens": tokens,
+	})
+}
+
+func (ctrl *AdminController) createToken(c *gin.Context) {
+	var request CreateTokenRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if validErr := request.validate(); validErr != nil {
+		c.JSON(validErr.GetHTTPCode(), gin.H{"error": validErr.Error()})
+		return
+	}
+
+	entry, createErr := ctrl.authManager.CreateToken(request.Name, request.ExpirationDate)
+	if createErr != nil {
+		c.JSON(createErr.GetHTTPCode(), gin.H{"error": createErr.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, tokenResponse{
+		ID:        entry.ID,
+		Name:      entry.Name,
+		Token:     entry.Token,
+		CreatedAt: entry.CreatedAt,
+		ExpiresAt: entry.ExpiresAt,
+	})
+}
+
+func (ctrl *AdminController) deleteToken(c *gin.Context) {
+	id := c.Param("id")
+
+	if deleted := ctrl.authManager.RevokeToken(id); !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// NewAdminController registers admin routes under Basic Auth.
+func NewAdminController(router *gin.Engine, authManager *auth.AuthManager, appConfig *configs.Configuration) {
+	controller := AdminController{
+		authManager: authManager,
+	}
+
+	basicAuth := gin.BasicAuth(gin.Accounts{
+		appConfig.AdminUser: appConfig.AdminPassword,
+	})
+
+	router.GET("/admin", basicAuth, controller.getAdmin)
+	router.POST("/tokens", basicAuth, controller.createToken)
+	router.DELETE("/tokens/:id", basicAuth, controller.deleteToken)
+}

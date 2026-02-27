@@ -17,7 +17,7 @@ import (
 var jwtRegex = `^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$`
 
 func TestCreateTokenError(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 
 	_, err := authManager.CreateToken("test", "2022-02-17")
 
@@ -25,7 +25,7 @@ func TestCreateTokenError(t *testing.T) {
 }
 
 func TestCreateTokenInvalidFormat(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 
 	_, err := authManager.CreateToken("test", "17/02/2022")
 
@@ -33,25 +33,25 @@ func TestCreateTokenInvalidFormat(t *testing.T) {
 }
 
 func TestCreateTokenDefault(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 
-	token, err := authManager.CreateToken("test", "")
+	entry, err := authManager.CreateToken("test", "")
 
-	assert.Regexp(t, regexp.MustCompile(jwtRegex), token)
+	assert.Regexp(t, regexp.MustCompile(jwtRegex), entry.Token)
 	assert.Nil(t, err)
 }
 
 func TestCreateTokenCustomExp(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 	dt := time.Now().Add(time.Hour * 24)
-	token, err := authManager.CreateToken("test", dt.Format("2006-01-02"))
+	entry, err := authManager.CreateToken("test", dt.Format("2006-01-02"))
 
-	assert.Regexp(t, regexp.MustCompile(jwtRegex), token)
+	assert.Regexp(t, regexp.MustCompile(jwtRegex), entry.Token)
 	assert.Nil(t, err)
 }
 
 func TestAuthManager_AuthenticateMiddlewareErr(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -62,7 +62,7 @@ func TestAuthManager_AuthenticateMiddlewareErr(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareInvalid(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -73,7 +73,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareInvalid2(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -84,7 +84,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid2(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareExpired(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -95,19 +95,19 @@ func TestAuthManager_AuthenticateMiddlewareExpired(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareOK(t *testing.T) {
-	authManager := NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
+	entry, _ := authManager.CreateToken("test", "")
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
 
-	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", entry.Token)})
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestAuthManager_AuthenticateMiddlewareNoExp(t *testing.T) {
-	authManager := NewAuthManager("secret")
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
 
 	// Build a valid token signed with the right secret but without an exp claim
 	claims := jwt.MapClaims{"jti": "test"}
@@ -121,4 +121,53 @@ func TestAuthManager_AuthenticateMiddlewareNoExp(t *testing.T) {
 	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", signed)})
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuthManager_AuthenticateMiddlewareRevokedToken(t *testing.T) {
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
+	entry, _ := authManager.CreateToken("test", "")
+
+	// Revoke the token before using it
+	revoked := authManager.RevokeToken(entry.ID)
+	assert.True(t, revoked)
+
+	router := gin.New()
+	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
+	})
+
+	w := utils.PerformRequest(router, "GET", "/", nil, utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", entry.Token)})
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestAuthManager_RevokeToken_NotFound(t *testing.T) {
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
+
+	revoked := authManager.RevokeToken("nonexistent-id")
+	assert.False(t, revoked)
+}
+
+func TestAuthManager_ListTokens(t *testing.T) {
+	authManager := NewAuthManager("secret", NewMemoryTokenStore())
+	_, _ = authManager.CreateToken("token-a", "")
+	_, _ = authManager.CreateToken("token-b", "")
+
+	tokens := authManager.ListTokens()
+	assert.Equal(t, 2, len(tokens))
+}
+
+func TestAuthManager_CreateToken_StoredEntry(t *testing.T) {
+	store := NewMemoryTokenStore()
+	authManager := NewAuthManager("secret", store)
+
+	entry, err := authManager.CreateToken("mykey", "")
+	assert.Nil(t, err)
+	assert.NotEmpty(t, entry.ID)
+	assert.Equal(t, "mykey", entry.Name)
+	assert.NotEmpty(t, entry.Token)
+
+	// Verify it's retrievable from the store
+	stored, ok := store.GetByToken(entry.Token)
+	assert.True(t, ok)
+	assert.Equal(t, entry.ID, stored.ID)
 }

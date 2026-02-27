@@ -15,7 +15,7 @@ import (
 )
 
 type AuthController struct {
-	authManager auth.AuthManager
+	authManager *auth.AuthManager
 }
 
 type CreateTokenRequest struct {
@@ -23,9 +23,14 @@ type CreateTokenRequest struct {
 	ExpirationDate string `json:"expirationDate"`
 }
 
+const maxTokenNameLength = 255
+
 func (req *CreateTokenRequest) validate() *errors.GimmeError {
 	if len(req.Name) == 0 {
 		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("access token name is required"))
+	}
+	if len(req.Name) > maxTokenNameLength {
+		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("access token name must not exceed %d characters", maxTokenNameLength))
 	}
 	return nil
 }
@@ -50,17 +55,17 @@ func (ctrl *AuthController) createToken(c *gin.Context) {
 		return
 	}
 
-	token, createErr := ctrl.authManager.CreateToken(request.Name, request.ExpirationDate)
+	entry, createErr := ctrl.authManager.CreateToken(request.Name, request.ExpirationDate)
 	if createErr != nil {
 		c.JSON(createErr.GetHTTPCode(), gin.H{"error": createErr.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"token": token})
+	c.JSON(http.StatusCreated, gin.H{"token": entry.Token})
 }
 
 // NewAuthController - Create controller
-func NewAuthController(router *gin.Engine, authManager auth.AuthManager, appConfig *configs.Configuration) {
+func NewAuthController(router *gin.Engine, authManager *auth.AuthManager, appConfig *configs.Configuration) {
 	controller := AuthController{
 		authManager,
 	}

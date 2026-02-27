@@ -17,10 +17,9 @@ import (
 
 func newAuthRouter() *gin.Engine {
 	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	NewAuthController(router, authManager, &configs.Configuration{
-		AdminUser: "test", AdminPassword: "test",
-	})
+	authManager := auth.NewAuthManager("secret", auth.NewMemoryTokenStore())
+	cfg := &configs.Configuration{AdminUser: "test", AdminPassword: "test"}
+	NewAuthController(router, authManager, cfg)
 	return router
 }
 

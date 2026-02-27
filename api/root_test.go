@@ -11,6 +11,7 @@ import (
 
 func TestNewRootController(t *testing.T) {
 	router := gin.New()
+	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
 	NewRootController(router)
 

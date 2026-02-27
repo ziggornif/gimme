@@ -16,7 +16,7 @@ import (
 )
 
 type PackageController struct {
-	authManager    auth.AuthManager
+	authManager    *auth.AuthManager
 	contentService content.ContentService
 }
 
@@ -151,7 +151,7 @@ func (ctrl *PackageController) deletePackage(c *gin.Context) {
 }
 
 // NewPackageController - Create controller
-func NewPackageController(router *gin.Engine, authManager auth.AuthManager, contentService content.ContentService) {
+func NewPackageController(router *gin.Engine, authManager *auth.AuthManager, contentService content.ContentService) {
 	controller := PackageController{
 		authManager,
 		contentService,
