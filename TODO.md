@@ -222,10 +222,10 @@ L'objectif est de remplacer le système Basic Auth + JWT artisanal par quelque c
 ### Niveau 1 — Révocation des tokens & UI de gestion des API keys
 
 - [ ] Clarifier et corriger la section JWT sur le site de documentation (comportement de `expirationDate`, durée de validité par défaut)
-- [ ] Stocker les tokens émis en base (Redis ou autre) pour permettre la révocation explicite — aujourd'hui un token valide ne peut pas être invalidé avant expiration
-- [ ] Ajouter un endpoint `DELETE /tokens/:id` (Bearer admin) pour révoquer un token spécifique
-- [ ] Modifier le middleware auth pour vérifier la présence du token dans le store à chaque requête (blacklist ou whitelist selon le choix d'implémentation)
-- [ ] Créer une page d'administration (`/admin`) pour créer, lister et révoquer des API keys via une interface web
+- [x] Stocker les tokens émis en base (Redis ou autre) pour permettre la révocation explicite — aujourd'hui un token valide ne peut pas être invalidé avant expiration
+- [x] Ajouter un endpoint `DELETE /tokens/:id` (Bearer admin) pour révoquer un token spécifique
+- [x] Modifier le middleware auth pour vérifier la présence du token dans le store à chaque requête (blacklist ou whitelist selon le choix d'implémentation)
+- [x] Créer une page d'administration (`/admin`) pour créer, lister et révoquer des API keys via une interface web
 
 ### Niveau 2 — Support OIDC / SSO (optionnel, activable via config)
 
