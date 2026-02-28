@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
@@ -203,7 +204,10 @@ func (osm *objectStorageManager) RemoveObjects(ctx context.Context, objectParent
 
 	objectsCh := make(chan minio.ObjectInfo)
 
-	var removeErrors []RemoveError
+	var (
+		removeErrors []RemoveError
+		mu           sync.Mutex
+	)
 
 	// Send object names that are needed to be removed to objectsCh
 	go func() {
@@ -215,11 +219,13 @@ func (osm *objectStorageManager) RemoveObjects(ctx context.Context, objectParent
 		}) {
 			if object.Err != nil {
 				logrus.Errorf("[ObjectStorageManager] RemoveObjects - Fail to read objects from the object storage: %s", object.Err.Error())
+				mu.Lock()
 				removeErrors = append(removeErrors, RemoveError{
 					Kind:       Read,
 					ObjectName: object.Key,
 					Details:    object.Err.Error(),
 				})
+				mu.Unlock()
 			} else {
 				objectsCh <- object
 			}
@@ -236,11 +242,13 @@ func (osm *objectStorageManager) RemoveObjects(ctx context.Context, objectParent
 			details = rErr.Err.Error()
 		}
 		logrus.Errorf("[ObjectStorageManager] RemoveObjects - Error detected during deletion: %s %s", rErr.ObjectName, details)
+		mu.Lock()
 		removeErrors = append(removeErrors, RemoveError{
 			Kind:       Delete,
 			ObjectName: rErr.ObjectName,
 			Details:    details,
 		})
+		mu.Unlock()
 	}
 
 	if len(removeErrors) != 0 {
