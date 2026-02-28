@@ -3,7 +3,7 @@ admin:
   user: test
   password: test
 port: 8080
-secret: secret
+secret: secret-for-testing-purposes-only
 s3:
   url: test.s3.url.cloud
   key: s3key

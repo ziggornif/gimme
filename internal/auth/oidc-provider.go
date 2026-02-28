@@ -20,6 +20,7 @@ import (
 const (
 	sessionCookieName = "gimme_session"
 	stateCookieName   = "gimme_oidc_state"
+	nonceCookieName   = "gimme_oidc_nonce"
 	sessionCookieTTL  = 8 * time.Hour
 )
 
@@ -168,11 +169,19 @@ func (p *OIDCProvider) handleLogin(c *gin.Context) {
 		return
 	}
 
-	// Store state in a short-lived HttpOnly cookie to validate on callback.
+	nonce, err := generateRandomState()
+	if err != nil {
+		logrus.Errorf("[OIDCProvider] handleLogin - failed to generate nonce: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+
+	// Store state and nonce in short-lived HttpOnly cookies to validate on callback.
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(stateCookieName, state, 300, "/", "", p.secureCookies, true)
+	c.SetCookie(nonceCookieName, nonce, 300, "/", "", p.secureCookies, true)
 
-	authURL := p.oauth2Config.AuthCodeURL(state)
+	authURL := p.oauth2Config.AuthCodeURL(state, oauth2.SetAuthURLParam("nonce", nonce))
 	c.Redirect(http.StatusFound, authURL)
 }
 
@@ -182,23 +191,29 @@ func (p *OIDCProvider) handleCallback(c *gin.Context) {
 	stateCookie, err := c.Cookie(stateCookieName)
 	if err != nil || stateCookie != c.Query("state") {
 		logrus.Warnf("[OIDCProvider] handleCallback - state mismatch (cookie: %v, query: %q)", err, c.Query("state"))
-		// Clear the stale state cookie to avoid it persisting until its TTL expires.
+		// Clear the stale cookies to avoid them persisting until their TTL expires.
 		c.SetCookie(stateCookieName, "", -1, "/", "", p.secureCookies, true)
+		c.SetCookie(nonceCookieName, "", -1, "/", "", p.secureCookies, true)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid state"})
 		return
 	}
+
+	// Read nonce cookie before it is cleared (needed for ID token verification below).
+	nonceCookie, nonceErr := c.Cookie(nonceCookieName)
 
 	// Exchange authorization code for OAuth2 tokens.
 	oauth2Token, err := p.oauth2Config.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
 		logrus.Errorf("[OIDCProvider] handleCallback - code exchange failed: %v", err)
-		// Clear stale state cookie only after a definitive failure (not retryable here).
+		// Clear stale cookies only after a definitive failure (not retryable here).
 		c.SetCookie(stateCookieName, "", -1, "/", "", p.secureCookies, true)
+		c.SetCookie(nonceCookieName, "", -1, "/", "", p.secureCookies, true)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "token exchange failed"})
 		return
 	}
-	// Clear state cookie only once the exchange has succeeded.
+	// Clear state and nonce cookies once the exchange has succeeded.
 	c.SetCookie(stateCookieName, "", -1, "/", "", p.secureCookies, true)
+	c.SetCookie(nonceCookieName, "", -1, "/", "", p.secureCookies, true)
 
 	// Extract and verify the OIDC ID token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
@@ -212,6 +227,13 @@ func (p *OIDCProvider) handleCallback(c *gin.Context) {
 	if err != nil {
 		logrus.Errorf("[OIDCProvider] handleCallback - ID token verification failed: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "id_token verification failed"})
+		return
+	}
+
+	// Verify nonce to prevent ID token replay attacks.
+	if nonceErr != nil || nonceCookie == "" || idToken.Nonce != nonceCookie {
+		logrus.Warnf("[OIDCProvider] handleCallback - nonce mismatch (err: %v, token nonce: %q)", nonceErr, idToken.Nonce)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid nonce"})
 		return
 	}
 

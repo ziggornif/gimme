@@ -164,16 +164,25 @@ func TestContentService_DeletePackage_InvalidatesCache(t *testing.T) {
 	cm := mocks.NewMockCacheManager()
 	cm.Seed("test@1.1.1/file.js", &cache.CacheEntry{ObjectPath: "test@1.1.1/file.js"})
 	cm.Seed("test@1.1.1/file.css", &cache.CacheEntry{ObjectPath: "test@1.1.1/file.css"})
+	// Partial version entries that may have resolved to 1.1.1
+	cm.Seed("test@1.1/file.js", &cache.CacheEntry{ObjectPath: "test@1.1.1/file.js"})
+	cm.Seed("test@1/file.js", &cache.CacheEntry{ObjectPath: "test@1.1.1/file.js"})
 
 	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour)
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	require.Nil(t, err)
-	assert.Equal(t, 1, cm.DeleteByPrefixCalls)
-	// Both entries must be gone
+	// 1 exact prefix (test@1.1.1) + 2 partial prefixes (test@1.1, test@1)
+	assert.Equal(t, 3, cm.DeleteByPrefixCalls)
+	// Exact version entries must be gone
 	_, ok1 := cm.Get(context.Background(), "test@1.1.1/file.js")
 	_, ok2 := cm.Get(context.Background(), "test@1.1.1/file.css")
 	assert.False(t, ok1)
 	assert.False(t, ok2)
+	// Partial version entries must also be gone
+	_, ok3 := cm.Get(context.Background(), "test@1.1/file.js")
+	_, ok4 := cm.Get(context.Background(), "test@1/file.js")
+	assert.False(t, ok3)
+	assert.False(t, ok4)
 }
 
 func TestContentService_DeletePackage_NoCacheManager(t *testing.T) {

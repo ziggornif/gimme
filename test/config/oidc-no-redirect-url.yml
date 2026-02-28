@@ -1,6 +1,6 @@
 # OIDC mode without redirect_url (admin credentials not required in oidc mode)
 port: 8080
-secret: secret
+secret: secret-for-testing-purposes-only
 s3:
   url: test.s3.url.cloud
   key: s3key

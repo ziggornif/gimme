@@ -3,7 +3,7 @@ admin:
   user: gimmeadmin
   password: gimmeadmin
 port: 8080
-secret: secret
+secret: "CHANGE-ME-use-a-random-secret-of-at-least-32-chars"
 s3:
   url: your.s3.url.cloud
   key: s3key
@@ -18,6 +18,16 @@ s3:
 #   type: redis        # "redis" supported ; "memory" reserved for future use
 #   ttl: 3600          # seconds
 #   redis_url: redis://localhost:6379
+
+# CORS allowed origins for cross-origin requests.
+# Leave empty (default) to deny all cross-origin requests.
+# For a public CDN use case, list the origins that should be allowed to load assets:
+# cors:
+#   allowed_origins:
+#     - "https://myapp.example.com"
+#     - "https://other.example.com"
+# To allow any origin (not recommended in production):
+#     - "*"
 
 # Authentication mode for the admin interface (default: basic)
 # auth:

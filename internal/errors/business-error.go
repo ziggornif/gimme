@@ -39,5 +39,8 @@ func (e GimmeError) Error() string {
 }
 
 func (e GimmeError) GetHTTPCode() int {
-	return httpCodes[e.Kind]
+	if code, ok := httpCodes[e.Kind]; ok {
+		return code
+	}
+	return http.StatusInternalServerError
 }

@@ -37,19 +37,20 @@ type AuthConfig struct {
 }
 
 type Configuration struct {
-	AppPort       string
-	AdminUser     string
-	AdminPassword string
-	Secret        string
-	S3Url         string
-	S3Key         string
-	S3Secret      string
-	S3BucketName  string
-	S3Location    string
-	S3SSL         bool
-	EnableMetrics bool
-	Cache         CacheConfig
-	Auth          AuthConfig
+	AppPort            string
+	AdminUser          string
+	AdminPassword      string
+	Secret             string
+	S3Url              string
+	S3Key              string
+	S3Secret           string
+	S3BucketName       string
+	S3Location         string
+	S3SSL              bool
+	EnableMetrics      bool
+	CORSAllowedOrigins []string
+	Cache              CacheConfig
+	Auth               AuthConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -69,6 +70,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
 	viper.SetDefault("metrics", true)
+	viper.SetDefault("cors.allowed_origins", []string{})
 	viper.SetDefault("cache.enabled", false)
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
@@ -94,6 +96,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
+	config.CORSAllowedOrigins = viper.GetStringSlice("cors.allowed_origins")
 	config.Cache = CacheConfig{
 		Enabled:  viper.GetBool("cache.enabled"),
 		Type:     viper.GetString("cache.type"),
@@ -133,6 +136,9 @@ func validateConfig(config *Configuration) error {
 	}
 	if config.Secret == "" {
 		return fmt.Errorf("Secret is not set")
+	}
+	if len(config.Secret) < 32 {
+		return fmt.Errorf("Secret must be at least 32 characters long (got %d)", len(config.Secret))
 	}
 	if config.S3Url == "" {
 		return fmt.Errorf("S3Url is not set")

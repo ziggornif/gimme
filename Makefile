@@ -1,16 +1,22 @@
 .PHONY: audit
 audit:
-	gosec ./..
+	gosec ./...
 
 .PHONY: build
 build:
 	go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
 
+# GOOS/GOARCH can be overridden on the command line or via environment variables.
+# When invoked from the Dockerfile, they are set via ARG/ENV so the build
+# automatically targets the correct platform (e.g. linux/arm64 for multi-arch).
+GOOS  ?= linux
+GOARCH ?= amd64
+
 .PHONY: release
 release:
 	rm -rf dist
 	mkdir dist
-	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --fast ./gimme
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --fast ./gimme
 	cp -R gimme docs templates ./dist
 
 # release-fast skips UPX compression — useful for quick local Docker builds
@@ -18,7 +24,7 @@ release:
 release-fast:
 	rm -rf dist
 	mkdir dist
-	env GOOS=linux GOARCH=amd64 go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
 	cp -R gimme docs templates ./dist
 
 .PHONY: test
@@ -28,8 +34,10 @@ test: garage-start
 	 TEST_S3_URL=localhost:3900 TEST_S3_KEY="$$KEY_ID" TEST_S3_SECRET="$$SECRET" \
 	 TEST_S3_BUCKET=gimme TEST_S3_LOCATION=garage \
 	 go test ./... -coverprofile=coverage.out; \
+	 TEST_EXIT=$$?; \
 	 grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out; \
-	 $(MAKE) garage-stop
+	 $(MAKE) garage-stop; \
+	 exit $$TEST_EXIT
 
 .PHONY: coverage
 coverage:

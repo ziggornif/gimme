@@ -2,7 +2,7 @@
 admin:
   password: gimmeadmin
 port: 8082
-secret: secret
+secret: secret-for-testing-purposes-only
 s3:
   url: your.s3.url.cloud
   key: s3key

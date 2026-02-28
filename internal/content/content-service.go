@@ -212,13 +212,45 @@ func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, versio
 	}
 
 	if svc.cacheManager != nil {
+		// Invalidate the exact version prefix (e.g. "pkg@1.0.3").
 		if cacheErr := svc.cacheManager.DeleteByPrefix(ctx, prefix); cacheErr != nil {
 			logrus.Warnf("[ContentService] DeletePackage - Could not invalidate cache for prefix %s: %v", prefix, cacheErr)
 		} else {
 			logrus.Debugf("[ContentService] DeletePackage - Invalidated cache entries for prefix %s", prefix)
 		}
+
+		// Also invalidate partial version entries that may have resolved to this
+		// version (e.g. "pkg@1.0" or "pkg@1" caching a path that pointed to "pkg@1.0.3").
+		for _, partialPrefix := range partialVersionPrefixes(pkg, version) {
+			if cacheErr := svc.cacheManager.DeleteByPrefix(ctx, partialPrefix); cacheErr != nil {
+				logrus.Warnf("[ContentService] DeletePackage - Could not invalidate partial cache for prefix %s: %v", partialPrefix, cacheErr)
+			} else {
+				logrus.Debugf("[ContentService] DeletePackage - Invalidated partial cache entries for prefix %s", partialPrefix)
+			}
+		}
 	}
 
 	metrics.PackagesDeletedTotal.Inc()
 	return nil
+}
+
+// partialVersionPrefixes returns the cache key prefixes for partial versions of a package.
+// For example, deleting "pkg@1.0.3" should also invalidate "pkg@1.0" and "pkg@1"
+// since those partial-version cache entries may have resolved to the deleted version.
+// Pre-release and build-metadata suffixes are stripped before computing the partial
+// prefixes so that "1.0.0-rc.1" generates the same partial prefixes as "1.0.0".
+func partialVersionPrefixes(pkg, version string) []string {
+	// Strip pre-release suffix (e.g. "1.0.0-rc.1" → "1.0.0")
+	base := strings.SplitN(version, "-", 2)[0]
+	// Strip build metadata (e.g. "1.0.0+build.1" → "1.0.0")
+	base = strings.SplitN(base, "+", 2)[0]
+
+	parts := strings.Split(base, ".")
+	var prefixes []string
+	// Build prefixes for each level shorter than the full version: major, major.minor, etc.
+	for i := 1; i < len(parts); i++ {
+		partial := strings.Join(parts[:i], ".")
+		prefixes = append(prefixes, fmt.Sprintf("%s@%s", pkg, partial))
+	}
+	return prefixes
 }

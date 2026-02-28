@@ -35,6 +35,7 @@ type Application struct {
 	authProvider   auth.AuthProvider
 	contentService content.ContentService
 	storageManager storage.ObjectStorageManager
+	cacheManager   cache.CacheManager
 }
 
 // NewApplication create an application instance
@@ -88,17 +89,16 @@ func (app *Application) loadModules() {
 	}
 	app.storageManager = storage.NewObjectStorageManager(osmClient)
 
-	var cacheManager cache.CacheManager
 	cacheTTL := time.Duration(app.config.Cache.TTL) * time.Second
 	if app.config.Cache.Enabled {
 		var cacheErr error
-		cacheManager, cacheErr = cache.NewRedisCache(app.config.Cache.RedisURL)
+		app.cacheManager, cacheErr = cache.NewRedisCache(app.config.Cache.RedisURL)
 		if cacheErr != nil {
 			log.Fatalln(cacheErr)
 		}
 	}
 
-	app.contentService = content.NewContentService(app.storageManager, cacheManager, cacheTTL)
+	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL)
 
 	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
@@ -145,10 +145,32 @@ func metricsMiddleware() gin.HandlerFunc {
 	}
 }
 
+// corsConfig returns a CORS configuration allowing only the explicitly listed origins.
+// If no origins are configured, all cross-origin requests are denied.
+// Set cors.allowed_origins in gimme.yml to a list of trusted origins, or use ["*"]
+// to allow all origins (useful for a public CDN serving assets cross-origin).
+func corsConfig(allowedOrigins []string) cors.Config {
+	cfg := cors.DefaultConfig()
+	if len(allowedOrigins) > 0 {
+		if len(allowedOrigins) == 1 && allowedOrigins[0] == "*" {
+			cfg.AllowAllOrigins = true
+		} else {
+			cfg.AllowOrigins = allowedOrigins
+		}
+	} else {
+		// No origins configured: deny all cross-origin requests.
+		// Warn the operator since this is likely unintentional for a CDN.
+		logrus.Warn("[Application] setupServer - cors.allowed_origins is not configured: all cross-origin requests will be denied. Set cors.allowed_origins in gimme.yml (e.g. [\"*\"] for a public CDN).")
+		cfg.AllowAllOrigins = false
+		cfg.AllowOrigins = []string{}
+	}
+	return cfg
+}
+
 // loadHttpServer load http (go gin) server
 func (app *Application) setupServer() {
 	router := gin.Default()
-	router.Use(cors.Default())
+	router.Use(cors.New(corsConfig(app.config.CORSAllowedOrigins)))
 	router.Use(metricsMiddleware())
 	router.Static("/docs", "./docs")
 	router.SetFuncMap(api.TemplateFuncs())
@@ -181,13 +203,22 @@ func (app *Application) setupServer() {
 	<-quit
 	logrus.Info("Shutting down server...")
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
+	// The context is used to inform the server it has 60 seconds to finish
+	// the request it is currently handling.
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
 		logrus.Fatal("Server forced to shutdown")
+	}
+
+	// Close the Redis/cache connection only after all in-flight requests have
+	// completed, so that requests processed during graceful shutdown can still
+	// use the cache without errors.
+	if app.cacheManager != nil {
+		if closeErr := app.cacheManager.Close(); closeErr != nil {
+			logrus.Warnf("Error closing cache connection: %v", closeErr)
+		}
 	}
 
 	logrus.Info("Server exiting.")

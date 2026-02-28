@@ -298,10 +298,10 @@ func TestOIDCProvider_IssueSessionCookie_RoundTrip(t *testing.T) {
 
 func TestWarnIfInsecureCookies(t *testing.T) {
 	tests := []struct {
-		name         string
-		issuer       string
+		name          string
+		issuer        string
 		secureCookies bool
-		wantWarn     bool
+		wantWarn      bool
 	}{
 		{"secure true, external issuer", "https://keycloak.example.com", true, false},
 		{"secure false, localhost", "http://localhost:8180", false, false},

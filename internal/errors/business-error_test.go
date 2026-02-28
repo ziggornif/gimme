@@ -38,8 +38,10 @@ func TestGimmeError_GetHTTPCode_NotImplemented(t *testing.T) {
 }
 
 func TestGimmeError_GetHTTPCode_UnknownKind(t *testing.T) {
+	// An unknown Kind must default to 500 (Internal Server Error) rather than
+	// returning 0, which Go interprets as HTTP 200 OK.
 	err := NewBusinessError(ErrorKindEnum("Unknown"), fmt.Errorf("unknown"))
-	assert.Equal(t, 0, err.GetHTTPCode())
+	assert.Equal(t, 500, err.GetHTTPCode())
 }
 
 func TestGimmeError_Error_NilErr(t *testing.T) {

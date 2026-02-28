@@ -151,27 +151,41 @@ func (osm *objectStorageManager) ListObjects(ctx context.Context, objectParentNa
 	})
 
 	for object := range objectCh {
+		if object.Err != nil {
+			logrus.Errorf("[ObjectStorageManager] ListObjects - Error reading object from storage: %s", object.Err.Error())
+			continue
+		}
 		objects = append(objects, object)
 	}
 	return objects
 }
 
-// ObjectExists return if object exists in bucket or not
+// ObjectExists return if object exists in bucket or not.
+// It uses an exact prefix match: the listed object key must start with
+// objectName+"/" (a directory) or equal objectName exactly, so that "1.0.0"
+// does not match "1.0.0-beta".
 func (osm *objectStorageManager) ObjectExists(ctx context.Context, objectName string) bool {
 	start := time.Now()
 	defer func() {
 		metrics.S3OperationDuration.WithLabelValues("ObjectExists").Observe(time.Since(start).Seconds())
 	}()
 
+	// Append "/" so the prefix only matches the exact package@version directory
+	// and not versions that share a common prefix (e.g. "1.0.0" vs "1.0.0-beta").
+	exactPrefix := objectName + "/"
+
 	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
-		Prefix:    objectName,
+		Prefix:    exactPrefix,
 		Recursive: true,
 	})
 
 	for object := range objectCh {
-		if len(object.ETag) > 0 {
-			return true
+		if object.Err != nil {
+			logrus.Errorf("[ObjectStorageManager] ObjectExists - Error reading object from storage: %s", object.Err.Error())
+			continue
 		}
+		// Any object without an error confirms the prefix exists.
+		return true
 	}
 	return false
 }

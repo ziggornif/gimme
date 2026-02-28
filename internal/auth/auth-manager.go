@@ -100,9 +100,14 @@ func (am *AuthManager) extractToken(authHeader string) string {
 	return ""
 }
 
-// decodeToken decode token from input token string
+// decodeToken decode token from input token string.
+// It explicitly verifies that the signing method is HMAC (HS256) to prevent
+// algorithm-confusion attacks (e.g. accepting an "alg: none" or RS256 token).
 func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
 	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(am.secret), nil
 	})
 
