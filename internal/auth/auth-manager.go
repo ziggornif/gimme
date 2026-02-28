@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,27 +12,59 @@ import (
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
+// tokenPrefix is prepended to every opaque token so that it is immediately
+// recognisable as a Gimme API key (similar to GitHub's "ghp_" prefix).
+const tokenPrefix = "gim_"
+
+// tokenRawBytes is the number of random bytes used to build the token body.
+// 32 random bytes → 64 hex chars → total token length 68 chars (prefix + hex).
+// Hex encoding is used instead of base62 to avoid modulo bias.
+const tokenRawBytes = 32
+
+// AuthManager manages opaque API token lifecycle.
+// It no longer relies on JWT: tokens are random strings whose SHA-256 hash is
+// stored in the backing TokenStore (Redis). Authentication consists of hashing
+// the presented token and looking it up in the store.
 type AuthManager struct {
-	secret string
-	store  TokenStore
+	store TokenStore
 }
 
-// NewAuthManager create an auth manager instance
-func NewAuthManager(secret string, store TokenStore) *AuthManager {
+// NewAuthManager creates an auth manager instance.
+func NewAuthManager(store TokenStore) *AuthManager {
 	return &AuthManager{
-		secret: secret,
-		store:  store,
+		store: store,
 	}
 }
 
-// CreateToken creates an access token, persists it in the store and returns the entry.
-func (am *AuthManager) CreateToken(name string, expirationDate string) (*TokenEntry, *errors.GimmeError) {
-	var expiration time.Duration
+// generateOpaqueToken returns a cryptographically random opaque token of the
+// form "gim_<hex>" (68 chars total: 4-char prefix + 64 hex chars).
+// Hex encoding is used to avoid modulo bias that would arise from base62.
+// It also returns the SHA-256 hex hash that must be stored instead of the token.
+func generateOpaqueToken() (rawToken, tokenHash string, err error) {
+	buf := make([]byte, tokenRawBytes)
+	if _, err = rand.Read(buf); err != nil {
+		return "", "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+
+	rawToken = tokenPrefix + hex.EncodeToString(buf)
+	tokenHash = hashToken(rawToken)
+	return rawToken, tokenHash, nil
+}
+
+// hashToken returns the SHA-256 hex digest of the raw opaque token.
+// This is what is stored in the backing store — never the raw token itself.
+func hashToken(rawToken string) string {
+	sum := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(sum[:])
+}
+
+// CreateToken generates an opaque API token, persists its hash in the store and
+// returns the entry along with the raw token (returned once, never stored again).
+func (am *AuthManager) CreateToken(ctx context.Context, name string, expirationDate string) (*TokenEntry, string, *errors.GimmeError) {
 	var expiresAt time.Time
 
 	if len(expirationDate) > 0 {
@@ -36,119 +72,83 @@ func (am *AuthManager) CreateToken(name string, expirationDate string) (*TokenEn
 		end, parseErr := time.Parse(format, expirationDate)
 		if parseErr != nil {
 			logrus.Errorf("[AuthManager] CreateToken - Invalid expiration date format: %s", expirationDate)
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid expiration date format, expected YYYY-MM-DD"))
+			return nil, "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid expiration date format, expected YYYY-MM-DD"))
 		}
-		expiration = time.Until(end)
+		if time.Until(end) <= 0 {
+			logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date")
+			return nil, "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("expiration date must be greater than the current date"))
+		}
 		expiresAt = end
 	} else {
-		expiration = time.Minute * 15
-		expiresAt = time.Now().Add(expiration)
+		// Default expiry: 90 days — a sensible default for an API key
+		// (much longer than the previous 15-minute default which was designed for JWTs).
+		expiresAt = time.Now().Add(90 * 24 * time.Hour)
 	}
 
-	if expiration <= 0 {
-		logrus.Error("[AuthManager] CreateToken - Expiration date must be greater than the current date")
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("expiration date must be greater than the current date"))
-	}
-
-	id := uuid.New().String()
-
-	claims := &jwt.RegisteredClaims{
-		ID:        id,
-		ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(expiration)},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(am.secret))
-	if err != nil {
-		logrus.Error("[AuthManager] CreateToken - Error while signing token")
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while signing token"))
+	rawToken, tokenHash, genErr := generateOpaqueToken()
+	if genErr != nil {
+		logrus.Errorf("[AuthManager] CreateToken - Error generating token: %v", genErr)
+		return nil, "", errors.NewBusinessError(errors.InternalError, fmt.Errorf("error generating token"))
 	}
 
 	entry := &TokenEntry{
-		ID:        id,
+		ID:        uuid.New().String(),
 		Name:      name,
-		Token:     signedToken,
+		TokenHash: tokenHash,
 		CreatedAt: time.Now(),
 		ExpiresAt: expiresAt,
 	}
 
-	if saveErr := am.store.Save(entry); saveErr != nil {
+	if saveErr := am.store.Save(ctx, entry); saveErr != nil {
 		logrus.Errorf("[AuthManager] CreateToken - Error while saving token: %v", saveErr)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while saving token"))
+		return nil, "", errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while saving token"))
 	}
 
-	return entry, nil
+	// Return rawToken separately — it will not be stored anywhere and must be
+	// shown to the user exactly once.
+	return entry, rawToken, nil
 }
 
 // ListTokens returns all stored token entries (newest first).
-func (am *AuthManager) ListTokens() []*TokenEntry {
-	return am.store.List()
+func (am *AuthManager) ListTokens(ctx context.Context) []*TokenEntry {
+	return am.store.List(ctx)
 }
 
-// RevokeToken deletes the token with the given ID from the store.
+// RevokeToken marks the token with the given ID as revoked.
 // Returns false if the ID does not exist.
-func (am *AuthManager) RevokeToken(id string) bool {
-	return am.store.Delete(id)
+func (am *AuthManager) RevokeToken(ctx context.Context, id string) bool {
+	return am.store.Revoke(ctx, id)
 }
 
-// extractToken extract token from authentication header
+// extractToken extracts the raw Bearer token from the Authorization header.
 func (am *AuthManager) extractToken(authHeader string) string {
-	strArr := strings.Split(authHeader, " ")
-	if len(strArr) == 2 {
-		return strArr[1]
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1]
 	}
 	return ""
 }
 
-// decodeToken decode token from input token string.
-// It explicitly verifies that the signing method is HMAC (HS256) to prevent
-// algorithm-confusion attacks (e.g. accepting an "alg: none" or RS256 token).
-func (am *AuthManager) decodeToken(token string) (*jwt.Token, error) {
-	decoded, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(am.secret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return decoded, nil
-}
-
-// getClaimsFromJWT extract claims from token
-func (am *AuthManager) getClaimsFromJWT(token *jwt.Token) jwt.MapClaims {
-	claims := jwt.MapClaims{}
-	for key, value := range token.Claims.(jwt.MapClaims) {
-		claims[key] = value
-	}
-
-	return claims
-}
-
-// AuthenticateMiddleware authenticate query with a token.
-// It validates the JWT signature and expiry, then checks the token is still
-// present in the store (whitelist — catches revoked tokens).
+// AuthenticateMiddleware validates an opaque Bearer token.
+// It computes the SHA-256 hash of the presented token, looks it up in the store,
+// then checks that the entry is neither revoked nor expired.
 func (am *AuthManager) AuthenticateMiddleware(c *gin.Context) {
-	tokenString := am.extractToken(c.GetHeader("Authorization"))
-	token, err := am.decodeToken(tokenString)
-	if err != nil || !token.Valid {
+	rawToken := am.extractToken(c.GetHeader("Authorization"))
+	if rawToken == "" {
 		c.Status(http.StatusUnauthorized)
 		c.Abort()
 		return
 	}
 
-	tokenClaims := am.getClaimsFromJWT(token)
-	if tokenClaims["exp"] == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing exp field"})
+	hash := hashToken(rawToken)
+	entry, ok := am.store.GetByHash(c.Request.Context(), hash)
+	if !ok {
+		c.Status(http.StatusUnauthorized)
 		c.Abort()
 		return
 	}
 
-	// Whitelist check: reject tokens that have been revoked via DELETE /tokens/:id.
-	if _, ok := am.store.GetByToken(tokenString); !ok {
+	if !entry.IsValid() {
 		c.Status(http.StatusUnauthorized)
 		c.Abort()
 		return

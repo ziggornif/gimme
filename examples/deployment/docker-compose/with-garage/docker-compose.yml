@@ -40,7 +40,7 @@ services:
       # Gimme credentials — override in production
       GIMME_ADMIN_USER: gimmeadmin
       GIMME_ADMIN_PASSWORD: gimmeadmin
-      GIMME_SECRET: change_me_use_a_real_secret
+      GIMME_SECRET: change_me_use_a_real_secret_32chars
       # OIDC configuration — uncomment and set AUTH_MODE=oidc to enable.
       # Requires the keycloak and keycloak-db services below to be uncommented first.
       # Also add "127.0.0.1 keycloak" to your /etc/hosts so the browser reaches

@@ -80,7 +80,7 @@ func createPackage(t *testing.T, router http.Handler, name string, version strin
 
 func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager("secret", auth.NewMemoryTokenStore())
+	authManager := auth.NewAuthManager(auth.NewMemoryTokenStore())
 	mockOSManager := mocks.MockOSManagerErr{}
 	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -93,7 +93,7 @@ func TestPackageControllerGETErr(t *testing.T) {
 
 func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager("secret", auth.NewMemoryTokenStore())
+	authManager := auth.NewAuthManager(auth.NewMemoryTokenStore())
 	mockOSManager := mocks.MockOSManagerErr{}
 	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)

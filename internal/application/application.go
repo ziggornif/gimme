@@ -56,8 +56,16 @@ func (app *Application) loadConfig() {
 // loadModules load app modules
 func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
-	app.tokenStore = auth.NewMemoryTokenStore()
-	app.authManager = auth.NewAuthManager(app.config.Secret, app.tokenStore)
+
+	// Token storage requires Redis for persistence across restarts.
+	// Redis URL is shared with the cache config (cache.redis_url) — if the cache
+	// is disabled but tokens are needed, the operator must still set the Redis URL.
+	tokenStore, tokenStoreErr := auth.NewRedisTokenStore(app.config.Cache.RedisURL)
+	if tokenStoreErr != nil {
+		log.Fatalf("failed to connect to Redis for token storage: %v — set cache.redis_url in gimme.yml", tokenStoreErr)
+	}
+	app.tokenStore = tokenStore
+	app.authManager = auth.NewAuthManager(app.tokenStore)
 
 	switch app.config.Auth.Mode {
 	case "oidc":
@@ -159,11 +167,11 @@ func corsConfig(allowedOrigins []string) cors.Config {
 			cfg.AllowOrigins = allowedOrigins
 		}
 	} else {
-		// No origins configured: deny all cross-origin requests.
-		// Warn the operator since this is likely unintentional for a CDN.
-		logrus.Warn("[Application] setupServer - cors.allowed_origins is not configured: all cross-origin requests will be denied. Set cors.allowed_origins in gimme.yml (e.g. [\"*\"] for a public CDN).")
-		cfg.AllowAllOrigins = false
-		cfg.AllowOrigins = []string{}
+		// No origins configured: default to allowing all origins.
+		// Gimme is a public CDN — assets must be consumable cross-origin.
+		// Operators can restrict to specific origins via cors.allowed_origins in gimme.yml.
+		logrus.Info("[Application] setupServer - cors.allowed_origins is not configured: defaulting to allow all origins (*). Set cors.allowed_origins in gimme.yml to restrict cross-origin access.")
+		cfg.AllowAllOrigins = true
 	}
 	return cfg
 }

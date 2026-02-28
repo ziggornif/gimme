@@ -34,6 +34,7 @@ func (req *createTokenRequest) validate() *errors.GimmeError {
 }
 
 // tokenResponse is the JSON shape returned when a token is created.
+// The Token field carries the raw opaque token value, shown exactly once.
 type tokenResponse struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -43,7 +44,7 @@ type tokenResponse struct {
 }
 
 func (ctrl *AdminController) getAdmin(c *gin.Context) {
-	tokens := ctrl.authManager.ListTokens()
+	tokens := ctrl.authManager.ListTokens(c.Request.Context())
 	c.HTML(http.StatusOK, "admin.tmpl", gin.H{
 		"tokens": tokens,
 	})
@@ -61,16 +62,17 @@ func (ctrl *AdminController) createToken(c *gin.Context) {
 		return
 	}
 
-	entry, createErr := ctrl.authManager.CreateToken(request.Name, request.ExpirationDate)
+	entry, rawToken, createErr := ctrl.authManager.CreateToken(c.Request.Context(), request.Name, request.ExpirationDate)
 	if createErr != nil {
 		c.JSON(createErr.GetHTTPCode(), gin.H{"error": createErr.Error()})
 		return
 	}
 
+	// rawToken is returned once here and never stored — the client must save it.
 	c.JSON(http.StatusCreated, tokenResponse{
 		ID:        entry.ID,
 		Name:      entry.Name,
-		Token:     entry.Token,
+		Token:     rawToken,
 		CreatedAt: entry.CreatedAt,
 		ExpiresAt: entry.ExpiresAt,
 	})
@@ -79,7 +81,7 @@ func (ctrl *AdminController) createToken(c *gin.Context) {
 func (ctrl *AdminController) deleteToken(c *gin.Context) {
 	id := c.Param("id")
 
-	if deleted := ctrl.authManager.RevokeToken(id); !deleted {
+	if revoked := ctrl.authManager.RevokeToken(c.Request.Context(), id); !revoked {
 		c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
 		return
 	}

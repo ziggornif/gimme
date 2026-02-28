@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,7 +19,7 @@ const adminAuthHeader = "Basic dGVzdDp0ZXN0" // test:test
 func newAdminRouter() (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
 	store := auth.NewMemoryTokenStore()
-	authManager := auth.NewAuthManager("secret", store)
+	authManager := auth.NewAuthManager(store)
 	provider := auth.NewBasicAuthProvider("test", "test")
 	NewAdminController(router, authManager, provider)
 	return router, authManager
@@ -27,7 +28,7 @@ func newAdminRouter() (*gin.Engine, *auth.AuthManager) {
 func newAdminRouterWithTemplates() (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
 	store := auth.NewMemoryTokenStore()
-	authManager := auth.NewAuthManager("secret", store)
+	authManager := auth.NewAuthManager(store)
 	provider := auth.NewBasicAuthProvider("test", "test")
 	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
@@ -75,7 +76,10 @@ func TestAdminController_CreateToken_OK(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, resp["id"])
-	assert.NotEmpty(t, resp["token"])
+	// Token must be returned in the response (opaque, shown once)
+	token, ok := resp["token"].(string)
+	assert.True(t, ok)
+	assert.True(t, strings.HasPrefix(token, "gim_"), "token must start with 'gim_'")
 	assert.Equal(t, "ci", resp["name"])
 }
 
@@ -117,7 +121,7 @@ func TestAdminController_CreateToken_NameAtMaxLength(t *testing.T) {
 func TestAdminController_DeleteToken_OK(t *testing.T) {
 	router, authManager := newAdminRouter()
 
-	entry, err := authManager.CreateToken("test", "")
+	entry, _, err := authManager.CreateToken(context.Background(), "test", "")
 	assert.Nil(t, err)
 
 	w := utils.PerformRequest(router, "DELETE", "/tokens/"+entry.ID,
@@ -125,7 +129,8 @@ func TestAdminController_DeleteToken_OK(t *testing.T) {
 		utils.Header{Key: "Authorization", Value: adminAuthHeader})
 	assert.Equal(t, http.StatusNoContent, w.Code)
 
-	// Token should no longer be in the store
-	tokens := authManager.ListTokens()
-	assert.Empty(t, tokens)
+	// Token should be marked as revoked (still in list but revoked)
+	tokens := authManager.ListTokens(context.Background())
+	assert.Equal(t, 1, len(tokens))
+	assert.True(t, tokens[0].IsRevoked())
 }

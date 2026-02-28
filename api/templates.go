@@ -20,5 +20,8 @@ func TemplateFuncs() template.FuncMap {
 			}
 			return t.Before(time.Now())
 		},
+		"isRevoked": func(t time.Time) bool {
+			return !t.IsZero()
+		},
 	}
 }

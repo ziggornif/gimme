@@ -286,6 +286,18 @@
       border-color: var(--danger-mid);
     }
 
+    .badge-revoked {
+      display: inline-block; font-size: 0.68rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 100px;
+      background: var(--danger-light); color: var(--danger);
+      border: 1px solid var(--danger-mid); white-space: nowrap;
+      text-transform: uppercase; letter-spacing: 0.03em;
+      margin-left: 0.4rem; vertical-align: middle;
+    }
+
+    .row-revoked td { opacity: 0.55; }
+    .row-revoked .token-name { text-decoration: line-through; }
+
     .col-actions-data { text-align: right; }
 
     /* ---- Empty state ---- */
@@ -435,9 +447,9 @@
             </thead>
             <tbody id="tokens-tbody">
               {{ range .tokens }}
-              <tr id="row-{{ .ID }}" data-id="{{ .ID }}">
+              <tr id="row-{{ .ID }}" data-id="{{ .ID }}" {{ if isRevoked .RevokedAt }}class="row-revoked"{{ end }}>
                 <td>
-                  <div class="token-name">{{ .Name }}</div>
+                  <div class="token-name">{{ .Name }}{{ if isRevoked .RevokedAt }} <span class="badge-revoked" aria-label="revoked">revoked</span>{{ end }}</div>
                   <div class="token-id">{{ .ID }}</div>
                 </td>
                 <td class="token-date">{{ formatTime .CreatedAt }}</td>
@@ -447,6 +459,9 @@
                   </span>
                 </td>
                 <td class="col-actions-data">
+                  {{ if isRevoked .RevokedAt }}
+                  <span class="text-muted" style="font-size:0.8rem;">Revoked {{ formatTime .RevokedAt }}</span>
+                  {{ else }}
                   <button
                     class="btn btn-danger btn-sm revoke-btn"
                     type="button"
@@ -454,6 +469,7 @@
                     data-name="{{ .Name }}"
                     aria-label="Revoke token {{ .Name }}"
                   >Revoke</button>
+                  {{ end }}
                 </td>
               </tr>
               {{ end }}
@@ -739,25 +755,32 @@
               return;
             }
             if (res.ok || res.status === 204) {
+              /* Mark the row as revoked in place instead of removing it */
               var row = document.getElementById('row-' + id);
               if (row) {
-                row.style.transition = 'opacity 200ms ease';
-                row.style.opacity = '0';
-                setTimeout(function () {
-                  row.remove();
-                  updateCount();
-                  var tbody = document.getElementById('tokens-tbody');
-                  if (!tbody || tbody.children.length === 0) {
-                    var wrapper = document.getElementById('tokens-list-wrapper');
-                    var tw = wrapper.querySelector('.table-wrapper');
-                    if (tw) tw.remove();
-                    var empty = document.createElement('div');
-                    empty.id = 'empty-state';
-                    empty.className = 'empty-state';
-                    empty.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><p>No API keys yet. Create your first one above.</p>';
-                    wrapper.appendChild(empty);
-                  }
-                }, 220);
+                row.classList.add('row-revoked');
+                /* Add revoked badge to name cell */
+                var nameDiv = row.querySelector('.token-name');
+                if (nameDiv && !nameDiv.querySelector('.badge-revoked')) {
+                  var badge = document.createElement('span');
+                  badge.className = 'badge-revoked';
+                  badge.setAttribute('aria-label', 'revoked');
+                  badge.textContent = 'revoked';
+                  nameDiv.appendChild(badge);
+                }
+                /* Replace the Revoke button with a revoked-at label */
+                var now = new Date();
+                var revokedLabel = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+                                   ' ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                var cell = btn.closest('td');
+                if (cell) {
+                  var span = document.createElement('span');
+                  span.className = 'text-muted';
+                  span.style.fontSize = '0.8rem';
+                  span.textContent = 'Revoked ' + revokedLabel;
+                  cell.innerHTML = '';
+                  cell.appendChild(span);
+                }
               }
               showToast('Token revoked.', false);
             } else {

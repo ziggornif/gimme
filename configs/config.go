@@ -152,12 +152,15 @@ func validateConfig(config *Configuration) error {
 	if config.S3Location == "" {
 		return fmt.Errorf("S3Location is not set")
 	}
+	// Redis is always required for token persistence (opaque tokens stored in Redis).
+	// A blank URL would cause a fatal error at startup, so we validate it here to
+	// give a clear config-level error message rather than a cryptic connection failure.
+	if config.Cache.RedisURL == "" {
+		return fmt.Errorf("cache.redis_url is required (Redis is used for persistent token storage)")
+	}
 	if config.Cache.Enabled {
 		if config.Cache.Type != "redis" {
 			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
-		}
-		if config.Cache.RedisURL == "" {
-			return fmt.Errorf("cache.redis_url is required when cache is enabled")
 		}
 	}
 	switch config.Auth.Mode {

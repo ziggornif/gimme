@@ -221,7 +221,7 @@ L'objectif est de remplacer le système Basic Auth + JWT artisanal par quelque c
 
 ### Niveau 1 — Révocation des tokens & UI de gestion des API keys
 
-- [ ] Clarifier et corriger la section JWT sur le site de documentation (comportement de `expirationDate`, durée de validité par défaut)
+- [x] ~~Clarifier et corriger la section JWT sur le site de documentation~~ — **obsolète depuis P18** (JWT supprimé des API keys, remplacé par tokens opaques)
 - [x] Stocker les tokens émis en base (Redis ou autre) pour permettre la révocation explicite — aujourd'hui un token valide ne peut pas être invalidé avant expiration
 - [x] Ajouter un endpoint `DELETE /tokens/:id` (Bearer admin) pour révoquer un token spécifique
 - [x] Modifier le middleware auth pour vérifier la présence du token dans le store à chaque requête (blacklist ou whitelist selon le choix d'implémentation)
@@ -251,18 +251,18 @@ auth:
 
 Issues identifiées lors du code review automatisé du 2026-02-28 (`security/20260228_PR3-CODE-REVIEW.md`).
 
-- [ ] `auth-manager.go:104-113` — `decodeToken` : pas de vérification de l'algorithme de signature JWT (algorithm confusion risk) — vérifier que l'algo est bien `HS256` avant d'accepter le token
-- [ ] `oidc-provider.go:163-177` — Pas de paramètre `nonce` dans le flow OIDC (risque de replay d'ID token) — générer et vérifier un nonce à chaque échange
-- [ ] `configs/config.go:134-136` — Pas de longueur minimale pour le secret JWT (1 caractère accepté) — ajouter une validation d'au moins 32 caractères au démarrage
-- [ ] `application.go:151` — `cors.Default()` autorise toutes les origines — configurer explicitement les origines autorisées via la config
-- [ ] `content-service.go:207` — Invalidation cache incomplète : supprimer `pkg@1.0.3` n'invalide pas le cache de `pkg@1.0` qui résolvait vers `1.0.3` — invalider aussi les entrées de version partielle
-- [ ] `objectstorage-manager.go:146-156` — `ListObjects` inclut silencieusement les entrées S3 avec `Err != nil` — logger et filtrer les entrées en erreur
-- [ ] `objectstorage-manager.go:159-176` — `ObjectExists` match par préfixe : `1.0.0` matche aussi `1.0.0-beta` — corriger la comparaison pour un match exact
-- [ ] `business-error.go:41-43` — `GetHTTPCode()` retourne `0` pour un `Kind` inconnu (interprété comme `200 OK` par Go) — retourner `500` par défaut
-- [ ] `application.go:91-99` — Connexion Redis jamais fermée au shutdown — ajouter un `defer redisClient.Close()` ou fermeture propre dans le signal handler
-- [ ] `Makefile:30-32` — `make test` retourne toujours succès car l'exit code de `go test` est perdu (`;` au lieu de `&&`) — corriger le séparateur
-- [ ] `Makefile:3` — `gosec ./..` (2 points au lieu de 3) — corriger en `gosec ./...`
-- [ ] `Dockerfile` — `make release` hardcode `GOARCH=amd64` — rendre l'architecture paramétrable pour les builds multi-arch
+- [x] ~~`auth-manager.go:104-113` — `decodeToken` JWT algorithm check~~ — **obsolète depuis P18** (JWT supprimé des API keys)
+- [x] `oidc-provider.go:163-177` — Nonce OIDC implémenté (cookie `gimme_oidc_nonce`)
+- [x] `configs/config.go:134-136` — Validation longueur minimale secret (32 chars)
+- [x] `application.go:151` — CORS configuré explicitement via `cors.allowed_origins`
+- [x] `content-service.go:207` — Invalidation cache version partielle
+- [x] `objectstorage-manager.go:146-156` — `ListObjects` logue et filtre les entrées S3 en erreur
+- [x] `objectstorage-manager.go:159-176` — `ObjectExists` match exact (non préfixe)
+- [x] `business-error.go:41-43` — `GetHTTPCode()` retourne `500` par défaut
+- [x] `application.go:91-99` — Connexion Redis fermée proprement au shutdown
+- [x] `Makefile:30-32` — `make test` propage l'exit code de `go test` via `exit $$TEST_EXIT`
+- [x] `Makefile:3` — `gosec ./...` (3 points)
+- [x] `Dockerfile` — architecture paramétrable via `GOARCH`
 
 ## Priorité 17c — Findings code review PR#3 (LOW)
 
@@ -279,24 +279,25 @@ Remplacer les JWT utilisés comme API keys par des tokens opaques stockés en ba
 
 ### Niveau 1 — Modélisation des tokens dans Redis
 
-Redis est déjà présent (cache P12) — pas de nouvelle dépendance. Les tokens sont stockés comme hash sets : `HSET token:<id> hash <sha256> name <name> created_at <ts> expires_at <ts> revoked_at <ts> last_used_at <ts>`
+Redis est déjà présent (cache P12) — pas de nouvelle dépendance. Les tokens sont stockés comme JSON sous la clé `token:<id>` avec TTL aligné sur `expires_at`.
 
-- [ ] Définir la structure de stockage Redis pour les tokens opaques (préfixe `token:`, TTL aligné sur `expires_at`)
-- [ ] S'assurer que Redis est obligatoire quand les tokens opaques sont activés (erreur au démarrage sinon)
+- [x] Définir la structure de stockage Redis pour les tokens opaques (préfixe `token:`, TTL aligné sur `expires_at`)
+- [x] S'assurer que Redis est obligatoire quand les tokens opaques sont activés (erreur au démarrage sinon)
 
 ### Niveau 2 — Migration des API keys vers tokens opaques
 
-**Breaking change** : les tokens JWT existants ne sont pas migrés et deviennent invalides. Documenter dans le CHANGELOG et les release notes.
+**Breaking change** : les tokens JWT existants ne sont pas migrés et deviennent invalides.
+**Tous les tokens JWT émis avant cette version sont invalides et doivent être régénérés via `/admin`.**
 
-- [ ] Générer les tokens opaques côté serveur (`crypto/rand`, format `gim_<base62>`, ~40 chars)
-- [ ] Stocker uniquement le hash (`sha256`) en base — jamais le token en clair
-- [ ] Retourner le token en clair **une seule fois** à la création (comportement GitHub/GitLab)
-- [ ] Mettre à jour le middleware auth : `sha256(token reçu)` → lookup en base → vérification `expires_at` et `revoked_at`
-- [ ] Mettre à jour `DELETE /tokens/:id` pour écrire `revoked_at` en base (au lieu de Redis)
-- [ ] Mettre à jour la page `/admin` pour afficher le token en clair une seule fois à la création
-- [ ] Supprimer la dépendance Redis pour la gestion des tokens (Redis reste pour le cache P12)
-- [ ] Mettre à jour les tests
-- [ ] Documenter le breaking change : indiquer que tous les tokens JWT émis avant cette version sont invalides et doivent être régénérés via `/admin`
+- [x] Générer les tokens opaques côté serveur (`crypto/rand`, format `gim_<base62>`, ~40 chars)
+- [x] Stocker uniquement le hash (`sha256`) en base — jamais le token en clair
+- [x] Retourner le token en clair **une seule fois** à la création (comportement GitHub/GitLab)
+- [x] Mettre à jour le middleware auth : `sha256(token reçu)` → lookup Redis → vérification `expires_at` et `revoked_at`
+- [x] Mettre à jour `DELETE /tokens/:id` pour écrire `revoked_at` en Redis (révocation soft — le token reste visible mais invalide)
+- [x] Mettre à jour la page `/admin` : tokens révoqués marqués visuellement, bouton Revoke remplacé par la date de révocation
+- [x] JWT (`golang-jwt`) supprimé de la gestion des tokens API (conservé uniquement pour les sessions OIDC)
+- [x] Mettre à jour les tests
+- [x] Documenter le breaking change : indiquer que tous les tokens JWT émis avant cette version sont invalides et doivent être régénérés via `/admin`
 
 ## Priorité 19 — Finitions visuelles & contenu (non prioritaire)
 

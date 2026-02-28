@@ -161,7 +161,7 @@ func TestNewConfigValidationErrCacheNoRedisURL(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: cache.redis_url is required when cache is enabled", err.Error())
+	assert.Equal(t, "configuration is not valid: cache.redis_url is required (Redis is used for persistent token storage)", err.Error())
 }
 
 func TestNewConfigValidationErrAuthInvalidMode(t *testing.T) {
