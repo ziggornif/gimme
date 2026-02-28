@@ -1,7 +1,4 @@
-# OIDC mode without issuer
-admin:
-  user: test
-  password: test
+# OIDC mode without issuer (admin credentials not required in oidc mode)
 port: 8080
 secret: secret
 s3:

@@ -61,11 +61,11 @@
         }
       }
     },
-    "/create-token": {
+    "/tokens": {
       "post": {
         "tags": ["authentication"],
         "summary": "Create an access token",
-        "description": "Creates a signed JWT used to authenticate upload and delete requests. Requires HTTP Basic Auth with the admin credentials configured in `gimme.yml`.",
+        "description": "Creates a signed JWT used to authenticate upload and delete requests. Requires admin authentication (Basic Auth in `basic` mode, OIDC session cookie in `oidc` mode).",
         "operationId": "createToken",
         "security": [
           { "basicAuth": [] }
@@ -100,7 +100,38 @@
             }
           },
           "401": {
-            "description": "Invalid admin credentials"
+            "description": "Unauthenticated"
+          }
+        }
+      }
+    },
+    "/tokens/{id}": {
+      "delete": {
+        "tags": ["authentication"],
+        "summary": "Revoke an access token",
+        "description": "Revokes the token identified by `id`. Requires admin authentication.",
+        "operationId": "deleteToken",
+        "security": [
+          { "basicAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Token ID returned at creation",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Token revoked"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Token not found"
           }
         }
       }
@@ -333,12 +364,32 @@
       },
       "CreateTokenResponse": {
         "type": "object",
-        "required": ["token"],
+        "required": ["id", "name", "token", "createdAt", "expiresAt"],
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique token identifier (use this to revoke the token)",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable label for the token",
+            "example": "ci-token"
+          },
           "token": {
             "type": "string",
-            "description": "Signed JWT to use as Bearer token",
+            "description": "Signed JWT to use as Bearer token (shown only at creation)",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Token creation timestamp"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Token expiration timestamp"
           }
         }
       },

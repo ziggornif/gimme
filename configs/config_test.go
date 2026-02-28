@@ -206,3 +206,21 @@ func TestNewConfigValidationErrOIDCNoRedirectURL(t *testing.T) {
 
 	assert.Equal(t, `configuration is not valid: auth.oidc.redirect_url is required when auth.mode is "oidc"`, err.Error())
 }
+
+// TestNewConfigOIDCValid asserts that a valid OIDC config does not require
+// admin credentials (AdminUser / AdminPassword are unused in oidc mode).
+func TestNewConfigOIDCValid(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "oidc-valid.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	confObj, err := NewConfig()
+	assert.Nil(t, err)
+	assert.Equal(t, "oidc", confObj.Auth.Mode)
+	assert.Empty(t, confObj.AdminUser)
+	assert.Empty(t, confObj.AdminPassword)
+	assert.Equal(t, "https://keycloak.example.com/realms/gimme", confObj.Auth.OIDC.Issuer)
+	assert.Equal(t, "gimme", confObj.Auth.OIDC.ClientID)
+	assert.Equal(t, "https://gimme.example.com/auth/callback", confObj.Auth.OIDC.RedirectURL)
+}

@@ -1,16 +1,36 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gimme-cdn/gimme/internal/auth"
+	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
 )
 
 // AdminController handles the admin UI and token management API.
 type AdminController struct {
 	authManager *auth.AuthManager
+}
+
+// createTokenRequest is the JSON body for token creation.
+type createTokenRequest struct {
+	Name           string `json:"name"`
+	ExpirationDate string `json:"expirationDate"`
+}
+
+const maxTokenNameLength = 255
+
+func (req *createTokenRequest) validate() *errors.GimmeError {
+	if len(req.Name) == 0 {
+		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("access token name is required"))
+	}
+	if len(req.Name) > maxTokenNameLength {
+		return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("access token name must not exceed %d characters", maxTokenNameLength))
+	}
+	return nil
 }
 
 // tokenResponse is the JSON shape returned when a token is created.
@@ -30,7 +50,7 @@ func (ctrl *AdminController) getAdmin(c *gin.Context) {
 }
 
 func (ctrl *AdminController) createToken(c *gin.Context) {
-	var request CreateTokenRequest
+	var request createTokenRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return

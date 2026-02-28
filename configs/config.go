@@ -121,9 +121,9 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 
 func validateConfig(config *Configuration) error {
 	// Admin credentials are only required in "basic" mode.
-	// In "oidc" mode they are ignored (POST /create-token still uses Basic Auth,
-	// but that endpoint is separate from the admin UI protected by OIDC).
-	if config.Auth.Mode != "oidc" {
+	// In "oidc" mode, authentication is fully delegated to the OIDC provider
+	// and admin credentials are not used.
+	if config.Auth.Mode == "basic" {
 		if config.AdminUser == "" {
 			return fmt.Errorf("AdminUser is not set")
 		}

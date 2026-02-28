@@ -157,7 +157,6 @@ func (app *Application) setupServer() {
 	app.authProvider.RegisterRoutes(router)
 
 	api.NewRootController(router)
-	api.NewAuthController(router, app.authManager, app.config)
 	api.NewAdminController(router, app.authManager, app.authProvider)
 	api.NewPackageController(router, app.authManager, app.contentService)
 	api.NewHealthController(router, app.storageManager)

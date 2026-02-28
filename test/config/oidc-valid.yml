@@ -1,4 +1,4 @@
-# OIDC mode without client_id (admin credentials not required in oidc mode)
+# Valid OIDC config — no admin credentials required
 port: 8080
 secret: secret
 s3:
@@ -12,4 +12,5 @@ auth:
   mode: oidc
   oidc:
     issuer: https://keycloak.example.com/realms/gimme
+    client_id: gimme
     redirect_url: https://gimme.example.com/auth/callback

@@ -213,17 +213,26 @@ auth:
 
 ### 1. Create an access token
 
-Use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
+In `basic` mode, use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
 
 ```bash
-curl -s -X POST http://localhost:8080/create-token \
+curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
+  -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'
 ```
 
+In `oidc` mode, authenticate via the admin UI at `/admin` and use the token management interface.
+
 Response: `201 Created`
 ```json
-{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-token",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "createdAt": "2026-02-28T10:00:00Z",
+  "expiresAt": "2027-12-31T00:00:00Z"
+}
 ```
 
 > If `expirationDate` is omitted, the token expires in **15 minutes**.
@@ -288,18 +297,20 @@ Response: `204 No Content`
 
 ### API routes summary
 
-| Method   | Route                        | Auth       | Description                          |
-|----------|------------------------------|------------|--------------------------------------|
-| `GET`    | `/`                          | —          | HTML homepage                        |
-| `POST`   | `/create-token`              | Basic Auth | Create a JWT access token            |
-| `POST`   | `/packages`                  | Bearer JWT | Upload a ZIP package                 |
-| `DELETE` | `/packages/:package`         | Bearer JWT | Delete a package (`name@version`)    |
-| `GET`    | `/gimme/:package`            | —          | List files in a package (HTML)       |
-| `GET`    | `/gimme/:package/*file`      | —          | Serve a file from a package          |
-| `GET`    | `/metrics`                   | —          | Prometheus / OpenMetrics endpoint    |
-| `GET`    | `/docs`                      | —          | Interactive API documentation        |
-| `GET`    | `/healthz`                   | —          | Liveness probe                       |
-| `GET`    | `/readyz`                    | —          | Readiness probe (checks S3 bucket)   |
+| Method   | Route                        | Auth         | Description                          |
+|----------|------------------------------|--------------|--------------------------------------|
+| `GET`    | `/`                          | —            | HTML homepage                        |
+| `GET`    | `/admin`                     | Admin auth   | Admin UI (token management)          |
+| `POST`   | `/tokens`                    | Admin auth   | Create a JWT access token            |
+| `DELETE` | `/tokens/:id`                | Admin auth   | Revoke an access token               |
+| `POST`   | `/packages`                  | Bearer JWT   | Upload a ZIP package                 |
+| `DELETE` | `/packages/:package`         | Bearer JWT   | Delete a package (`name@version`)    |
+| `GET`    | `/gimme/:package`            | —            | List files in a package (HTML)       |
+| `GET`    | `/gimme/:package/*file`      | —            | Serve a file from a package          |
+| `GET`    | `/metrics`                   | —            | Prometheus / OpenMetrics endpoint    |
+| `GET`    | `/docs`                      | —            | Interactive API documentation        |
+| `GET`    | `/healthz`                   | —            | Liveness probe                       |
+| `GET`    | `/readyz`                    | —            | Readiness probe (checks S3 bucket)   |
 
 ---
 

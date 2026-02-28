@@ -56,7 +56,7 @@ config:
 credentials:
   # JWT signing secret
   secret: ""
-  # Admin credentials (used for POST /create-token via Basic Auth)
+  # Admin credentials (required in basic auth mode; unused in oidc mode)
   admin:
     user: ""
     password: ""

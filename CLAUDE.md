@@ -17,7 +17,7 @@ gimme/
 ├── cmd/server/main.go          # Entrypoint
 ├── api/                        # HTTP controllers (Gin)
 │   ├── root.go                 # GET /
-│   ├── auth-controller.go      # POST /create-token
+│   ├── admin-controller.go     # GET /admin, POST|DELETE /tokens
 │   ├── health-controller.go    # GET /healthz, GET /readyz
 │   └── package-controller.go   # GET|POST|DELETE /packages, GET /gimme/...
 ├── internal/
@@ -47,7 +47,7 @@ gimme/
 
 1. **Upload**: `POST /packages` (Bearer JWT) → `archive_validator` → `content.CreatePackage` → unzip → `storage.AddObject` (S3, parallel goroutines via `errgroup`)
 2. **Serve**: `GET /gimme/<package>@<version>/<file>` → `content.GetFile` → `storage.GetObject` → stream response
-3. **Auth**: `POST /create-token` (Basic Auth admin) → `auth.CreateToken` → signed JWT (HS256)
+3. **Auth**: `POST /tokens` (admin auth via `authProvider`) → `auth.CreateToken` → signed JWT (HS256)
 4. **Health**: `GET /healthz` → liveness (process alive) / `GET /readyz` → readiness (S3 bucket reachable)
 
 ### Package Naming Convention
@@ -127,7 +127,9 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 | Method   | Route                        | Auth          | Description                          |
 |----------|------------------------------|---------------|--------------------------------------|
 | `GET`    | `/`                          | None          | HTML homepage                        |
-| `POST`   | `/create-token`              | Basic Auth    | Create JWT access token              |
+| `GET`    | `/admin`                     | Admin auth    | Admin UI (token management)          |
+| `POST`   | `/tokens`                    | Admin auth    | Create JWT access token              |
+| `DELETE` | `/tokens/:id`                | Admin auth    | Revoke an access token               |
 | `POST`   | `/packages`                  | Bearer JWT    | Upload a ZIP package                 |
 | `DELETE` | `/packages/:package`         | Bearer JWT    | Delete a package (`name@version`)    |
 | `GET`    | `/gimme/:package`            | None          | List files in a package (HTML)       |

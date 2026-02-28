@@ -108,8 +108,9 @@
           </div>
           <div id="code-upload" class="code-panel active" role="tabpanel" aria-labelledby="ctab-upload" tabindex="0">
             <pre><code class="language-bash"># 1. Get a token
-curl -X POST https://cdn.example.com/create-token \
+curl -X POST https://cdn.example.com/tokens \
   -u admin:password \
+  -H 'Content-Type: application/json' \
   -d '{"name": "ci", "expirationDate": "2027-12-31"}'
 
 # 2. Upload your library
@@ -301,8 +302,9 @@ make build && ./gimme</code></pre>
             <div class="step-number" aria-hidden="true">1</div>
             <div class="step-body">
               <h4>Create an access token</h4>
-              <pre><code class="language-bash">curl -s -X POST http://localhost:8080/create-token \
+              <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
+  -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
               <div class="callout callout-info">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -566,10 +568,22 @@ helm uninstall gimme --namespace gimme</code></pre>
                 <td>HTML homepage (ReDoc API docs)</td>
               </tr>
               <tr>
+                <td><span class="method get">GET</span></td>
+                <td><code>/admin</code></td>
+                <td><span class="auth-badge basic">Admin auth</span></td>
+                <td>Admin UI (token management)</td>
+              </tr>
+              <tr>
                 <td><span class="method post">POST</span></td>
-                <td><code>/create-token</code></td>
-                <td><span class="auth-badge basic">Basic Auth</span></td>
+                <td><code>/tokens</code></td>
+                <td><span class="auth-badge basic">Admin auth</span></td>
                 <td>Create a JWT access token</td>
+              </tr>
+              <tr>
+                <td><span class="method delete">DELETE</span></td>
+                <td><code>/tokens/:id</code></td>
+                <td><span class="auth-badge basic">Admin auth</span></td>
+                <td>Revoke an access token</td>
               </tr>
               <tr>
                 <td><span class="method post">POST</span></td>
@@ -624,10 +638,11 @@ helm uninstall gimme --namespace gimme</code></pre>
         </div>
 
         <h3>Create a token</h3>
-        <pre><code class="language-bash">curl -s -X POST http://localhost:8080/create-token \
+        <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
+  -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
-        <pre><code class="language-json">{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}</code></pre>
+        <pre><code class="language-json">{"id": "...", "name": "my-token", "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "createdAt": "...", "expiresAt": "..."}</code></pre>
 
         <h3>Upload a package</h3>
         <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \

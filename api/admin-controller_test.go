@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -90,6 +91,27 @@ func TestAdminController_DeleteToken_NotFound(t *testing.T) {
 		nil,
 		utils.Header{Key: "Authorization", Value: adminAuthHeader})
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestAdminController_CreateToken_NameTooLong(t *testing.T) {
+	router, _ := newAdminRouter()
+	longName := strings.Repeat("a", maxTokenNameLength+1)
+	body := fmt.Sprintf(`{"name":%q}`, longName)
+	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(body),
+		utils.Header{Key: "Authorization", Value: adminAuthHeader},
+		utils.Header{Key: "Content-Type", Value: "application/json"})
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "must not exceed")
+}
+
+func TestAdminController_CreateToken_NameAtMaxLength(t *testing.T) {
+	router, _ := newAdminRouter()
+	exactName := strings.Repeat("a", maxTokenNameLength)
+	body := fmt.Sprintf(`{"name":%q}`, exactName)
+	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(body),
+		utils.Header{Key: "Authorization", Value: adminAuthHeader},
+		utils.Header{Key: "Content-Type", Value: "application/json"})
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestAdminController_DeleteToken_OK(t *testing.T) {
