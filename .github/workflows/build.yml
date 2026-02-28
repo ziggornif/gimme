@@ -97,17 +97,19 @@ jobs:
 
       - name: Compute Docker tag
         id: docker-tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
+          if [ "$REF_NAME" = "main" ]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
           else
             # Sanitize branch name: replace '/' and any non-alphanumeric chars with '-'
-            BRANCH=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            BRANCH=$(echo "$REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
             echo "tag=${BRANCH}" >> $GITHUB_OUTPUT
           fi
 
       - name: Docker login
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+        run: echo "${{ secrets.DOCKER_PASS }}" | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
 
       - name: Build the Docker image
         run: docker build -t $REPO:${{ steps.docker-tag.outputs.tag }} .

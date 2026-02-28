@@ -34,11 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Docker login
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+        run: echo "${{ secrets.DOCKER_PASS }}" | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
       - name: Build the Docker image
-        run: docker build -t $REPO:${{ github.ref_name }} .
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: docker build -t $REPO:$REF_NAME .
       - name: Publish Docker image
-        run: docker push $REPO:${{ github.ref_name }}
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: docker push $REPO:$REF_NAME
   release-helm:
     needs: release-docker
     runs-on: ubuntu-latest
@@ -54,8 +58,10 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Update chart version
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="$REF_NAME"
           # Strip leading 'v' if present (e.g. v1.2.3 -> 1.2.3)
           CHART_VERSION="${VERSION#v}"
           echo "CHART_VERSION=${CHART_VERSION}" >> "$GITHUB_ENV"
