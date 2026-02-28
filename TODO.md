@@ -247,6 +247,32 @@ auth:
 - [x] Documenter la configuration OIDC avec un exemple Keycloak
 - [x] Mettre à jour le Helm chart : ajouter les paramètres `auth.mode`, `auth.oidc.*` dans `values.yaml` et le `ConfigMap`
 
+## Priorité 17b — Findings code review PR#3 (MEDIUM)
+
+Issues identifiées lors du code review automatisé du 2026-02-28 (`security/20260228_PR3-CODE-REVIEW.md`).
+
+- [ ] `auth-manager.go:104-113` — `decodeToken` : pas de vérification de l'algorithme de signature JWT (algorithm confusion risk) — vérifier que l'algo est bien `HS256` avant d'accepter le token
+- [ ] `oidc-provider.go:163-177` — Pas de paramètre `nonce` dans le flow OIDC (risque de replay d'ID token) — générer et vérifier un nonce à chaque échange
+- [ ] `configs/config.go:134-136` — Pas de longueur minimale pour le secret JWT (1 caractère accepté) — ajouter une validation d'au moins 32 caractères au démarrage
+- [ ] `application.go:151` — `cors.Default()` autorise toutes les origines — configurer explicitement les origines autorisées via la config
+- [ ] `content-service.go:207` — Invalidation cache incomplète : supprimer `pkg@1.0.3` n'invalide pas le cache de `pkg@1.0` qui résolvait vers `1.0.3` — invalider aussi les entrées de version partielle
+- [ ] `objectstorage-manager.go:146-156` — `ListObjects` inclut silencieusement les entrées S3 avec `Err != nil` — logger et filtrer les entrées en erreur
+- [ ] `objectstorage-manager.go:159-176` — `ObjectExists` match par préfixe : `1.0.0` matche aussi `1.0.0-beta` — corriger la comparaison pour un match exact
+- [ ] `business-error.go:41-43` — `GetHTTPCode()` retourne `0` pour un `Kind` inconnu (interprété comme `200 OK` par Go) — retourner `500` par défaut
+- [ ] `application.go:91-99` — Connexion Redis jamais fermée au shutdown — ajouter un `defer redisClient.Close()` ou fermeture propre dans le signal handler
+- [ ] `Makefile:30-32` — `make test` retourne toujours succès car l'exit code de `go test` est perdu (`;` au lieu de `&&`) — corriger le séparateur
+- [ ] `Makefile:3` — `gosec ./..` (2 points au lieu de 3) — corriger en `gosec ./...`
+- [ ] `Dockerfile` — `make release` hardcode `GOARCH=amd64` — rendre l'architecture paramétrable pour les builds multi-arch
+
+## Priorité 17c — Findings code review PR#3 (LOW)
+
+- [ ] `content-service.go:59` — `getVersion()` panic si un objet S3 ne contient pas `@` dans son nom — ajouter une vérification avant le split
+- [ ] `package-controller.go:64` — `file.Open()` : erreur silencée, un `nil` reader provoque un panic en aval — propager l'erreur avec un `400 Bad Request`
+- [ ] `internal/errors/business-error.go` — `GimmeError` n'implémente pas `Unwrap()` — `errors.Is()` ne traverse pas l'erreur wrappée, ajouter la méthode
+- [ ] Token store en mémoire ne purge jamais les tokens expirés — ajouter un ticker de nettoyage périodique (fuite mémoire lente sur le long terme)
+- [ ] `application.go:185-187` — Commentaire dit "5 seconds" mais le timeout est à 60s — corriger le commentaire
+- [ ] `package-controller.go:28-38` — `getSlice` ne valide pas les noms/versions vides — ajouter une validation et retourner un `400` explicite
+
 ## Priorité 18 — Tokens opaques & base de données relationnelle
 
 Remplacer les JWT utilisés comme API keys par des tokens opaques stockés en base, aligné sur le modèle GitHub/GitLab. Nécessite l'introduction d'une base de données relationnelle (PostgreSQL recommandé).
