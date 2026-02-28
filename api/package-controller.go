@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	stderrors "errors"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -26,14 +26,26 @@ type packageSlice struct {
 }
 
 func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.GimmeError) {
-	slice := strings.Split(pkg, "@")
-	if len(slice) <= 1 {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("Invalid URL (valid format : GET /gimme/<package>@<version>/<file>)"))
+	const invalidURLMsg = "invalid URL (valid format: /gimme/<package>@<version>/<file>)"
+
+	slice := strings.SplitN(pkg, "@", 2)
+	if len(slice) < 2 {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New(invalidURLMsg))
+	}
+
+	name := slice[0]
+	version := slice[1]
+
+	if name == "" {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New("package name must not be empty — "+invalidURLMsg))
+	}
+	if version == "" {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New("package version must not be empty — "+invalidURLMsg))
 	}
 
 	return &packageSlice{
-		Name:    slice[0],
-		Version: slice[1],
+		Name:    name,
+		Version: version,
 	}, nil
 }
 
@@ -61,7 +73,12 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		return
 	}
 
-	reader, _ := file.Open()
+	reader, openErr := file.Open()
+	if openErr != nil {
+		logrus.Errorf("[PackageController] createPackage - failed to open uploaded file: %v", openErr)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read uploaded file"})
+		return
+	}
 	defer func(reader multipart.File) {
 		err := reader.Close()
 		if err != nil {

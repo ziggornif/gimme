@@ -54,16 +54,27 @@ func (svc *ContentService) filterArray(arr []minio.ObjectInfo, fileName string, 
 	return filtered
 }
 
-// getVersion get package version
+// getVersion get package version from an S3 object key.
+// Returns an empty string if the key does not contain the expected '@' separator
+// (defensive: avoids a panic on malformed/unexpected object names).
 func (svc *ContentService) getVersion(objStorageFile string) string {
-	return strings.Split(strings.Split(objStorageFile, "@")[1], "/")[0]
+	parts := strings.SplitN(objStorageFile, "@", 2)
+	if len(parts) < 2 {
+		logrus.Warnf("[ContentService] getVersion - unexpected object key without '@': %s", objStorageFile)
+		return ""
+	}
+	return strings.Split(parts[1], "/")[0]
 }
 
 // getLatestVersion get last package version
 func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
 	var versions []string
 	for _, curr := range arr {
-		versions = append(versions, svc.getVersion(curr.Key))
+		v := svc.getVersion(curr.Key)
+		if v == "" {
+			continue // skip malformed entries
+		}
+		versions = append(versions, v)
 	}
 	if len(versions) == 0 {
 		return ""

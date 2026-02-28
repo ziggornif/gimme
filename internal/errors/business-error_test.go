@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -47,4 +48,18 @@ func TestGimmeError_GetHTTPCode_UnknownKind(t *testing.T) {
 func TestGimmeError_Error_NilErr(t *testing.T) {
 	err := NewBusinessError(BadRequest, nil)
 	assert.Equal(t, "BadRequest", err.Error())
+}
+
+func TestGimmeError_Unwrap(t *testing.T) {
+	cause := fmt.Errorf("root cause")
+	wrapped := fmt.Errorf("mid: %w", cause)
+	gimmeErr := NewBusinessError(InternalError, wrapped)
+
+	// errors.Is must traverse the full chain through Unwrap.
+	assert.True(t, errors.Is(gimmeErr, cause))
+}
+
+func TestGimmeError_Unwrap_NilErr(t *testing.T) {
+	gimmeErr := NewBusinessError(BadRequest, nil)
+	assert.Nil(t, gimmeErr.Unwrap())
 }

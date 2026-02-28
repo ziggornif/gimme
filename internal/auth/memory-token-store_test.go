@@ -82,5 +82,65 @@ func TestMemoryTokenStore_Delete_NotFound(t *testing.T) {
 
 func TestMemoryTokenStore_List_Empty(t *testing.T) {
 	store := NewMemoryTokenStore()
+	defer store.Close()
 	assert.Empty(t, store.List())
+}
+
+func TestMemoryTokenStore_PurgeExpired(t *testing.T) {
+	store := NewMemoryTokenStore()
+	defer store.Close()
+
+	// Already-expired token
+	expired := &TokenEntry{
+		ID:        "exp-1",
+		Name:      "expired",
+		Token:     "jwt-expired",
+		CreatedAt: time.Now().Add(-time.Hour),
+		ExpiresAt: time.Now().Add(-time.Minute), // in the past
+	}
+	// Still-valid token
+	valid := makeEntry("valid-1", "valid", "jwt-valid")
+
+	_ = store.Save(expired)
+	_ = store.Save(valid)
+
+	// Trigger purge directly (no need to wait for the ticker)
+	store.purgeExpired()
+
+	// Expired token must be gone
+	_, ok := store.GetByToken("jwt-expired")
+	assert.False(t, ok)
+
+	// Valid token must still be present
+	_, ok = store.GetByToken("jwt-valid")
+	assert.True(t, ok)
+}
+
+func TestMemoryTokenStore_PurgeExpired_ZeroExpiresAt(t *testing.T) {
+	store := NewMemoryTokenStore()
+	defer store.Close()
+
+	// Token with zero ExpiresAt must never be purged
+	noExpiry := &TokenEntry{
+		ID:        "no-expiry",
+		Name:      "permanent",
+		Token:     "jwt-permanent",
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Time{}, // zero value = no expiry
+	}
+	_ = store.Save(noExpiry)
+
+	store.purgeExpired()
+
+	_, ok := store.GetByToken("jwt-permanent")
+	assert.True(t, ok)
+}
+
+func TestMemoryTokenStore_Close_Idempotent(t *testing.T) {
+	store := NewMemoryTokenStore()
+	// Calling Close multiple times must not panic.
+	assert.NotPanics(t, func() {
+		store.Close()
+		store.Close()
+	})
 }

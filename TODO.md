@@ -266,12 +266,12 @@ Issues identifiées lors du code review automatisé du 2026-02-28 (`security/202
 
 ## Priorité 17c — Findings code review PR#3 (LOW)
 
-- [ ] `content-service.go:59` — `getVersion()` panic si un objet S3 ne contient pas `@` dans son nom — ajouter une vérification avant le split
-- [ ] `package-controller.go:64` — `file.Open()` : erreur silencée, un `nil` reader provoque un panic en aval — propager l'erreur avec un `400 Bad Request`
-- [ ] `internal/errors/business-error.go` — `GimmeError` n'implémente pas `Unwrap()` — `errors.Is()` ne traverse pas l'erreur wrappée, ajouter la méthode
-- [ ] Token store en mémoire ne purge jamais les tokens expirés — ajouter un ticker de nettoyage périodique (fuite mémoire lente sur le long terme)
-- [ ] `application.go:185-187` — Commentaire dit "5 seconds" mais le timeout est à 60s — corriger le commentaire
-- [ ] `package-controller.go:28-38` — `getSlice` ne valide pas les noms/versions vides — ajouter une validation et retourner un `400` explicite
+- [x] `content-service.go:59` — `getVersion()` panic si un objet S3 ne contient pas `@` dans son nom — ajouter une vérification avant le split
+- [x] `package-controller.go:64` — `file.Open()` : erreur silencée, un `nil` reader provoque un panic en aval — propager l'erreur avec un `500 Internal Server Error`
+- [x] `internal/errors/business-error.go` — `GimmeError` n'implémente pas `Unwrap()` — `errors.Is()` ne traverse pas l'erreur wrappée, ajouter la méthode
+- [x] Token store en mémoire ne purge jamais les tokens expirés — ajouter un ticker de nettoyage périodique (fuite mémoire lente sur le long terme)
+- [x] `application.go:185-187` — Commentaire dit "5 seconds" mais le timeout est à 60s — corriger le commentaire
+- [x] `package-controller.go:28-38` — `getSlice` ne valide pas les noms/versions vides — ajouter une validation et retourner un `400` explicite
 
 ## Priorité 18 — Tokens opaques & base de données relationnelle
 

@@ -103,6 +103,37 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestGetSlice_EmptyName(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("@1.0.0")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
+	assert.Contains(t, err.Error(), "package name must not be empty")
+}
+
+func TestGetSlice_EmptyVersion(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("pkg@")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
+	assert.Contains(t, err.Error(), "package version must not be empty")
+}
+
+func TestGetSlice_NoAtSign(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("pkg-without-at")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
+}
+
+func TestGetSlice_Valid(t *testing.T) {
+	ctrl := &PackageController{}
+	slice, err := ctrl.getSlice("mypkg@1.2.3")
+	assert.Nil(t, err)
+	assert.Equal(t, "mypkg", slice.Name)
+	assert.Equal(t, "1.2.3", slice.Version)
+}
+
 func TestCacheControlHeader(t *testing.T) {
 	tests := []struct {
 		version  string

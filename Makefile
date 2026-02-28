@@ -102,6 +102,7 @@ garage-start:
 garage-stop:
 	@echo "Stopping Garage..."
 	@docker rm -f $(GARAGE_CONTAINER) >/dev/null 2>&1 || true
+	@docker run --rm -v /tmp:/tmp alpine sh -c "rm -rf /tmp/garage /tmp/garage.toml" 2>/dev/null || true
 	@echo "Done."
 
 .PHONY: test-integration

@@ -38,6 +38,12 @@ func (e GimmeError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap returns the wrapped error so that errors.Is and errors.As can
+// traverse the error chain through a GimmeError.
+func (e GimmeError) Unwrap() error {
+	return e.Err
+}
+
 func (e GimmeError) GetHTTPCode() int {
 	if code, ok := httpCodes[e.Kind]; ok {
 		return code

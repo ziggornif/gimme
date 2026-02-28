@@ -36,6 +36,7 @@ type Application struct {
 	contentService content.ContentService
 	storageManager storage.ObjectStorageManager
 	cacheManager   cache.CacheManager
+	tokenStore     auth.TokenStore
 }
 
 // NewApplication create an application instance
@@ -55,8 +56,8 @@ func (app *Application) loadConfig() {
 // loadModules load app modules
 func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
-	tokenStore := auth.NewMemoryTokenStore()
-	app.authManager = auth.NewAuthManager(app.config.Secret, tokenStore)
+	app.tokenStore = auth.NewMemoryTokenStore()
+	app.authManager = auth.NewAuthManager(app.config.Secret, app.tokenStore)
 
 	switch app.config.Auth.Mode {
 	case "oidc":
@@ -204,7 +205,7 @@ func (app *Application) setupServer() {
 	logrus.Info("Shutting down server...")
 
 	// The context is used to inform the server it has 60 seconds to finish
-	// the request it is currently handling.
+	// any request it is currently handling before forcing a shutdown.
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -219,6 +220,12 @@ func (app *Application) setupServer() {
 		if closeErr := app.cacheManager.Close(); closeErr != nil {
 			logrus.Warnf("Error closing cache connection: %v", closeErr)
 		}
+	}
+
+	// Stop the token store's background goroutine (e.g. the expiry purge ticker
+	// in MemoryTokenStore) to ensure a clean shutdown without goroutine leaks.
+	if app.tokenStore != nil {
+		app.tokenStore.Close()
 	}
 
 	logrus.Info("Server exiting.")

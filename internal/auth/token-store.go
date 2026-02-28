@@ -32,4 +32,8 @@ type TokenStore interface {
 	// Delete removes the token entry with the given ID.
 	// Returns false if the ID does not exist.
 	Delete(id string) bool
+
+	// Close releases any resources held by the store (e.g. background goroutines,
+	// network connections). It is safe to call Close multiple times.
+	Close()
 }

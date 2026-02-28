@@ -111,6 +111,24 @@ func TestContentService_GetLatestVersionEmpty(t *testing.T) {
 	assert.Equal(t, "", result)
 }
 
+func TestContentService_GetVersion_NoAtSign(t *testing.T) {
+	// Object keys without '@' must not panic and must return an empty string.
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
+	result := service.getVersion("malformed-object-key-without-at-sign")
+	assert.Equal(t, "", result)
+}
+
+func TestContentService_GetLatestVersion_MalformedKeys(t *testing.T) {
+	// Malformed entries (no '@') must be skipped; the valid entry wins.
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
+	objs := []minio.ObjectInfo{
+		{Key: "malformed-no-at-sign"},
+		{Key: "pkg@1.0.0/file.js"},
+	}
+	result := service.getLatestVersion(objs)
+	assert.Equal(t, "1.0.0", result)
+}
+
 // --- Cache tests ---
 
 func TestContentService_GetFile_CacheDisabled(t *testing.T) {
