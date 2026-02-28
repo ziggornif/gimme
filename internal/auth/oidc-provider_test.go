@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc/oidctest"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -291,6 +294,38 @@ func TestOIDCProvider_IssueSessionCookie_RoundTrip(t *testing.T) {
 	assert.Equal(t, "bob@example.com", claims.Email)
 	assert.Equal(t, "Bob", claims.Name)
 	assert.True(t, claims.ExpiresAt.After(time.Now()))
+}
+
+func TestWarnIfInsecureCookies(t *testing.T) {
+	tests := []struct {
+		name         string
+		issuer       string
+		secureCookies bool
+		wantWarn     bool
+	}{
+		{"secure true, external issuer", "https://keycloak.example.com", true, false},
+		{"secure false, localhost", "http://localhost:8180", false, false},
+		{"secure false, 127.0.0.1", "http://127.0.0.1:8180", false, false},
+		{"secure false, ::1", "http://[::1]:8180", false, false},
+		{"secure false, external issuer", "https://keycloak.example.com", false, true},
+		{"secure false, external issuer with path", "https://auth.company.io/realms/gimme", false, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logrus.SetOutput(&buf)
+			t.Cleanup(func() { logrus.SetOutput(os.Stderr) })
+
+			warnIfInsecureCookies(tc.issuer, tc.secureCookies)
+
+			if tc.wantWarn {
+				assert.Contains(t, buf.String(), "secure_cookies is false")
+			} else {
+				assert.NotContains(t, buf.String(), "secure_cookies is false")
+			}
+		})
+	}
 }
 
 func TestGenerateRandomState_Uniqueness(t *testing.T) {

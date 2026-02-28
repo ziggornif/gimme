@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -75,12 +76,31 @@ func NewOIDCProvider(ctx context.Context, issuer, clientID, clientSecret, redire
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
-	return &OIDCProvider{
+	p := &OIDCProvider{
 		oauth2Config:  oauth2Cfg,
 		verifier:      verifier,
 		signingSecret: []byte(signingSecret),
 		secureCookies: secureCookies,
-	}, nil
+	}
+
+	warnIfInsecureCookies(issuer, secureCookies)
+	return p, nil
+}
+
+// warnIfInsecureCookies emits a logrus warning when secureCookies is false and
+// the issuer hostname is not a loopback address. This catches the common mistake
+// of leaving secure_cookies: false from a local dev config when deploying to production.
+func warnIfInsecureCookies(issuer string, secureCookies bool) {
+	if secureCookies {
+		return
+	}
+	host := issuer
+	if u, err := url.Parse(issuer); err == nil {
+		host = u.Hostname()
+	}
+	if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+		logrus.Warnf("[OIDCProvider] NewOIDCProvider - secure_cookies is false but issuer %q does not appear to be localhost; session cookies will be sent over plain HTTP — set auth.oidc.secure_cookies: true in production", issuer)
+	}
 }
 
 // LoginMiddleware returns a Gin middleware that checks for a valid session cookie.
