@@ -67,7 +67,7 @@ type RedisTokenStore struct {
 func NewRedisTokenStore(redisURL string) (*RedisTokenStore, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		return nil, fmt.Errorf("redis-token-store: invalid URL %q: %w", redisURL, err)
+		return nil, fmt.Errorf("redis-token-store: invalid URL: %w", err)
 	}
 
 	client := redis.NewClient(opt)
@@ -76,10 +76,10 @@ func NewRedisTokenStore(redisURL string) (*RedisTokenStore, error) {
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("redis-token-store: cannot reach Redis at %q: %w", redisURL, err)
+		return nil, fmt.Errorf("redis-token-store: cannot reach Redis at %q: %w", opt.Addr, err)
 	}
 
-	logrus.Infof("[RedisTokenStore] connected to Redis at %s", redisURL)
+	logrus.Infof("[RedisTokenStore] connected to Redis at %s", opt.Addr)
 	return &RedisTokenStore{client: client}, nil
 }
 
