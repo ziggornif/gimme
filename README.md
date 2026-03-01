@@ -41,13 +41,13 @@ graph LR
     Gimme["gimme\n:8080"]
     S3["Any S3-compatible storage\n(AWS S3, OVH, Cellar, Garage, …)"]
     Cache["Cache layer\n(Nginx / CDN) — optional"]
-    Redis["Redis / Valkey\n(internal cache) — optional"]
+    Redis["Redis / Valkey\n(tokens + optional cache)"]
 
     Client -->|"GET /gimme/pkg@1.0/file.js"| Cache
     Cache -->|cache miss| Gimme
     Gimme -->|"version resolution (partial)"| Redis
     Gimme -->|stream object| S3
-    Client -->|"POST /packages (JWT)"| Gimme
+    Client -->|"POST /packages (Bearer token)"| Gimme
     Gimme -->|store objects| S3
 ```
 
@@ -60,7 +60,7 @@ sequenceDiagram
     participant Val as Archive Validator
     participant S3 as Object Storage
 
-    Dev->>API: POST /packages (Bearer JWT, multipart ZIP)
+    Dev->>API: POST /packages (Bearer token, multipart ZIP)
     API->>Val: Validate ZIP (application/zip or application/octet-stream)
     Val-->>API: OK
     API->>S3: PutObject pkg@version/file (parallel goroutines)
@@ -141,7 +141,7 @@ admin:
   user: gimmeadmin
   password: gimmeadmin
 port: 8080
-secret: your-jwt-signing-secret
+secret: your-secret-at-least-32-chars-long
 s3:
   url: your.s3.endpoint
   key: your-access-key
@@ -154,7 +154,7 @@ s3:
 
 | Key               | Description                              | Default  |
 |-------------------|------------------------------------------|----------|
-| `secret`          | JWT signing secret                       | required |
+| `secret`          | Token signing secret (**min 32 chars**)  | required |
 | `admin.user`      | Admin username (Basic Auth)              | required |
 | `admin.password`  | Admin password (Basic Auth)              | required |
 | `port`            | HTTP server port                         | `8080`   |
@@ -165,15 +165,19 @@ s3:
 | `s3.location`     | S3 region / Garage zone                  | required |
 | `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
 | `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
-| `cache.enabled`   | Enable internal Redis cache              | `false`  |
+| `cors.allowed_origins` | List of allowed CORS origins. Defaults to all origins (`*`) if empty. | `[]` (all origins) |
+| `cache.enabled`   | Enable internal Redis cache for version resolution | `false`  |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
-| `cache.redis_url` | Redis/Valkey connection URL              | `redis://localhost:6379` |
+| `cache.redis_url` | Redis/Valkey connection URL (**required** — used for API token storage even when cache is disabled) | `redis://localhost:6379` |
 | `auth.mode`       | Admin auth mode (`basic` or `oidc`)      | `basic`  |
 | `auth.oidc.issuer`       | OIDC issuer URL                 | required if `oidc` |
 | `auth.oidc.client_id`    | OIDC client ID                  | required if `oidc` |
 | `auth.oidc.client_secret`| OIDC client secret              | optional |
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
+| `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
+
+> **Redis is required.** Gimme uses Redis to persist opaque API tokens across restarts. A running Redis / Valkey instance must be reachable at `cache.redis_url` even when the internal version-resolution cache (`cache.enabled`) is disabled. Without Redis, the application will refuse to start.
 
 ### OIDC authentication (optional)
 
@@ -213,6 +217,10 @@ auth:
 
 ### 1. Create an access token
 
+> **Breaking change:** API tokens are now cryptographically random opaque strings (`gim_<hex>`, 68 chars), stored as SHA-256 hashes in Redis. **JWT tokens issued by previous versions are invalid and must be regenerated via `/admin` or `POST /tokens`.**
+>
+> The raw token is returned **once** — store it securely. Only its hash is persisted in Redis.
+
 In `basic` mode, use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
 
 ```bash
@@ -224,18 +232,20 @@ curl -s -X POST http://localhost:8080/tokens \
 
 In `oidc` mode, authenticate via the admin UI at `/admin` and use the token management interface.
 
-Response: `201 Created`
+ Response: `201 Created`
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "my-token",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token": "gim_4a7b9c2d1e3f...",
   "createdAt": "2026-02-28T10:00:00Z",
   "expiresAt": "2027-12-31T00:00:00Z"
 }
 ```
 
-> If `expirationDate` is omitted, the token expires in **15 minutes**.
+> The raw token (`gim_<hex>`, 68 chars) is returned **once** — store it securely. Only its SHA-256 hash is persisted in Redis.
+
+> If `expirationDate` is omitted, the token expires in **90 days**.
 
 ### 2. Upload a package
 
@@ -265,7 +275,7 @@ curl http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js
 
 **Semver partial versions are supported** — `awesome-lib@1.0` resolves to the latest `1.0.x` available.
 
-> **CORS:** All routes include CORS headers with permissive defaults (`Access-Control-Allow-Origin: *`). Assets can be loaded directly from a browser without any proxy configuration.
+> **CORS:** CORS is configurable via `cors.allowed_origins` in `gimme.yml`. If left empty (the default), all origins are allowed (`*`) — suitable for a public CDN. Set it to a list of trusted origins to restrict cross-origin access.
 
 Use it directly in HTML:
 
@@ -301,10 +311,10 @@ Response: `204 No Content`
 |----------|------------------------------|--------------|--------------------------------------|
 | `GET`    | `/`                          | —            | HTML homepage                        |
 | `GET`    | `/admin`                     | Admin auth   | Admin UI (token management)          |
-| `POST`   | `/tokens`                    | Admin auth   | Create a JWT access token            |
+| `POST`   | `/tokens`                    | Admin auth   | Create an opaque access token        |
 | `DELETE` | `/tokens/:id`                | Admin auth   | Revoke an access token               |
-| `POST`   | `/packages`                  | Bearer JWT   | Upload a ZIP package                 |
-| `DELETE` | `/packages/:package`         | Bearer JWT   | Delete a package (`name@version`)    |
+| `POST`   | `/packages`                  | Bearer token | Upload a ZIP package                 |
+| `DELETE` | `/packages/:package`         | Bearer token | Delete a package (`name@version`)    |
 | `GET`    | `/gimme/:package`            | —            | List files in a package (HTML)       |
 | `GET`    | `/gimme/:package/*file`      | —            | Serve a file from a package          |
 | `GET`    | `/metrics`                   | —            | Prometheus / OpenMetrics endpoint    |

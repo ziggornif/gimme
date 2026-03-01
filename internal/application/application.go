@@ -154,10 +154,11 @@ func metricsMiddleware() gin.HandlerFunc {
 	}
 }
 
-// corsConfig returns a CORS configuration allowing only the explicitly listed origins.
-// If no origins are configured, all cross-origin requests are denied.
-// Set cors.allowed_origins in gimme.yml to a list of trusted origins, or use ["*"]
-// to allow all origins (useful for a public CDN serving assets cross-origin).
+// corsConfig returns a CORS configuration for the given list of allowed origins.
+// If no origins are configured (empty slice), all cross-origin requests are allowed (*)
+// — this is the default behaviour, suitable for a public CDN serving assets cross-origin.
+// Set cors.allowed_origins in gimme.yml to a list of trusted origins to restrict access,
+// or use ["*"] to explicitly allow all origins.
 func corsConfig(allowedOrigins []string) cors.Config {
 	cfg := cors.DefaultConfig()
 	if len(allowedOrigins) > 0 {

@@ -23,7 +23,7 @@
     },
     {
       "name": "authentication",
-      "description": "JWT token management"
+      "description": "Opaque API token management"
     },
     {
       "name": "package",
@@ -65,7 +65,7 @@
       "post": {
         "tags": ["authentication"],
         "summary": "Create an access token",
-        "description": "Creates a signed JWT used to authenticate upload and delete requests. Requires admin authentication (Basic Auth in `basic` mode, OIDC session cookie in `oidc` mode).",
+        "description": "Creates an opaque API token (format: `gim_<hex>`, 68 chars) used to authenticate upload and delete requests. The raw token is returned **once** at creation — store it securely. Subsequent requests only carry the SHA-256 hash in Redis. Requires admin authentication (Basic Auth in `basic` mode, OIDC session cookie in `oidc` mode).",
         "operationId": "createToken",
         "security": [
           { "basicAuth": [] }
@@ -100,89 +100,7 @@
             }
           },
           "401": {
-            "description": "Unauthenticated"
-          }
-        }
-      }
-    },
-    "/tokens/{id}": {
-      "delete": {
-        "tags": ["authentication"],
-        "summary": "Revoke an access token",
-        "description": "Revokes the token identified by `id`. Requires admin authentication.",
-        "operationId": "deleteToken",
-        "security": [
-          { "basicAuth": [] }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Token ID returned at creation",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Token revoked"
-          },
-          "401": {
-            "description": "Unauthenticated"
-          },
-          "404": {
-            "description": "Token not found"
-          }
-        }
-      }
-    },
-    "/packages": {
-      "post": {
-        "tags": ["package"],
-        "summary": "Upload a package",
-        "description": "Uploads a ZIP archive as a versioned package. The archive is extracted and each file is stored in the S3 backend under `<name>@<version>/<file>`. Requires a valid Bearer JWT.",
-        "operationId": "createPackage",
-        "security": [
-          { "bearerAuth": [] }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": { "$ref": "#/components/schemas/CreatePackageRequest" }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Package uploaded successfully"
-          },
-          "400": {
-            "description": "Invalid file or missing fields",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "409": {
-            "description": "Package already exists",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
-          "500": {
-            "description": "Storage error",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
+            "description": "Missing or invalid Bearer token"
           }
         }
       }
@@ -218,7 +136,7 @@
             }
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid Bearer token"
           }
         }
       }
@@ -357,7 +275,7 @@
           "expirationDate": {
             "type": "string",
             "format": "date",
-            "description": "Token expiration date (YYYY-MM-DD). Defaults to 15 minutes from now if omitted.",
+            "description": "Token expiration date (YYYY-MM-DD). Defaults to 90 days from now if omitted.",
             "example": "2027-12-31"
           }
         }
@@ -378,8 +296,8 @@
           },
           "token": {
             "type": "string",
-            "description": "Signed JWT to use as Bearer token (shown only at creation)",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            "description": "Opaque API token in the form `gim_<hex>` (68 chars). Shown **only once** at creation — store it securely. Used as a Bearer token in the `Authorization` header.",
+            "example": "gim_4a7b9c2d1e3f..."
           },
           "createdAt": {
             "type": "string",
@@ -428,8 +346,7 @@
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "scheme": "bearer"
       },
       "basicAuth": {
         "type": "http",

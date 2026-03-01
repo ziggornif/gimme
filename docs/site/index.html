@@ -146,8 +146,8 @@ curl -X POST https://cdn.example.com/packages \
             <div class="feature-icon green" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             </div>
-            <h3>JWT-secured uploads</h3>
-            <p>Signed tokens protect write endpoints. Public asset serving needs no authentication — CORS included.</p>
+            <h3>Opaque token uploads</h3>
+            <p>Cryptographically random opaque tokens protect write endpoints. Public asset serving needs no authentication — CORS configurable.</p>
           </li>
           <li class="feature-card">
             <div class="feature-icon purple" aria-hidden="true">
@@ -220,7 +220,7 @@ curl -X POST https://cdn.example.com/packages \
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
                 </div>
                 <span class="arch-node-label">Redis / Valkey</span>
-                <span class="arch-node-sub">optional</span>
+                <span class="arch-node-sub">required (tokens + optional cache)</span>
               </div>
             </div>
             <div class="arch-connector" aria-hidden="true">→</div>
@@ -271,7 +271,7 @@ docker compose up -d</code></pre>
   user: gimmeadmin
   password: change-me
 port: 8080
-secret: your-jwt-signing-secret
+secret: your-secret-at-least-32-chars-long
 s3:
   url: s3.amazonaws.com     # or s3.fr-par.scw.cloud, etc.
   key: your-access-key
@@ -308,7 +308,7 @@ make build && ./gimme</code></pre>
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
               <div class="callout callout-info">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <span>Without <code>expirationDate</code>, the token expires in 15 minutes.</span>
+                <span>Without <code>expirationDate</code>, the token expires in 90 days.</span>
               </div>
             </div>
           </div>
@@ -347,7 +347,7 @@ make build && ./gimme</code></pre>
   user: gimmeadmin
   password: gimmeadmin
 port: 8080
-secret: your-jwt-signing-secret
+secret: your-secret-at-least-32-chars-long
 s3:
   url: your.s3.endpoint
   key: your-access-key
@@ -357,10 +357,10 @@ s3:
   ssl: false             # set false for local Garage
 metrics: true            # expose /metrics (Prometheus)
 cache:
-  enabled: false         # optional Redis/Valkey cache
+  redis_url: redis://localhost:6379  # required for token storage
+  enabled: false         # optional version-resolution cache
   type: redis
-  ttl: 3600
-  redis_url: redis://localhost:6379</code></pre>
+  ttl: 3600</code></pre>
 
         <div class="table-wrapper">
           <table aria-label="Configuration options reference">
@@ -372,7 +372,7 @@ cache:
               </tr>
             </thead>
             <tbody>
-              <tr><td><code>secret</code></td><td>JWT signing secret</td><td><span class="badge-required">required</span></td></tr>
+              <tr><td><code>secret</code></td><td>Token signing secret (<strong>min 32 chars</strong>)</td><td><span class="badge-required">required</span></td></tr>
               <tr><td><code>admin.user</code></td><td>Admin username (Basic Auth)</td><td><span class="badge-required">required</span></td></tr>
               <tr><td><code>admin.password</code></td><td>Admin password (Basic Auth)</td><td><span class="badge-required">required</span></td></tr>
               <tr><td><code>port</code></td><td>HTTP server port</td><td><code>8080</code></td></tr>
@@ -386,9 +386,24 @@ cache:
               <tr><td><code>cache.enabled</code></td><td>Enable internal Redis cache</td><td><code>false</code></td></tr>
               <tr><td><code>cache.type</code></td><td>Cache backend type</td><td><code>redis</code></td></tr>
               <tr><td><code>cache.ttl</code></td><td>Cache entry TTL in seconds</td><td><code>3600</code></td></tr>
-              <tr><td><code>cache.redis_url</code></td><td>Redis / Valkey connection URL</td><td><code>redis://localhost:6379</code></td></tr>
+              <tr><td><code>cache.redis_url</code></td><td>Redis / Valkey connection URL (<strong>required</strong> — used for token storage even when cache is disabled)</td><td><code>redis://localhost:6379</code></td></tr>
+              <tr><td><code>auth.mode</code></td><td>Admin auth mode (<code>basic</code> or <code>oidc</code>)</td><td><code>basic</code></td></tr>
+              <tr><td><code>auth.oidc.issuer</code></td><td>OIDC issuer URL</td><td>required if <code>oidc</code></td></tr>
+              <tr><td><code>auth.oidc.client_id</code></td><td>OIDC client ID</td><td>required if <code>oidc</code></td></tr>
+              <tr><td><code>auth.oidc.client_secret</code></td><td>OIDC client secret</td><td>optional</td></tr>
+              <tr><td><code>auth.oidc.redirect_url</code></td><td>OIDC redirect URI</td><td>required if <code>oidc</code></td></tr>
+              <tr><td><code>auth.oidc.secure_cookies</code></td><td>Use <code>Secure</code> flag on session cookies (disable only for local HTTP dev)</td><td><code>true</code></td></tr>
+              <tr><td><code>cors.allowed_origins</code></td><td>List of allowed CORS origins. Defaults to all origins (<code>*</code>) if empty.</td><td><code>[]</code> (all origins)</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="callout callout-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span><strong>Redis is required.</strong> Gimme uses Redis to store opaque API tokens across restarts. Set <code>cache.redis_url</code> even when the internal cache (<code>cache.enabled</code>) is disabled.</span>
+        </div>
+        <div class="callout callout-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span><code>secret</code> must be <strong>at least 32 characters</strong> long. Gimme will refuse to start with a shorter value.</span>
         </div>
       </section>
 
@@ -466,7 +481,7 @@ cache:
         <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
   --namespace gimme \
   --create-namespace \
-  --set credentials.secret=&lt;jwt-secret&gt; \
+  --set credentials.secret=&lt;signing-secret-min-32-chars&gt; \
   --set credentials.admin.user=&lt;admin-user&gt; \
   --set credentials.admin.password=&lt;admin-password&gt; \
   --set credentials.s3.key=&lt;s3-key&gt; \
@@ -480,7 +495,7 @@ cache:
 
         <h4>Minimal <code>values.yaml</code></h4>
         <pre><code class="language-yaml">credentials:
-  secret: "your-jwt-secret"
+  secret: "your-secret-at-least-32-chars-long"
   admin:
     user: "admin"
     password: "strongpassword"
@@ -577,7 +592,7 @@ helm uninstall gimme --namespace gimme</code></pre>
                 <td><span class="method post">POST</span></td>
                 <td><code>/tokens</code></td>
                 <td><span class="auth-badge basic">Admin auth</span></td>
-                <td>Create a JWT access token</td>
+                <td>Create an opaque access token</td>
               </tr>
               <tr>
                 <td><span class="method delete">DELETE</span></td>
@@ -588,13 +603,13 @@ helm uninstall gimme --namespace gimme</code></pre>
               <tr>
                 <td><span class="method post">POST</span></td>
                 <td><code>/packages</code></td>
-                <td><span class="auth-badge jwt">Bearer JWT</span></td>
+                <td><span class="auth-badge jwt">Bearer token</span></td>
                 <td>Upload a ZIP package</td>
               </tr>
               <tr>
                 <td><span class="method delete">DELETE</span></td>
                 <td><code>/packages/:package</code></td>
-                <td><span class="auth-badge jwt">Bearer JWT</span></td>
+                <td><span class="auth-badge jwt">Bearer token</span></td>
                 <td>Delete a package (<code>name@version</code>)</td>
               </tr>
               <tr>
@@ -638,11 +653,15 @@ helm uninstall gimme --namespace gimme</code></pre>
         </div>
 
         <h3>Create a token</h3>
+        <div class="callout callout-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span><strong>Breaking change:</strong> Tokens are now opaque strings (<code>gim_&lt;hex&gt;</code>). JWT tokens from previous versions are invalid — regenerate via <code>/admin</code> or <code>POST /tokens</code>. The raw token is returned once and never stored again.</span>
+        </div>
         <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
   -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
-        <pre><code class="language-json">{"id": "...", "name": "my-token", "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "createdAt": "...", "expiresAt": "..."}</code></pre>
+        <pre><code class="language-json">{"id": "550e8400-...", "name": "my-token", "token": "gim_4a7b9c2d1e3f...", "createdAt": "...", "expiresAt": "..."}</code></pre>
 
         <h3>Upload a package</h3>
         <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
