@@ -99,10 +99,14 @@ spec:
             - name: config-volume
               mountPath: /config/
               readOnly: true
+            - name: tmp-volume
+              mountPath: /tmp
       volumes:
         - name: config-volume
           configMap:
             name: {{ include "gimme.fullname" . }}-config
+        - name: tmp-volume
+          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
