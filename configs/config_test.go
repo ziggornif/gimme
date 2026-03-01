@@ -54,7 +54,7 @@ func TestNewConfig(t *testing.T) {
 			Type:     "redis",
 			TTL:      3600,
 			RedisURL: "",
-			FilePath: "./gimme-tokens.enc",
+			FilePath: "/tmp/gimme-tokens.enc",
 		},
 		Auth: AuthConfig{
 			Mode: "basic",
