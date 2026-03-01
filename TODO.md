@@ -299,6 +299,22 @@ Redis est déjà présent (cache P12) — pas de nouvelle dépendance. Les token
 - [x] Mettre à jour les tests
 - [x] Documenter le breaking change : indiquer que tous les tokens JWT émis avant cette version sont invalides et doivent être régénérés via `/admin`
 
+### Niveau 3 — FileTokenStore : mode zéro-dépendance (fallback sans Redis)
+
+Permettre de démarrer Gimme sans Redis en persistant les tokens dans un fichier JSON chiffré localement.
+Le chiffrement utilise la `secret` existante (AES-GCM dérivé via HKDF) — zéro nouvelle configuration requise.
+Si `cache.redis_url` est absent ou vide → FileTokenStore activé automatiquement avec un warning.
+
+- [x] Implémenter `FileTokenStore` dans `internal/auth/file-token-store.go` (interface `TokenStore`)
+- [x] Chiffrement AES-256-GCM du fichier JSON avec une clé dérivée de `config.Secret` (HKDF-SHA256)
+- [x] Chemin configurable via `cache.file_path` (défaut : `./gimme-tokens.enc`)
+- [x] Chargement au démarrage, flush synchrone à chaque mutation (Save/Revoke/Delete), purge périodique des tokens expirés
+- [x] Mise à jour de `application.go` : sélection automatique FileTokenStore si Redis absent, RedisTokenStore sinon
+- [x] Mise à jour de `configs/config.go` : `cache.redis_url` devient optionnel (validation conditionnelle)
+- [x] Ajouter les tests unitaires pour `FileTokenStore`
+- [x] Supprimer `MemoryTokenStore` (remplacé par `FileTokenStore`) et migrer tous les usages dans les tests
+- [ ] Documenter dans le README : mode standalone vs mode Redis
+
 ## Priorité 19 — Finitions visuelles & contenu (non prioritaire)
 
 - [ ] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS

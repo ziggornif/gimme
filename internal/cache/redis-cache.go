@@ -16,6 +16,7 @@ type redisCache struct {
 
 // NewRedisCache creates a new Redis-backed CacheManager.
 // redisURL must be a valid Redis URL (e.g. "redis://localhost:6379").
+// Use NewRedisCacheWithClient to share an existing *redis.Client.
 func NewRedisCache(redisURL string) (CacheManager, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
@@ -33,6 +34,13 @@ func NewRedisCache(redisURL string) (CacheManager, error) {
 
 	logrus.Infof("[RedisCache] NewRedisCache - Connected to Redis at %s", opts.Addr)
 	return &redisCache{client: client}, nil
+}
+
+// NewRedisCacheWithClient creates a Redis-backed CacheManager using an already-connected
+// *redis.Client. The caller is responsible for the client lifecycle (ping, close).
+// Use this to share a single Redis connection across multiple components.
+func NewRedisCacheWithClient(client *redis.Client) CacheManager {
+	return &redisCache{client: client}
 }
 
 // Get retrieves a CacheEntry by key. Returns nil, false on miss or error.

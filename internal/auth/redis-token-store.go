@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -18,6 +17,10 @@ const (
 	tokenKeyPrefix = "token:"
 	// tokenIndexKey is a Redis Set that holds all known token IDs for List/GetByHash.
 	tokenIndexKey = "token:__index__"
+	// tokenHashPrefix is the Redis key prefix for the reverse hash index.
+	// Full key format: "token:hash:<sha256hex>" → "<uuid>"
+	// Allows O(1) lookup in GetByHash instead of scanning all tokens.
+	tokenHashPrefix = "token:hash:"
 )
 
 // redisTokenEntry is the serialisable form of TokenEntry stored in Redis as JSON.
@@ -64,6 +67,7 @@ type RedisTokenStore struct {
 
 // NewRedisTokenStore creates a RedisTokenStore connected to the given Redis URL.
 // It pings Redis on startup and returns an error if the connection fails.
+// Use NewRedisTokenStoreWithClient to share an existing *redis.Client.
 func NewRedisTokenStore(redisURL string) (*RedisTokenStore, error) {
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
@@ -83,8 +87,19 @@ func NewRedisTokenStore(redisURL string) (*RedisTokenStore, error) {
 	return &RedisTokenStore{client: client}, nil
 }
 
+// NewRedisTokenStoreWithClient creates a RedisTokenStore using an already-connected
+// *redis.Client. The caller is responsible for the client lifecycle (ping, close).
+// Use this to share a single Redis connection across multiple components.
+func NewRedisTokenStoreWithClient(client *redis.Client) *RedisTokenStore {
+	return &RedisTokenStore{client: client}
+}
+
 func (s *RedisTokenStore) key(id string) string {
 	return tokenKeyPrefix + id
+}
+
+func (s *RedisTokenStore) hashKey(hash string) string {
+	return tokenHashPrefix + hash
 }
 
 // Save persists a newly issued token entry in Redis.
@@ -106,10 +121,14 @@ func (s *RedisTokenStore) Save(ctx context.Context, entry *TokenEntry) error {
 	pipe := s.client.Pipeline()
 	if ttl > 0 {
 		pipe.Set(ctx, s.key(entry.ID), data, ttl)
+		// Reverse hash index: token:hash:<sha256hex> → <uuid>, same TTL so it is
+		// evicted automatically alongside the token entry.
+		pipe.Set(ctx, s.hashKey(entry.TokenHash), entry.ID, ttl)
 	} else {
 		pipe.Set(ctx, s.key(entry.ID), data, 0)
+		pipe.Set(ctx, s.hashKey(entry.TokenHash), entry.ID, 0)
 	}
-	// Add to the secondary index so List() and GetByHash() can enumerate all tokens.
+	// Add to the secondary index so List() can enumerate all tokens.
 	pipe.SAdd(ctx, tokenIndexKey, entry.ID)
 	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("redis-token-store: failed to save entry: %w", err)
@@ -119,28 +138,19 @@ func (s *RedisTokenStore) Save(ctx context.Context, entry *TokenEntry) error {
 }
 
 // GetByHash returns the entry whose TokenHash matches the given SHA-256 hex digest.
-// Uses constant-time comparison (crypto/subtle) to prevent timing side-channel attacks.
-// This is O(n) over the number of stored tokens; acceptable for typical API key counts.
+// Uses a reverse hash index (token:hash:<sha256hex> → uuid) for an O(1) lookup
+// in 2 Redis round-trips: one GET on the hash key, one GET on the token key.
 // Returns nil, false if not found or if the matching entry has expired/been evicted.
 func (s *RedisTokenStore) GetByHash(ctx context.Context, hash string) (*TokenEntry, bool) {
-	ids, err := s.client.SMembers(ctx, tokenIndexKey).Result()
+	id, err := s.client.Get(ctx, s.hashKey(hash)).Result()
 	if err != nil {
-		logrus.Errorf("[RedisTokenStore] GetByHash - failed to list index: %v", err)
+		if err != redis.Nil {
+			logrus.Errorf("[RedisTokenStore] GetByHash - failed to lookup hash index: %v", err)
+		}
 		return nil, false
 	}
 
-	hashBytes := []byte(hash)
-	for _, id := range ids {
-		entry, ok := s.getByID(ctx, id)
-		if !ok {
-			continue
-		}
-		if subtle.ConstantTimeCompare([]byte(entry.TokenHash), hashBytes) == 1 {
-			return entry, true
-		}
-	}
-
-	return nil, false
+	return s.getByID(ctx, id)
 }
 
 // List returns all stored (non-expired) token entries ordered by creation time (newest first).
@@ -211,11 +221,18 @@ func (s *RedisTokenStore) Revoke(ctx context.Context, id string) bool {
 }
 
 // Delete removes the token entry with the given ID permanently from Redis.
-// Uses a pipeline to make the Del + SRem atomic from a client perspective.
+// Fetches the entry first to obtain its hash so the reverse index can also be
+// cleaned up. Uses a pipeline to batch Del + SRem + hash key deletion.
 // Returns false if the ID does not exist.
 func (s *RedisTokenStore) Delete(ctx context.Context, id string) bool {
+	entry, ok := s.getByID(ctx, id)
+	if !ok {
+		return false
+	}
+
 	pipe := s.client.Pipeline()
 	delCmd := pipe.Del(ctx, s.key(id))
+	pipe.Del(ctx, s.hashKey(entry.TokenHash))
 	pipe.SRem(ctx, tokenIndexKey, id)
 
 	if _, err := pipe.Exec(ctx); err != nil {

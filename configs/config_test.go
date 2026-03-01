@@ -53,7 +53,8 @@ func TestNewConfig(t *testing.T) {
 			Enabled:  false,
 			Type:     "redis",
 			TTL:      3600,
-			RedisURL: "redis://localhost:6379",
+			RedisURL: "",
+			FilePath: "./gimme-tokens.enc",
 		},
 		Auth: AuthConfig{
 			Mode: "basic",
@@ -161,7 +162,7 @@ func TestNewConfigValidationErrCacheNoRedisURL(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: cache.redis_url is required (Redis is used for persistent token storage)", err.Error())
+	assert.Equal(t, "configuration is not valid: cache.redis_url is required when cache.enabled is true", err.Error())
 }
 
 func TestNewConfigValidationErrAuthInvalidMode(t *testing.T) {

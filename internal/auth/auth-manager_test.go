@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -12,13 +13,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // opaqueTokenPrefix is the expected prefix for all generated API keys.
 const opaqueTokenPrefix = "gim_"
 
+// newTestStore returns a FileTokenStore backed by a temporary directory.
+// The store is automatically closed when the test ends.
+func newTestStore(t *testing.T) *FileTokenStore {
+	t.Helper()
+	store, err := NewFileTokenStore(testSecret, filepath.Join(t.TempDir(), "tokens.enc"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	return store
+}
+
 func TestCreateTokenError(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 
 	_, _, err := authManager.CreateToken(context.Background(), "test", "2022-02-17")
 
@@ -26,7 +38,7 @@ func TestCreateTokenError(t *testing.T) {
 }
 
 func TestCreateTokenInvalidFormat(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 
 	_, _, err := authManager.CreateToken(context.Background(), "test", "17/02/2022")
 
@@ -34,7 +46,7 @@ func TestCreateTokenInvalidFormat(t *testing.T) {
 }
 
 func TestCreateTokenDefault(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 
 	entry, rawToken, err := authManager.CreateToken(context.Background(), "test", "")
 
@@ -47,7 +59,7 @@ func TestCreateTokenDefault(t *testing.T) {
 }
 
 func TestCreateTokenCustomExp(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	dt := time.Now().Add(time.Hour * 24)
 	entry, rawToken, err := authManager.CreateToken(context.Background(), "test", dt.Format("2006-01-02"))
 
@@ -58,7 +70,7 @@ func TestCreateTokenCustomExp(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareErr(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -69,7 +81,7 @@ func TestAuthManager_AuthenticateMiddlewareErr(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareInvalid(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -80,7 +92,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareInvalid2(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
 	})
@@ -91,7 +103,7 @@ func TestAuthManager_AuthenticateMiddlewareInvalid2(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareExpired(t *testing.T) {
-	store := NewMemoryTokenStore()
+	store := newTestStore(t)
 	authManager := NewAuthManager(store)
 
 	// Insert a token that is already expired directly in the store.
@@ -114,7 +126,7 @@ func TestAuthManager_AuthenticateMiddlewareExpired(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareOK(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	router := gin.New()
 	router.GET("/", authManager.AuthenticateMiddleware, func(c *gin.Context) {
@@ -126,7 +138,7 @@ func TestAuthManager_AuthenticateMiddlewareOK(t *testing.T) {
 }
 
 func TestAuthManager_AuthenticateMiddlewareRevokedToken(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	entry, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 
 	// Revoke the token before using it
@@ -143,14 +155,14 @@ func TestAuthManager_AuthenticateMiddlewareRevokedToken(t *testing.T) {
 }
 
 func TestAuthManager_RevokeToken_NotFound(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 
 	revoked := authManager.RevokeToken(context.Background(), "nonexistent-id")
 	assert.False(t, revoked)
 }
 
 func TestAuthManager_ListTokens(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	_, _, _ = authManager.CreateToken(context.Background(), "token-a", "")
 	_, _, _ = authManager.CreateToken(context.Background(), "token-b", "")
 
@@ -159,7 +171,7 @@ func TestAuthManager_ListTokens(t *testing.T) {
 }
 
 func TestAuthManager_CreateToken_StoredEntry(t *testing.T) {
-	store := NewMemoryTokenStore()
+	store := newTestStore(t)
 	authManager := NewAuthManager(store)
 
 	entry, rawToken, err := authManager.CreateToken(context.Background(), "mykey", "")
@@ -182,7 +194,7 @@ func TestAuthManager_CreateToken_StoredEntry(t *testing.T) {
 }
 
 func TestAuthManager_CreateToken_DefaultExpiry90Days(t *testing.T) {
-	authManager := NewAuthManager(NewMemoryTokenStore())
+	authManager := NewAuthManager(newTestStore(t))
 	entry, _, err := authManager.CreateToken(context.Background(), "test", "")
 	assert.Nil(t, err)
 

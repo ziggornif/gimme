@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,23 +13,31 @@ import (
 	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const adminAuthHeader = "Basic dGVzdDp0ZXN0" // test:test
 
-func newAdminRouter() (*gin.Engine, *auth.AuthManager) {
+// newAdminTokenStore creates a FileTokenStore in a temp dir for controller tests.
+func newAdminTokenStore(t *testing.T) *auth.FileTokenStore {
+	t.Helper()
+	store, err := auth.NewFileTokenStore("this-is-a-32-byte-secret-for-test", filepath.Join(t.TempDir(), "tokens.enc"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	return store
+}
+
+func newAdminRouter(t *testing.T) (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
-	store := auth.NewMemoryTokenStore()
-	authManager := auth.NewAuthManager(store)
+	authManager := auth.NewAuthManager(newAdminTokenStore(t))
 	provider := auth.NewBasicAuthProvider("test", "test")
 	NewAdminController(router, authManager, provider)
 	return router, authManager
 }
 
-func newAdminRouterWithTemplates() (*gin.Engine, *auth.AuthManager) {
+func newAdminRouterWithTemplates(t *testing.T) (*gin.Engine, *auth.AuthManager) {
 	router := gin.New()
-	store := auth.NewMemoryTokenStore()
-	authManager := auth.NewAuthManager(store)
+	authManager := auth.NewAuthManager(newAdminTokenStore(t))
 	provider := auth.NewBasicAuthProvider("test", "test")
 	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
@@ -37,13 +46,13 @@ func newAdminRouterWithTemplates() (*gin.Engine, *auth.AuthManager) {
 }
 
 func TestAdminController_GetAdmin_Unauthorized(t *testing.T) {
-	router, _ := newAdminRouterWithTemplates()
+	router, _ := newAdminRouterWithTemplates(t)
 	w := utils.PerformRequest(router, "GET", "/admin", nil)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestAdminController_GetAdmin_OK(t *testing.T) {
-	router, _ := newAdminRouterWithTemplates()
+	router, _ := newAdminRouterWithTemplates(t)
 	w := utils.PerformRequest(router, "GET", "/admin", nil,
 		utils.Header{Key: "Authorization", Value: adminAuthHeader})
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -51,14 +60,14 @@ func TestAdminController_GetAdmin_OK(t *testing.T) {
 }
 
 func TestAdminController_CreateToken_Unauthorized(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(`{"name":"ci"}`),
 		utils.Header{Key: "Content-Type", Value: "application/json"})
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestAdminController_CreateToken_NoName(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(`{}`),
 		utils.Header{Key: "Authorization", Value: adminAuthHeader},
 		utils.Header{Key: "Content-Type", Value: "application/json"})
@@ -66,7 +75,7 @@ func TestAdminController_CreateToken_NoName(t *testing.T) {
 }
 
 func TestAdminController_CreateToken_OK(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(`{"name":"ci"}`),
 		utils.Header{Key: "Authorization", Value: adminAuthHeader},
 		utils.Header{Key: "Content-Type", Value: "application/json"})
@@ -84,13 +93,13 @@ func TestAdminController_CreateToken_OK(t *testing.T) {
 }
 
 func TestAdminController_DeleteToken_Unauthorized(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	w := utils.PerformRequest(router, "DELETE", "/tokens/some-id", nil)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestAdminController_DeleteToken_NotFound(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	w := utils.PerformRequest(router, "DELETE", "/tokens/nonexistent",
 		nil,
 		utils.Header{Key: "Authorization", Value: adminAuthHeader})
@@ -98,7 +107,7 @@ func TestAdminController_DeleteToken_NotFound(t *testing.T) {
 }
 
 func TestAdminController_CreateToken_NameTooLong(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	longName := strings.Repeat("a", maxTokenNameLength+1)
 	body := fmt.Sprintf(`{"name":%q}`, longName)
 	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(body),
@@ -109,7 +118,7 @@ func TestAdminController_CreateToken_NameTooLong(t *testing.T) {
 }
 
 func TestAdminController_CreateToken_NameAtMaxLength(t *testing.T) {
-	router, _ := newAdminRouter()
+	router, _ := newAdminRouter(t)
 	exactName := strings.Repeat("a", maxTokenNameLength)
 	body := fmt.Sprintf(`{"name":%q}`, exactName)
 	w := utils.PerformRequest(router, "POST", "/tokens", strings.NewReader(body),
@@ -119,7 +128,7 @@ func TestAdminController_CreateToken_NameAtMaxLength(t *testing.T) {
 }
 
 func TestAdminController_DeleteToken_OK(t *testing.T) {
-	router, authManager := newAdminRouter()
+	router, authManager := newAdminRouter(t)
 
 	entry, _, err := authManager.CreateToken(context.Background(), "test", "")
 	assert.Nil(t, err)

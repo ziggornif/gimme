@@ -16,6 +16,10 @@ type CacheConfig struct {
 	Type     string // "redis" ; "memory" reserved for future use
 	TTL      int    // seconds
 	RedisURL string
+	// FilePath is the path to the encrypted token file used by FileTokenStore.
+	// Only relevant when RedisURL is empty (standalone mode).
+	// Defaults to "./gimme-tokens.enc".
+	FilePath string
 }
 
 // OIDCConfig holds the configuration for the OIDC provider.
@@ -74,7 +78,8 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("cache.enabled", false)
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
-	viper.SetDefault("cache.redis_url", "redis://localhost:6379")
+	viper.SetDefault("cache.redis_url", "")
+	viper.SetDefault("cache.file_path", "./gimme-tokens.enc")
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 
@@ -102,6 +107,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 		Type:     viper.GetString("cache.type"),
 		TTL:      viper.GetInt("cache.ttl"),
 		RedisURL: viper.GetString("cache.redis_url"),
+		FilePath: viper.GetString("cache.file_path"),
 	}
 	config.Auth = AuthConfig{
 		Mode: viper.GetString("auth.mode"),
@@ -152,15 +158,16 @@ func validateConfig(config *Configuration) error {
 	if config.S3Location == "" {
 		return fmt.Errorf("S3Location is not set")
 	}
-	// Redis is always required for token persistence (opaque tokens stored in Redis).
-	// A blank URL would cause a fatal error at startup, so we validate it here to
-	// give a clear config-level error message rather than a cryptic connection failure.
-	if config.Cache.RedisURL == "" {
-		return fmt.Errorf("cache.redis_url is required (Redis is used for persistent token storage)")
-	}
+	// cache.redis_url is optional: when absent Gimme falls back to FileTokenStore
+	// (encrypted local file). When present, RedisTokenStore is used instead.
+	// If the content cache is explicitly enabled (cache.enabled=true) Redis must be
+	// configured because FileTokenStore only handles token persistence, not caching.
 	if config.Cache.Enabled {
 		if config.Cache.Type != "redis" {
 			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
+		}
+		if config.Cache.RedisURL == "" {
+			return fmt.Errorf("cache.redis_url is required when cache.enabled is true")
 		}
 	}
 	switch config.Auth.Mode {

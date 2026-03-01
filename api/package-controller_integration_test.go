@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"github.com/gimme-cdn/gimme/internal/auth"
@@ -15,14 +16,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestAuthManager() *auth.AuthManager {
-	return auth.NewAuthManager(auth.NewMemoryTokenStore())
+func newTestAuthManager(t *testing.T) *auth.AuthManager {
+	t.Helper()
+	store, err := auth.NewFileTokenStore("this-is-a-32-byte-secret-for-test", filepath.Join(t.TempDir(), "tokens.enc"))
+	if err != nil {
+		t.Fatalf("newTestAuthManager: %v", err)
+	}
+	t.Cleanup(func() { store.Close() })
+	return auth.NewAuthManager(store)
 }
 
 func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
@@ -34,7 +41,7 @@ func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
 func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
@@ -46,7 +53,7 @@ func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
 func TestPackageControllerRedirect(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
@@ -58,7 +65,7 @@ func TestPackageControllerRedirect(t *testing.T) {
 func TestPackageControllerCreate(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -72,7 +79,7 @@ func TestPackageControllerCreate(t *testing.T) {
 func TestPackageControllerGet(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -92,7 +99,7 @@ func TestPackageControllerGetUI(t *testing.T) {
 	router := gin.New()
 	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -111,7 +118,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 	router := gin.New()
 	router.SetFuncMap(TemplateFuncs())
 	router.LoadHTMLGlob("../templates/*.tmpl")
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -128,7 +135,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 func TestPackageControllerCreateConflictErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -145,7 +152,7 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 func TestPackageControllerGetEmpty(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
@@ -157,7 +164,7 @@ func TestPackageControllerGetEmpty(t *testing.T) {
 func TestPackageControllerGetNotFound(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
@@ -169,7 +176,7 @@ func TestPackageControllerGetNotFound(t *testing.T) {
 func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -196,7 +203,7 @@ func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 func TestPackageControllerDeleteInvalidUrlErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -210,7 +217,7 @@ func TestPackageControllerDeleteInvalidUrlErr(t *testing.T) {
 func TestPackageControllerDelete(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
-	authManager := newTestAuthManager()
+	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0)
 	NewPackageController(router, authManager, service)

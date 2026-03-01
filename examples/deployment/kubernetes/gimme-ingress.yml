@@ -3,8 +3,7 @@ kind: Ingress
 metadata:
   name: gimme-ingress
   namespace: gimme
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+  annotations: {}
 spec:
   ingressClassName: nginx
   rules:

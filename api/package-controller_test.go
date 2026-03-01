@@ -20,7 +20,17 @@ import (
 	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// newPackageTestStore creates a FileTokenStore in a temp dir for controller tests.
+func newPackageTestStore(t *testing.T) *auth.FileTokenStore {
+	t.Helper()
+	store, err := auth.NewFileTokenStore("this-is-a-32-byte-secret-for-test", filepath.Join(t.TempDir(), "tokens.enc"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	return store
+}
 
 func envOrDefault(key, defaultVal string) string {
 	if v := os.Getenv(key); v != "" {
@@ -80,7 +90,7 @@ func createPackage(t *testing.T, router http.Handler, name string, version strin
 
 func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager(auth.NewMemoryTokenStore())
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
 	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
@@ -93,7 +103,7 @@ func TestPackageControllerGETErr(t *testing.T) {
 
 func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager(auth.NewMemoryTokenStore())
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
 	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
