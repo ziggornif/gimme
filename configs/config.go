@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 
@@ -66,17 +65,33 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	// e.g. GIMME_SECRET overrides config key "secret",
 	//      GIMME_ADMIN_USER overrides "admin.user",
 	//      GIMME_S3_KEY overrides "s3.key", etc.
-	viper.SetEnvPrefix("GIMME")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	// Explicitly bind env vars for keys that have no default value and may not
-	// be present in the config file (credentials injected via environment).
+	// Bind env vars explicitly for all overridable keys.
+	// AutomaticEnv() is intentionally NOT used: with prefix "GIMME", Kubernetes
+	// automatically injects env vars such as GIMME_PORT (service discovery) that
+	// would silently override config-file values (e.g. port).
+	// Explicit BindEnv calls give full control over which env vars are read.
 	_ = viper.BindEnv("secret", "GIMME_SECRET")
 	_ = viper.BindEnv("admin.user", "GIMME_ADMIN_USER")
 	_ = viper.BindEnv("admin.password", "GIMME_ADMIN_PASSWORD")
+	_ = viper.BindEnv("s3.url", "GIMME_S3_URL")
 	_ = viper.BindEnv("s3.key", "GIMME_S3_KEY")
 	_ = viper.BindEnv("s3.secret", "GIMME_S3_SECRET")
+	_ = viper.BindEnv("s3.bucketName", "GIMME_S3_BUCKETNAME")
+	_ = viper.BindEnv("s3.location", "GIMME_S3_LOCATION")
+	_ = viper.BindEnv("s3.ssl", "GIMME_S3_SSL")
+	_ = viper.BindEnv("port", "GIMME_APP_PORT")
+	_ = viper.BindEnv("metrics", "GIMME_METRICS")
+	_ = viper.BindEnv("cache.enabled", "GIMME_CACHE_ENABLED")
+	_ = viper.BindEnv("cache.type", "GIMME_CACHE_TYPE")
+	_ = viper.BindEnv("cache.ttl", "GIMME_CACHE_TTL")
+	_ = viper.BindEnv("cache.redis_url", "GIMME_CACHE_REDIS_URL")
+	_ = viper.BindEnv("cache.file_path", "GIMME_CACHE_FILE_PATH")
+	_ = viper.BindEnv("auth.mode", "GIMME_AUTH_MODE")
+	_ = viper.BindEnv("auth.oidc.issuer", "GIMME_AUTH_OIDC_ISSUER")
+	_ = viper.BindEnv("auth.oidc.client_id", "GIMME_AUTH_OIDC_CLIENT_ID")
+	_ = viper.BindEnv("auth.oidc.client_secret", "GIMME_AUTH_OIDC_CLIENT_SECRET")
+	_ = viper.BindEnv("auth.oidc.redirect_url", "GIMME_AUTH_OIDC_REDIRECT_URL")
+	_ = viper.BindEnv("auth.oidc.secure_cookies", "GIMME_AUTH_OIDC_SECURE_COOKIES")
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
