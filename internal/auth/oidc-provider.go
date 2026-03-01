@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -22,6 +23,11 @@ const (
 	stateCookieName   = "gimme_oidc_state"
 	nonceCookieName   = "gimme_oidc_nonce"
 	sessionCookieTTL  = 8 * time.Hour
+	// sessionJWTIssuer is the "iss" claim embedded in session JWTs.
+	// It prevents a cookie signed for another application (with the same key)
+	// from being accepted by Gimme.
+	sessionJWTIssuer   = "gimme"
+	sessionJWTAudience = "gimme-admin"
 )
 
 // oidcClaims holds the user identity extracted from the OIDC ID token.
@@ -129,6 +135,13 @@ func (p *OIDCProvider) LoginMiddleware() gin.HandlerFunc {
 			p.rejectUnauthenticated(c)
 			return
 		}
+		// Validate Issuer and Audience to reject JWTs signed with the same key
+		// but issued for a different application.
+		if !claims.VerifyIssuer(sessionJWTIssuer, true) || !claims.VerifyAudience(sessionJWTAudience, true) {
+			logrus.Debugf("[OIDCProvider] LoginMiddleware - invalid issuer or audience in session cookie")
+			p.rejectUnauthenticated(c)
+			return
+		}
 
 		// Expose identity to downstream handlers via Gin context.
 		c.Set("oidc_sub", claims.Subject)
@@ -188,8 +201,11 @@ func (p *OIDCProvider) handleLogin(c *gin.Context) {
 // handleCallback processes the IdP redirect, verifies the ID token, and issues a session cookie.
 func (p *OIDCProvider) handleCallback(c *gin.Context) {
 	// Validate state to prevent CSRF.
+	// subtle.ConstantTimeCompare prevents timing side-channels — consistent with
+	// the rest of the auth layer even though the state is ephemeral.
 	stateCookie, err := c.Cookie(stateCookieName)
-	if err != nil || stateCookie != c.Query("state") {
+	stateOK := err == nil && subtle.ConstantTimeCompare([]byte(stateCookie), []byte(c.Query("state"))) == 1
+	if !stateOK {
 		logrus.Warnf("[OIDCProvider] handleCallback - state mismatch (cookie: %v, query: %q)", err, c.Query("state"))
 		// Clear the stale cookies to avoid them persisting until their TTL expires.
 		c.SetCookie(stateCookieName, "", -1, "/", "", p.secureCookies, true)
@@ -231,7 +247,9 @@ func (p *OIDCProvider) handleCallback(c *gin.Context) {
 	}
 
 	// Verify nonce to prevent ID token replay attacks.
-	if nonceErr != nil || nonceCookie == "" || idToken.Nonce != nonceCookie {
+	// subtle.ConstantTimeCompare prevents timing side-channels.
+	nonceOK := nonceErr == nil && nonceCookie != "" && subtle.ConstantTimeCompare([]byte(idToken.Nonce), []byte(nonceCookie)) == 1
+	if !nonceOK {
 		logrus.Warnf("[OIDCProvider] handleCallback - nonce mismatch (err: %v, token nonce: %q)", nonceErr, idToken.Nonce)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid nonce"})
 		return
@@ -266,14 +284,19 @@ func (p *OIDCProvider) handleCallback(c *gin.Context) {
 }
 
 // issueSessionCookie creates a signed HS256 JWT encoding the user's identity.
+// The token includes Issuer and Audience claims so that a JWT signed with the
+// same key but issued for a different service cannot be accepted here.
 func (p *OIDCProvider) issueSessionCookie(sub, email, name string) (string, error) {
+	now := time.Now()
 	claims := oidcClaims{
 		Email: email,
 		Name:  name,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    sessionJWTIssuer,
+			Audience:  jwt.ClaimStrings{sessionJWTAudience},
 			Subject:   sub,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(sessionCookieTTL)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(sessionCookieTTL)),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

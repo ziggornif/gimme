@@ -74,7 +74,7 @@ func TestNewConfigValidationErrAdmUsr(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: AdminUser is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: admin.user is not set", err.Error())
 }
 
 func TestNewConfigValidationErrAdmPass(t *testing.T) {
@@ -85,7 +85,7 @@ func TestNewConfigValidationErrAdmPass(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: AdminPassword is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: admin.password is not set", err.Error())
 }
 
 func TestNewConfigValidationErrSecret(t *testing.T) {
@@ -96,7 +96,7 @@ func TestNewConfigValidationErrSecret(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: Secret is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: secret is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Url(t *testing.T) {
@@ -107,7 +107,7 @@ func TestNewConfigValidationErrS3Url(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: S3Url is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: s3.url is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Key(t *testing.T) {
@@ -118,7 +118,7 @@ func TestNewConfigValidationErrS3Key(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: S3Key is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: s3.key is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Secret(t *testing.T) {
@@ -129,7 +129,7 @@ func TestNewConfigValidationErrS3Secret(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: S3Secret is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: s3.secret is not set", err.Error())
 }
 
 func TestNewConfigValidationErrS3Location(t *testing.T) {
@@ -140,7 +140,7 @@ func TestNewConfigValidationErrS3Location(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: S3Location is not set", err.Error())
+	assert.Equal(t, "configuration is not valid: s3.location is not set", err.Error())
 }
 
 func TestNewConfigValidationErrCacheInvalidType(t *testing.T) {

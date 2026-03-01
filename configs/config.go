@@ -134,29 +134,31 @@ func validateConfig(config *Configuration) error {
 	// and admin credentials are not used.
 	if config.Auth.Mode == "basic" {
 		if config.AdminUser == "" {
-			return fmt.Errorf("AdminUser is not set")
+			return fmt.Errorf("admin.user is not set")
 		}
 		if config.AdminPassword == "" {
-			return fmt.Errorf("AdminPassword is not set")
+			return fmt.Errorf("admin.password is not set")
 		}
 	}
 	if config.Secret == "" {
-		return fmt.Errorf("Secret is not set")
+		return fmt.Errorf("secret is not set")
 	}
 	if len(config.Secret) < 32 {
-		return fmt.Errorf("Secret must be at least 32 characters long (got %d)", len(config.Secret))
+		// len() counts bytes, not Unicode code points — acceptable here because
+		// secrets are expected to be ASCII (hex, base64, etc.).
+		return fmt.Errorf("secret must be at least 32 bytes long (got %d)", len(config.Secret))
 	}
 	if config.S3Url == "" {
-		return fmt.Errorf("S3Url is not set")
+		return fmt.Errorf("s3.url is not set")
 	}
 	if config.S3Key == "" {
-		return fmt.Errorf("S3Key is not set")
+		return fmt.Errorf("s3.key is not set")
 	}
 	if config.S3Secret == "" {
-		return fmt.Errorf("S3Secret is not set")
+		return fmt.Errorf("s3.secret is not set")
 	}
 	if config.S3Location == "" {
-		return fmt.Errorf("S3Location is not set")
+		return fmt.Errorf("s3.location is not set")
 	}
 	// cache.redis_url is optional: when absent Gimme falls back to FileTokenStore
 	// (encrypted local file). When present, RedisTokenStore is used instead.

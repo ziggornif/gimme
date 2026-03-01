@@ -36,11 +36,10 @@ gimme/
     ├── deployment/
     │   ├── docker-compose/
     │   │   ├── with-garage/        # Self-provisioning stack with Garage HQ
-    │   │   ├── with-local-s3/      # Local dev stack with Minio
-    │   │   └── with-managed-s3/    # External/managed S3 provider
+    │   │   ├── with-managed-s3/    # External/managed S3 provider
+    │   │   └── shared/             # Shared monitoring config (Prometheus, Grafana)
     │   ├── kubernetes/             # Namespace, Deployment, Service, Ingress
     │   └── systemd/                # Linux systemd unit
-    └── monitoring/                 # Prometheus config + Grafana dashboard
 ```
 
 ### Key Data Flow
@@ -82,7 +81,7 @@ make audit
 
 ### Running Locally
 
-Requires a running S3-compatible backend (Garage or Minio) and a `gimme.yml` config file.
+Requires a running S3-compatible backend (Garage or managed S3) and a `gimme.yml` config file.
 
 ```bash
 # Option 1 — Garage (recommended, auto-provisioned)
@@ -90,8 +89,8 @@ cd examples/deployment/docker-compose/with-garage
 docker compose up -d
 # Gimme available at http://localhost:8080
 
-# Option 2 — Minio (manual bucket + key setup)
-cd examples/deployment/docker-compose/with-local-s3
+# Option 2 — Managed S3 (fill in gimme.yml with your S3 credentials)
+cd examples/deployment/docker-compose/with-managed-s3
 docker compose up -d
 
 # Or run from source with live reload

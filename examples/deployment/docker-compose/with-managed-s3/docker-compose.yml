@@ -9,14 +9,14 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./monitoring/:/etc/prometheus/
+      - ../shared/monitoring/:/etc/prometheus/
     ports:
       - "9090:9090"
   grafana:
     image: grafana/grafana:latest
     volumes:
-      - ./monitoring/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards
+      - ../shared/monitoring/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ../shared/monitoring/dashboards:/etc/grafana/provisioning/dashboards
     ports:
       - "3000:3000"
     environment:

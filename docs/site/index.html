@@ -18,6 +18,8 @@
         <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+            integrity="sha384-CSO6fVO+Q0+g6IFYGHMMMbX4+rRYejBK4U7bslTsZtVWgzVA8dmBzThDCLxavK0j"
+            crossorigin="anonymous"
         />
         <link rel="stylesheet" href="style.css" />
     </head>
@@ -890,8 +892,9 @@ make build && ./gimme</code></pre>
                         Config is loaded from <code>gimme.yml</code> (local
                         directory or <code>/config/gimme.yml</code> inside
                         Docker). Every value can be overridden by an environment
-                        variable — Viper maps them automatically (e.g.
-                        <code>S3_URL</code>, <code>ADMIN_USER</code>).
+                        variable — Viper maps them automatically with the
+                         <code>GIMME_</code> prefix (e.g.
+                         <code>GIMME_S3_URL</code>, <code>GIMME_ADMIN_USER</code>).
                     </p>
 
                     <pre><code class="language-yaml">admin:
@@ -927,7 +930,7 @@ cache:
                                     <td><code>secret</code></td>
                                     <td>
                                         Token signing secret (<strong
-                                            >min 32 chars</strong
+                                            >min 32 bytes</strong
                                         >)
                                     </td>
                                     <td>
@@ -1134,8 +1137,8 @@ cache:
                         </svg>
                         <span
                             ><code>secret</code> must be
-                            <strong>at least 32 characters</strong> long. Gimme
-                            will refuse to start with a shorter value.</span
+                             <strong>at least 32 bytes</strong> long. Gimme
+                             will refuse to start with a shorter value.</span
                         >
                     </div>
                 </section>
@@ -1967,7 +1970,11 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
             </div>
         </footer>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+            integrity="sha384-hnVcUj7SX97bp/IuyUPmxoAFK0k6GBExmEHyc+Me7ljt0lYSwA+e/tKKHAhpZFxr"
+            crossorigin="anonymous"
+        ></script>
         <script src="script.js"></script>
     </body>
 </html>

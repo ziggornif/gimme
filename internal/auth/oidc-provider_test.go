@@ -294,6 +294,8 @@ func TestOIDCProvider_IssueSessionCookie_RoundTrip(t *testing.T) {
 	assert.Equal(t, "bob@example.com", claims.Email)
 	assert.Equal(t, "Bob", claims.Name)
 	assert.True(t, claims.ExpiresAt.After(time.Now()))
+	assert.Equal(t, sessionJWTIssuer, claims.Issuer)
+	assert.Contains(t, []string(claims.Audience), sessionJWTAudience)
 }
 
 func TestWarnIfInsecureCookies(t *testing.T) {
@@ -388,6 +390,74 @@ func TestOIDCProvider_LoginMiddleware_APIPath_Returns401JSON(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+}
+
+func TestOIDCProvider_LoginMiddleware_WrongIssuer(t *testing.T) {
+	ts := newOIDCTestServer(t)
+	p := newTestOIDCProvider(t, ts)
+
+	// JWT signed with the correct key but a wrong Issuer claim.
+	claims := oidcClaims{
+		Email: "user@example.com",
+		Name:  "User",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "evil-issuer",
+			Audience:  jwt.ClaimStrings{sessionJWTAudience},
+			Subject:   "user-1",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(testSigningSecret))
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.GET("/admin", p.LoginMiddleware(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: signed})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "/auth/login", w.Header().Get("Location"))
+}
+
+func TestOIDCProvider_LoginMiddleware_WrongAudience(t *testing.T) {
+	ts := newOIDCTestServer(t)
+	p := newTestOIDCProvider(t, ts)
+
+	// JWT signed with the correct key but a wrong Audience claim.
+	claims := oidcClaims{
+		Email: "user@example.com",
+		Name:  "User",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    sessionJWTIssuer,
+			Audience:  jwt.ClaimStrings{"other-service"},
+			Subject:   "user-1",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(testSigningSecret))
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.GET("/admin", p.LoginMiddleware(), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: signed})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "/auth/login", w.Header().Get("Location"))
 }
 
 func TestOIDCProvider_HandleCallback_MissingIDToken(t *testing.T) {

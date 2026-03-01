@@ -179,6 +179,8 @@ cache:
   redis_url: ${CACHE_REDIS_URL}
 EOF
 
+chmod 600 "$GIMME_CONFIG_PATH"
+
 # Append OIDC block only when AUTH_MODE=oidc
 if [ "${AUTH_MODE}" = "oidc" ]; then
   if [ -z "${AUTH_OIDC_ISSUER}" ] || [ -z "${AUTH_OIDC_CLIENT_ID}" ] || [ -z "${AUTH_OIDC_REDIRECT_URL}" ]; then

@@ -63,6 +63,7 @@ GARAGE_CONTAINER ?= gimme-garage-test
 .PHONY: garage-start
 garage-start:
 	@echo "Starting Garage $(GARAGE_VERSION)..."
+	@docker rm -f $(GARAGE_CONTAINER) >/dev/null 2>&1 || true
 	@mkdir -p /tmp/garage/{meta,data}
 	@printf '%s\n' \
 		'metadata_dir = "/var/lib/garage/meta"' \

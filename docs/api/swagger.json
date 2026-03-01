@@ -61,6 +61,26 @@
         }
       }
     },
+    "/admin": {
+      "get": {
+        "tags": ["authentication"],
+        "summary": "Admin UI",
+        "description": "Returns the HTML admin interface for managing API tokens (create, list, revoke). Requires admin authentication (Basic Auth in `basic` mode, OIDC session cookie in `oidc` mode).",
+        "operationId": "admin",
+        "security": [
+          { "basicAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML admin page",
+            "content": { "text/html": {} }
+          },
+          "401": {
+            "description": "Missing or invalid admin credentials"
+          }
+        }
+      }
+    },
     "/tokens": {
       "post": {
         "tags": ["authentication"],
@@ -100,7 +120,89 @@
             }
           },
           "401": {
+            "description": "Missing or invalid admin credentials"
+          }
+        }
+      }
+    },
+    "/tokens/{id}": {
+      "delete": {
+        "tags": ["authentication"],
+        "summary": "Revoke an access token",
+        "description": "Marks the token with the given ID as revoked. Revoked tokens are rejected on subsequent API calls. The token entry remains visible in the admin UI until it expires naturally. Requires admin authentication.",
+        "operationId": "revokeToken",
+        "security": [
+          { "basicAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Token ID returned by the create endpoint (UUID format)",
+            "required": true,
+            "schema": { "type": "string", "example": "550e8400-e29b-41d4-a716-446655440000" }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Token revoked"
+          },
+          "401": {
+            "description": "Missing or invalid admin credentials"
+          },
+          "404": {
+            "description": "Token not found"
+          }
+        }
+      }
+    },
+    "/packages": {
+      "post": {
+        "tags": ["package"],
+        "summary": "Upload a package",
+        "description": "Uploads a ZIP archive and extracts its contents to the S3 backend under `<name>@<version>/`. Returns `409 Conflict` if the package version already exists. Requires a valid Bearer token.",
+        "operationId": "uploadPackage",
+        "security": [
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/CreatePackageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Package uploaded successfully"
+          },
+          "400": {
+            "description": "Bad request (missing or invalid fields, or invalid ZIP archive)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
             "description": "Missing or invalid Bearer token"
+          },
+          "409": {
+            "description": "Package version already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }

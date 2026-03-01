@@ -119,7 +119,7 @@
           "refId": "F"
         },
         {
-          "expr": "go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"} - go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "expr": "go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "bytes of memory are used for other runtime allocations {pod={{kubernetes_pod_name}}}",

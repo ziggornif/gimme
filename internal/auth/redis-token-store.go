@@ -141,6 +141,8 @@ func (s *RedisTokenStore) Save(ctx context.Context, entry *TokenEntry) error {
 // Uses a reverse hash index (token:hash:<sha256hex> → uuid) for an O(1) lookup
 // in 2 Redis round-trips: one GET on the hash key, one GET on the token key.
 // Returns nil, false if not found or if the matching entry has expired/been evicted.
+// When a stale index entry is detected (hash key present but token key expired),
+// it is removed from the Set index lazily to keep the index compact over time.
 func (s *RedisTokenStore) GetByHash(ctx context.Context, hash string) (*TokenEntry, bool) {
 	id, err := s.client.Get(ctx, s.hashKey(hash)).Result()
 	if err != nil {
@@ -150,7 +152,17 @@ func (s *RedisTokenStore) GetByHash(ctx context.Context, hash string) (*TokenEnt
 		return nil, false
 	}
 
-	return s.getByID(ctx, id)
+	entry, ok := s.getByID(ctx, id)
+	if !ok {
+		// The token key has expired in Redis but the index entry lingers.
+		// Remove it lazily so the Set stays compact over time.
+		if sremErr := s.client.SRem(ctx, tokenIndexKey, id).Err(); sremErr != nil {
+			logrus.Warnf("[RedisTokenStore] GetByHash - failed to remove stale index entry %q: %v", id, sremErr)
+		}
+		return nil, false
+	}
+
+	return entry, true
 }
 
 // List returns all stored (non-expired) token entries ordered by creation time (newest first).
@@ -181,8 +193,34 @@ func (s *RedisTokenStore) List(ctx context.Context) []*TokenEntry {
 	return entries
 }
 
+// revokeScript atomically updates a token entry in Redis while preserving its TTL.
+//
+// The script receives:
+//
+//	KEYS[1] — the token key (e.g. "token:<uuid>")
+//	ARGV[1] — the updated JSON payload with RevokedAt set
+//
+// It reads the remaining TTL via PTTL and writes the new value atomically,
+// eliminating the TOCTOU race between the GET, PTTL and SET calls that would
+// otherwise run as separate round-trips.
+// Returns 1 on success, 0 if the key no longer exists (token already expired).
+var revokeScript = redis.NewScript(`
+local pttl = redis.call("PTTL", KEYS[1])
+if pttl == -2 then
+  return 0
+end
+if pttl > 0 then
+  redis.call("SET", KEYS[1], ARGV[1], "PX", pttl)
+else
+  redis.call("SET", KEYS[1], ARGV[1])
+end
+return 1
+`)
+
 // Revoke marks the token entry with the given ID as revoked by setting RevokedAt.
 // The entry remains in Redis (so revoked tokens can still be listed) until it expires.
+// The update is performed atomically via a Lua script to avoid the TOCTOU race
+// between reading the TTL and writing the updated entry.
 // Returns false if the ID does not exist.
 func (s *RedisTokenStore) Revoke(ctx context.Context, id string) bool {
 	entry, ok := s.getByID(ctx, id)
@@ -198,22 +236,15 @@ func (s *RedisTokenStore) Revoke(ctx context.Context, id string) bool {
 		return false
 	}
 
-	// Preserve the existing TTL to avoid extending (or losing) the token's expiry.
-	ttl, err := s.client.TTL(ctx, s.key(id)).Result()
+	// revokeScript atomically reads the remaining TTL and writes the updated entry
+	// in a single Lua transaction, preventing the race between PTTL and SET.
+	result, err := revokeScript.Run(ctx, s.client, []string{s.key(id)}, data).Int()
 	if err != nil {
-		logrus.Errorf("[RedisTokenStore] Revoke - failed to get TTL for %q: %v", id, err)
+		logrus.Errorf("[RedisTokenStore] Revoke - script error for %q: %v", id, err)
 		return false
 	}
-	// Guard against the key expiring between getByID and TTL — Redis returns -2 for
-	// non-existent keys. Setting a key with a negative TTL would make it persist
-	// forever, so we treat this as a no-op (token already expired).
-	if ttl < 0 {
+	if result == 0 {
 		logrus.Warnf("[RedisTokenStore] Revoke - key %q expired before revocation could be written", id)
-		return false
-	}
-
-	if err := s.client.Set(ctx, s.key(id), data, ttl).Err(); err != nil {
-		logrus.Errorf("[RedisTokenStore] Revoke - failed to update entry: %v", err)
 		return false
 	}
 
