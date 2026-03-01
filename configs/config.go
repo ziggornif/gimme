@@ -102,7 +102,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
 	viper.SetDefault("cache.redis_url", "")
-	viper.SetDefault("cache.file_path", "./gimme-tokens.enc")
+	viper.SetDefault("cache.file_path", "/tmp/gimme-tokens.enc")
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 
