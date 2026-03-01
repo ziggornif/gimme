@@ -1,113 +1,237 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gimme — Self-hosted CDN</title>
-  <meta name="description" content="A self-hosted CDN written in Go. Upload ZIP packages and serve static assets via a simple REST API, backed by any S3-compatible storage." />
-  <meta name="theme-color" content="#ffffff" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Gimme — Self-hosted CDN</title>
+        <meta
+            name="description"
+            content="A self-hosted CDN written in Go. Upload ZIP packages and serve static assets via a simple REST API, backed by any S3-compatible storage."
+        />
+        <meta name="theme-color" content="#ffffff" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+        />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <!-- Skip link for keyboard/screen reader users -->
+        <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <!-- Skip link for keyboard/screen reader users -->
-  <a class="skip-link" href="#main-content">Skip to main content</a>
+        <!-- HEADER -->
+        <header class="site-header">
+            <div class="header-inner">
+                <a href="#hero" class="logo" aria-label="Gimme CDN home">
+                    <img
+                        src="./assets/gimme.png"
+                        width="32"
+                        height="32"
+                        alt=""
+                        aria-hidden="true"
+                        class="logo-mark"
+                        style="border-radius: 6px"
+                    />
+                    <span class="logo-text">gimme</span>
+                </a>
+                <nav class="header-nav" aria-label="Main navigation">
+                    <a href="#quickstart">Quickstart</a>
+                    <a href="#configuration">Configuration</a>
+                    <a href="#api">API</a>
+                    <a href="#deployment">Deployment</a>
+                    <a
+                        href="https://github.com/ziggornif/gimme"
+                        class="btn-github"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="View on GitHub (opens in new tab)"
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+                            />
+                        </svg>
+                        GitHub
+                    </a>
+                </nav>
+                <button
+                    class="menu-toggle"
+                    aria-label="Toggle navigation menu"
+                    aria-expanded="false"
+                    aria-controls="sidebar"
+                >
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </header>
 
-  <!-- HEADER -->
-  <header class="site-header">
-    <div class="header-inner">
-      <a href="#hero" class="logo" aria-label="Gimme CDN home">
-        <span class="logo-mark" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="28" height="28" rx="7" fill="#2563EB"/>
-            <path d="M8 14.5L12.5 19L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-        <span class="logo-text">gimme</span>
-      </a>
-      <nav class="header-nav" aria-label="Main navigation">
-        <a href="#quickstart">Quickstart</a>
-        <a href="#configuration">Configuration</a>
-        <a href="#api">API</a>
-        <a href="#deployment">Deployment</a>
-        <a href="https://github.com/ziggornif/gimme" class="btn-github" target="_blank" rel="noopener noreferrer" aria-label="View on GitHub (opens in new tab)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub
-        </a>
-      </nav>
-      <button class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </header>
+        <!-- LAYOUT WRAPPER -->
+        <div class="layout">
+            <!-- SIDEBAR NAV -->
+            <aside
+                class="sidebar"
+                id="sidebar"
+                aria-label="Documentation sidebar"
+            >
+                <nav class="sidebar-nav" aria-label="Documentation sections">
+                    <div class="sidebar-section">
+                        <span class="sidebar-label" id="sidebar-label-overview"
+                            >Overview</span
+                        >
+                        <ul aria-labelledby="sidebar-label-overview">
+                            <li>
+                                <a href="#hero" class="sidebar-link active"
+                                    >Introduction</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#architecture" class="sidebar-link"
+                                    >Architecture</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="sidebar-section">
+                        <span class="sidebar-label" id="sidebar-label-start"
+                            >Getting Started</span
+                        >
+                        <ul aria-labelledby="sidebar-label-start">
+                            <li>
+                                <a href="#quickstart" class="sidebar-link"
+                                    >Quickstart</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#configuration" class="sidebar-link"
+                                    >Configuration</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#deployment" class="sidebar-link"
+                                    >Deployment</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="sidebar-section">
+                        <span class="sidebar-label" id="sidebar-label-ref"
+                            >Reference</span
+                        >
+                        <ul aria-labelledby="sidebar-label-ref">
+                            <li>
+                                <a href="#api" class="sidebar-link"
+                                    >API Reference</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#caching" class="sidebar-link"
+                                    >Caching</a
+                                >
+                            </li>
+                            <li>
+                                <a href="#monitoring" class="sidebar-link"
+                                    >Monitoring</a
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            </aside>
 
-  <!-- LAYOUT WRAPPER -->
-  <div class="layout">
+            <!-- MAIN CONTENT -->
+            <main class="main-content" id="main-content">
+                <!-- HERO -->
+                <section
+                    id="hero"
+                    class="hero-section"
+                    aria-labelledby="hero-title"
+                >
+                    <div class="hero-eyebrow">
+                        <span class="badge">Open source</span>
+                        <span class="badge badge-outline"
+                            >v1 · Go · S3-compatible</span
+                        >
+                    </div>
+                    <h1 id="hero-title" class="hero-title">
+                        Your own CDN,
+                        <span class="accent">anywhere you want.</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Upload packages and serve static assets via a simple
+                        REST API, backed by any S3-compatible storage you
+                        already own or trust.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#quickstart" class="btn-primary"
+                            >Get started</a
+                        >
+                        <a
+                            href="https://github.com/ziggornif/gimme"
+                            class="btn-outline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"
+                                />
+                            </svg>
+                            View on GitHub
+                        </a>
+                    </div>
 
-    <!-- SIDEBAR NAV -->
-    <aside class="sidebar" id="sidebar" aria-label="Documentation sidebar">
-      <nav class="sidebar-nav" aria-label="Documentation sections">
-        <div class="sidebar-section">
-          <span class="sidebar-label" id="sidebar-label-overview">Overview</span>
-          <ul aria-labelledby="sidebar-label-overview">
-            <li><a href="#hero" class="sidebar-link active">Introduction</a></li>
-            <li><a href="#architecture" class="sidebar-link">Architecture</a></li>
-          </ul>
-        </div>
-        <div class="sidebar-section">
-          <span class="sidebar-label" id="sidebar-label-start">Getting Started</span>
-          <ul aria-labelledby="sidebar-label-start">
-            <li><a href="#quickstart" class="sidebar-link">Quickstart</a></li>
-            <li><a href="#configuration" class="sidebar-link">Configuration</a></li>
-            <li><a href="#deployment" class="sidebar-link">Deployment</a></li>
-          </ul>
-        </div>
-        <div class="sidebar-section">
-          <span class="sidebar-label" id="sidebar-label-ref">Reference</span>
-          <ul aria-labelledby="sidebar-label-ref">
-            <li><a href="#api" class="sidebar-link">API Reference</a></li>
-            <li><a href="#caching" class="sidebar-link">Caching</a></li>
-            <li><a href="#monitoring" class="sidebar-link">Monitoring</a></li>
-          </ul>
-        </div>
-      </nav>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content" id="main-content">
-
-      <!-- HERO -->
-      <section id="hero" class="hero-section" aria-labelledby="hero-title">
-        <div class="hero-eyebrow">
-          <span class="badge">Open source</span>
-          <span class="badge badge-outline">v1 · Go · S3-compatible</span>
-        </div>
-        <h1 id="hero-title" class="hero-title">
-          Your own CDN, <span class="accent">anywhere you want.</span>
-        </h1>
-        <p class="hero-subtitle">
-          Upload packages and serve static assets via a simple REST API, backed by any S3-compatible storage you already own or trust.
-        </p>
-        <div class="hero-actions">
-          <a href="#quickstart" class="btn-primary">Get started</a>
-          <a href="https://github.com/ziggornif/gimme" class="btn-outline" target="_blank" rel="noopener noreferrer">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-            View on GitHub
-          </a>
-        </div>
-
-        <!-- Code snippet -->
-        <div class="hero-code" aria-label="Example usage">
-          <div class="code-tabs" role="tablist" aria-label="Code example steps">
-            <button class="code-tab active" role="tab" aria-selected="true" aria-controls="code-upload" id="ctab-upload">Upload</button>
-            <button class="code-tab" role="tab" aria-selected="false" aria-controls="code-serve" id="ctab-serve">Serve</button>
-          </div>
-          <div id="code-upload" class="code-panel active" role="tabpanel" aria-labelledby="ctab-upload" tabindex="0">
-            <pre><code class="language-bash"># 1. Get a token
+                    <!-- Code snippet -->
+                    <div class="hero-code" aria-label="Example usage">
+                        <div
+                            class="code-tabs"
+                            role="tablist"
+                            aria-label="Code example steps"
+                        >
+                            <button
+                                class="code-tab active"
+                                role="tab"
+                                aria-selected="true"
+                                aria-controls="code-upload"
+                                id="ctab-upload"
+                            >
+                                Upload
+                            </button>
+                            <button
+                                class="code-tab"
+                                role="tab"
+                                aria-selected="false"
+                                aria-controls="code-serve"
+                                id="ctab-serve"
+                            >
+                                Serve
+                            </button>
+                        </div>
+                        <div
+                            id="code-upload"
+                            class="code-panel active"
+                            role="tabpanel"
+                            aria-labelledby="ctab-upload"
+                            tabindex="0"
+                        >
+                            <pre><code class="language-bash"># 1. Get a token
 curl -X POST https://cdn.example.com/tokens \
   -u admin:password \
   -H 'Content-Type: application/json' \
@@ -119,9 +243,16 @@ curl -X POST https://cdn.example.com/packages \
   -F "file=@my-lib.zip" \
   -F "name=my-lib" \
   -F "version=2.1.0"</code></pre>
-          </div>
-          <div id="code-serve" class="code-panel" role="tabpanel" aria-labelledby="ctab-serve" tabindex="0" hidden>
-            <pre><code class="language-html">&lt;!-- Pin to an exact version — cached 1 year --&gt;
+                        </div>
+                        <div
+                            id="code-serve"
+                            class="code-panel"
+                            role="tabpanel"
+                            aria-labelledby="ctab-serve"
+                            tabindex="0"
+                            hidden
+                        >
+                            <pre><code class="language-html">&lt;!-- Pin to an exact version — cached 1 year --&gt;
 &lt;link rel="stylesheet"
   href="https://cdn.example.com/gimme/my-lib@2.1.0/my-lib.min.css"&gt;
 &lt;script type="module"
@@ -130,144 +261,487 @@ curl -X POST https://cdn.example.com/packages \
 
 &lt;!-- Or use a partial alias — resolves to latest 2.1.x --&gt;
 &lt;script src="https://cdn.example.com/gimme/my-lib@2.1/my-lib.min.js"&gt;&lt;/script&gt;</code></pre>
-          </div>
-        </div>
+                        </div>
+                    </div>
 
-        <!-- Feature highlights -->
-        <ul class="features-grid">
-          <li class="feature-card">
-            <div class="feature-icon blue" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-            </div>
-            <h3>Any S3 backend</h3>
-            <p>AWS S3, Garage, R2, OVH, Scaleway — plug in the storage you already use or pay for.</p>
-          </li>
-          <li class="feature-card">
-            <div class="feature-icon green" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            </div>
-            <h3>Opaque token uploads</h3>
-            <p>Cryptographically random opaque tokens protect write endpoints. Public asset serving needs no authentication — CORS configurable.</p>
-          </li>
-          <li class="feature-card">
-            <div class="feature-icon purple" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line></svg>
-            </div>
-            <h3>Semver aliases</h3>
-            <p><code>pkg@1.0</code> resolves to the latest <code>1.0.x</code> at request time. Pin with <code>pkg@1.0.3</code> for immutability.</p>
-          </li>
-          <li class="feature-card">
-            <div class="feature-icon orange" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-            </div>
-            <h3>Two-level cache</h3>
-            <p>HTTP <code>Cache-Control</code> headers out of the box, plus optional Redis/Valkey for internal version resolution.</p>
-          </li>
-          <li class="feature-card">
-            <div class="feature-icon red" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            </div>
-            <h3>Prometheus metrics</h3>
-            <p>HTTP traffic, S3 latency, cache hits and package lifecycle — all exposed on <code>/metrics</code>.</p>
-          </li>
-          <li class="feature-card">
-            <div class="feature-icon teal" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
-            </div>
-            <h3>Docker & Kubernetes ready</h3>
-            <p>Pre-built image, Compose stacks with Garage + monitoring, Kubernetes manifests and Helm chart included.</p>
-          </li>
-        </ul>
-      </section>
+                    <!-- Feature highlights -->
+                    <ul class="features-grid">
+                        <li class="feature-card">
+                            <div class="feature-icon blue" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                                    ></path>
+                                </svg>
+                            </div>
+                            <h3>Any S3 backend</h3>
+                            <p>
+                                AWS S3, Garage, R2, OVH, Scaleway — plug in the
+                                storage you already use or pay for.
+                            </p>
+                        </li>
+                        <li class="feature-card">
+                            <div class="feature-icon green" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                                    ></path>
+                                </svg>
+                            </div>
+                            <h3>Opaque token uploads</h3>
+                            <p>
+                                Cryptographically random opaque tokens protect
+                                write endpoints. Public asset serving needs no
+                                authentication — CORS configurable.
+                            </p>
+                        </li>
+                        <li class="feature-card">
+                            <div class="feature-icon purple" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <polyline
+                                        points="16 3 21 3 21 8"
+                                    ></polyline>
+                                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                                    <polyline
+                                        points="21 16 21 21 16 21"
+                                    ></polyline>
+                                    <line
+                                        x1="15"
+                                        y1="15"
+                                        x2="21"
+                                        y2="21"
+                                    ></line>
+                                </svg>
+                            </div>
+                            <h3>Semver aliases</h3>
+                            <p>
+                                <code>pkg@1.0</code> resolves to the latest
+                                <code>1.0.x</code> at request time. Pin with
+                                <code>pkg@1.0.3</code> for immutability.
+                            </p>
+                        </li>
+                        <li class="feature-card">
+                            <div class="feature-icon orange" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <path
+                                        d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
+                                    ></path>
+                                </svg>
+                            </div>
+                            <h3>Two-level cache</h3>
+                            <p>
+                                HTTP <code>Cache-Control</code> headers out of
+                                the box, plus optional Redis/Valkey for internal
+                                version resolution.
+                            </p>
+                        </li>
+                        <li class="feature-card">
+                            <div class="feature-icon red" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <line
+                                        x1="18"
+                                        y1="20"
+                                        x2="18"
+                                        y2="10"
+                                    ></line>
+                                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                                </svg>
+                            </div>
+                            <h3>Prometheus metrics</h3>
+                            <p>
+                                HTTP traffic, S3 latency, cache hits and package
+                                lifecycle — all exposed on
+                                <code>/metrics</code>.
+                            </p>
+                        </li>
+                        <li class="feature-card">
+                            <div class="feature-icon teal" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="3"
+                                        y="3"
+                                        width="18"
+                                        height="18"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                                </svg>
+                            </div>
+                            <h3>Docker & Kubernetes ready</h3>
+                            <p>
+                                Pre-built image, Compose stacks with Garage +
+                                monitoring, Kubernetes manifests and Helm chart
+                                included.
+                            </p>
+                        </li>
+                    </ul>
+                </section>
 
-      <!-- ARCHITECTURE -->
-      <section id="architecture" class="doc-section" aria-labelledby="architecture-title">
-        <h2 id="architecture-title">Architecture</h2>
-        <p>Gimme is a thin, stateless Go service. It sits between your clients and an S3-compatible object store, handling authentication, semver resolution, and streaming. A reverse proxy in front is recommended for production.</p>
+                <!-- ARCHITECTURE -->
+                <section
+                    id="architecture"
+                    class="doc-section"
+                    aria-labelledby="architecture-title"
+                >
+                    <h2 id="architecture-title">Architecture</h2>
+                    <p>
+                        Gimme is a thin, stateless Go service. It sits between
+                        your clients and an S3-compatible object store, handling
+                        authentication, semver resolution, and streaming. A
+                        reverse proxy in front is recommended for production.
+                    </p>
 
-        <div class="arch-diagram" aria-label="Architecture overview: Browser to optional CDN to gimme (which queries optional Redis for version resolution) to S3 storage">
-          <!-- Main horizontal flow -->
-          <div class="arch-row">
-            <div class="arch-node">
-              <div class="arch-node-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-              </div>
-              <span class="arch-node-label">Browser / CLI</span>
-            </div>
-            <div class="arch-connector" aria-hidden="true">→</div>
-            <div class="arch-node arch-node-optional">
-              <div class="arch-node-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-              </div>
-              <span class="arch-node-label">Nginx / CDN</span>
-              <span class="arch-node-sub">optional</span>
-            </div>
-            <div class="arch-connector" aria-hidden="true">→</div>
-            <!-- gimme + Redis stacked vertically -->
-            <div class="arch-col">
-              <div class="arch-node arch-node-core">
-                <div class="arch-node-icon">
-                  <svg width="18" height="18" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#2563EB"/><path d="M8 14.5L12.5 19L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <span class="arch-node-label">gimme :8080</span>
-              </div>
-              <div class="arch-col-connector" aria-hidden="true">
-                <span class="arch-col-line"></span>
-                <span class="arch-col-label">version resolution</span>
-              </div>
-              <div class="arch-node arch-node-optional arch-node-sm">
-                <div class="arch-node-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                </div>
-                <span class="arch-node-label">Redis / Valkey</span>
-                <span class="arch-node-sub">required (tokens + optional cache)</span>
-              </div>
-            </div>
-            <div class="arch-connector" aria-hidden="true">→</div>
-            <div class="arch-node">
-              <div class="arch-node-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-              </div>
-              <span class="arch-node-label">S3 storage</span>
-            </div>
-          </div>
-        </div>
+                    <div
+                        class="arch-diagram"
+                        aria-label="Architecture overview: Browser to optional CDN to gimme (which queries optional Redis for version resolution) to S3 storage"
+                    >
+                        <!-- Main horizontal flow -->
+                        <div class="arch-row">
+                            <div class="arch-node">
+                                <div class="arch-node-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line
+                                            x1="2"
+                                            y1="12"
+                                            x2="22"
+                                            y2="12"
+                                        ></line>
+                                        <path
+                                            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                                        ></path>
+                                    </svg>
+                                </div>
+                                <span class="arch-node-label"
+                                    >Browser / CLI</span
+                                >
+                            </div>
+                            <div class="arch-connector" aria-hidden="true">
+                                →
+                            </div>
+                            <div class="arch-node arch-node-optional">
+                                <div class="arch-node-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <polyline
+                                            points="17 1 21 5 17 9"
+                                        ></polyline>
+                                        <path
+                                            d="M3 11V9a4 4 0 0 1 4-4h14"
+                                        ></path>
+                                        <polyline
+                                            points="7 23 3 19 7 15"
+                                        ></polyline>
+                                        <path
+                                            d="M21 13v2a4 4 0 0 1-4 4H3"
+                                        ></path>
+                                    </svg>
+                                </div>
+                                <span class="arch-node-label">Nginx / CDN</span>
+                                <span class="arch-node-sub">optional</span>
+                            </div>
+                            <div class="arch-connector" aria-hidden="true">
+                                →
+                            </div>
+                            <!-- gimme + Redis stacked vertically -->
+                            <div class="arch-col">
+                                <div class="arch-node arch-node-core">
+                                    <div class="arch-node-icon">
+                                        <img
+                                            src="./assets/gimme.png"
+                                            width="18"
+                                            height="18"
+                                            alt=""
+                                            aria-hidden="true"
+                                            style="
+                                                border-radius: 4px;
+                                                display: block;
+                                            "
+                                        />
+                                    </div>
+                                    <span class="arch-node-label"
+                                        >gimme :8080</span
+                                    >
+                                </div>
+                                <div
+                                    class="arch-col-connector"
+                                    aria-hidden="true"
+                                >
+                                    <span class="arch-col-line"></span>
+                                    <span class="arch-col-label"
+                                        >version resolution</span
+                                    >
+                                </div>
+                                <div
+                                    class="arch-node arch-node-optional arch-node-sm"
+                                >
+                                    <div class="arch-node-icon">
+                                        <svg
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            aria-hidden="true"
+                                        >
+                                            <polyline
+                                                points="22 12 18 12 15 21 9 3 6 12 2 12"
+                                            ></polyline>
+                                        </svg>
+                                    </div>
+                                    <span class="arch-node-label"
+                                        >Redis / Valkey</span
+                                    >
+                                    <span class="arch-node-sub"
+                                        >required (tokens + optional
+                                        cache)</span
+                                    >
+                                </div>
+                            </div>
+                            <div class="arch-connector" aria-hidden="true">
+                                →
+                            </div>
+                            <div class="arch-node">
+                                <div class="arch-node-icon">
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <ellipse
+                                            cx="12"
+                                            cy="5"
+                                            rx="9"
+                                            ry="3"
+                                        ></ellipse>
+                                        <path
+                                            d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"
+                                        ></path>
+                                        <path
+                                            d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"
+                                        ></path>
+                                    </svg>
+                                </div>
+                                <span class="arch-node-label">S3 storage</span>
+                            </div>
+                        </div>
+                    </div>
 
-        <h3>Package naming convention</h3>
-        <p>Objects are stored in S3 as <code>&lt;package&gt;@&lt;version&gt;/&lt;file&gt;</code>:</p>
-        <pre><code class="language-text">my-lib@2.1.0/my-lib.min.js
+                    <h3>Package naming convention</h3>
+                    <p>
+                        Objects are stored in S3 as
+                        <code>&lt;package&gt;@&lt;version&gt;/&lt;file&gt;</code
+                        >:
+                    </p>
+                    <pre><code class="language-text">my-lib@2.1.0/my-lib.min.js
 my-lib@2.1.0/my-lib.min.css
 my-lib@2.1.1/my-lib.min.js   ← next patch</code></pre>
 
-        <h3>Semver partial resolution</h3>
-        <p>A request for <code>my-lib@2.1/file.js</code> triggers a <code>ListObjects</code> call in S3, sorts all matching versions, and redirects to the highest patch. With Redis enabled, the resolved path is cached — S3 is only hit on a cache miss.</p>
-      </section>
+                    <h3>Semver partial resolution</h3>
+                    <p>
+                        A request for <code>my-lib@2.1/file.js</code> triggers a
+                        <code>ListObjects</code> call in S3, sorts all matching
+                        versions, and redirects to the highest patch. With Redis
+                        enabled, the resolved path is cached — S3 is only hit on
+                        a cache miss.
+                    </p>
+                </section>
 
-      <!-- QUICKSTART -->
-      <section id="quickstart" class="doc-section" aria-labelledby="quickstart-title">
-        <h2 id="quickstart-title">Quickstart</h2>
+                <!-- QUICKSTART -->
+                <section
+                    id="quickstart"
+                    class="doc-section"
+                    aria-labelledby="quickstart-title"
+                >
+                    <h2 id="quickstart-title">Quickstart</h2>
 
-        <div class="tabs" role="tablist" aria-label="Choose your deployment">
-          <button class="tab active" role="tab" aria-selected="true" aria-controls="tab-garage" id="btn-garage">Garage (self-hosted)</button>
-          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-managed" id="btn-managed">Managed S3</button>
-          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-source" id="btn-source">From source</button>
-        </div>
+                    <div
+                        class="tabs"
+                        role="tablist"
+                        aria-label="Choose your deployment"
+                    >
+                        <button
+                            class="tab active"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="tab-garage"
+                            id="btn-garage"
+                        >
+                            Garage (self-hosted)
+                        </button>
+                        <button
+                            class="tab"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="tab-managed"
+                            id="btn-managed"
+                        >
+                            Managed S3
+                        </button>
+                        <button
+                            class="tab"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="tab-source"
+                            id="btn-source"
+                        >
+                            From source
+                        </button>
+                    </div>
 
-        <div id="tab-garage" class="tab-content active" role="tabpanel" aria-labelledby="btn-garage" tabindex="0">
-          <p><a href="https://garagehq.deuxfleurs.fr/" target="_blank" rel="noopener noreferrer">Garage</a> is a lightweight open-source S3 store. The stack provisions itself — no manual bucket or key setup needed.</p>
-          <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
+                    <div
+                        id="tab-garage"
+                        class="tab-content active"
+                        role="tabpanel"
+                        aria-labelledby="btn-garage"
+                        tabindex="0"
+                    >
+                        <p>
+                            <a
+                                href="https://garagehq.deuxfleurs.fr/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >Garage</a
+                            >
+                            is a lightweight open-source S3 store. The stack
+                            provisions itself — no manual bucket or key setup
+                            needed.
+                        </p>
+                        <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
 cd gimme/examples/deployment/docker-compose/with-garage
 docker compose up -d</code></pre>
-          <p>Gimme starts at <code>http://localhost:8080</code>. Prometheus and Grafana are included. An optional Valkey cache is pre-configured — just enable it in <code>gimme.yml</code>.</p>
-          <div class="callout callout-info">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <span>The <code>init-garage</code> service creates the bucket and writes the configuration automatically on first run.</span>
-          </div>
-        </div>
+                        <p>
+                            Gimme starts at <code>http://localhost:8080</code>.
+                            Prometheus and Grafana are included. An optional
+                            Valkey cache is pre-configured — just enable it in
+                            <code>gimme.yml</code>.
+                        </p>
+                        <div class="callout callout-info">
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span
+                                >The <code>init-garage</code> service creates
+                                the bucket and writes the configuration
+                                automatically on first run.</span
+                            >
+                        </div>
+                    </div>
 
-        <div id="tab-managed" class="tab-content" role="tabpanel" aria-labelledby="btn-managed" tabindex="0" hidden>
-          <p>Gimme works with any S3-compatible provider — AWS S3, OVH Object Storage, Scaleway, Clever Cloud Cellar, Cloudflare R2 and more. Create a bucket and fill in <code>gimme.yml</code>:</p>
-          <pre><code class="language-yaml">admin:
+                    <div
+                        id="tab-managed"
+                        class="tab-content"
+                        role="tabpanel"
+                        aria-labelledby="btn-managed"
+                        tabindex="0"
+                        hidden
+                    >
+                        <p>
+                            Gimme works with any S3-compatible provider — AWS
+                            S3, OVH Object Storage, Scaleway, Clever Cloud
+                            Cellar, Cloudflare R2 and more. Create a bucket and
+                            fill in <code>gimme.yml</code>:
+                        </p>
+                        <pre><code class="language-yaml">admin:
   user: gimmeadmin
   password: change-me
 port: 8080
@@ -279,71 +753,148 @@ s3:
   bucketName: gimme
   location: eu-west-1
   ssl: true</code></pre>
-          <pre><code class="language-bash">docker run -p 8080:8080 \
+                        <pre><code class="language-bash">docker run -p 8080:8080 \
   -v "$(pwd)/gimme.yml:/config/gimme.yml" \
   ziggornif/gimme:latest</code></pre>
-        </div>
+                    </div>
 
-
-        <div id="tab-source" class="tab-content" role="tabpanel" aria-labelledby="btn-source" tabindex="0" hidden>
-          <p>Requires Go 1.26+ and a running S3-compatible backend.</p>
-          <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
+                    <div
+                        id="tab-source"
+                        class="tab-content"
+                        role="tabpanel"
+                        aria-labelledby="btn-source"
+                        tabindex="0"
+                        hidden
+                    >
+                        <p>
+                            Requires Go 1.26+ and a running S3-compatible
+                            backend.
+                        </p>
+                        <pre><code class="language-bash">git clone https://github.com/ziggornif/gimme
 cd gimme
 cp gimme.example.yml gimme.yml
 # Edit gimme.yml with your S3 credentials
 make build && ./gimme</code></pre>
-          <p>For live reload during development (requires <a href="https://github.com/air-verse/air" target="_blank" rel="noopener noreferrer">air</a>):</p>
-          <pre><code class="language-bash">make watch</code></pre>
-        </div>
+                        <p>
+                            For live reload during development (requires
+                            <a
+                                href="https://github.com/air-verse/air"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >air</a
+                            >):
+                        </p>
+                        <pre><code class="language-bash">make watch</code></pre>
+                    </div>
 
-        <h3>Your first upload in 3 steps</h3>
-        <div class="steps">
-          <div class="step">
-            <div class="step-number" aria-hidden="true">1</div>
-            <div class="step-body">
-              <h4>Create an access token</h4>
-              <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
+                    <h3>Your first upload in 3 steps</h3>
+                    <div class="steps">
+                        <div class="step">
+                            <div class="step-number" aria-hidden="true">1</div>
+                            <div class="step-body">
+                                <h4>Create an access token</h4>
+                                <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
   -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
-              <div class="callout callout-info">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <span>Without <code>expirationDate</code>, the token expires in 90 days.</span>
-              </div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-number" aria-hidden="true">2</div>
-            <div class="step-body">
-              <h4>Upload a ZIP package</h4>
-              <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
+                                <div class="callout callout-info">
+                                    <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line
+                                            x1="12"
+                                            y1="8"
+                                            x2="12"
+                                            y2="12"
+                                        ></line>
+                                        <line
+                                            x1="12"
+                                            y1="16"
+                                            x2="12.01"
+                                            y2="16"
+                                        ></line>
+                                    </svg>
+                                    <span
+                                        >Without <code>expirationDate</code>,
+                                        the token expires in 90 days.</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number" aria-hidden="true">2</div>
+                            <div class="step-body">
+                                <h4>Upload a ZIP package</h4>
+                                <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@my-lib.zip" \
   -F "name=my-lib" \
   -F "version=1.0.0"
 # → 201 Created</code></pre>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-number" aria-hidden="true">3</div>
-            <div class="step-body">
-              <h4>Use your assets</h4>
-              <pre><code class="language-html">&lt;script src="http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js"&gt;&lt;/script&gt;</code></pre>
-              <div class="callout callout-success">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                <span>Assets are served from <code>/gimme/my-lib@1.0.0/&lt;file&gt;</code> with full CORS support.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number" aria-hidden="true">3</div>
+                            <div class="step-body">
+                                <h4>Use your assets</h4>
+                                <pre><code class="language-html">&lt;script src="http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js"&gt;&lt;/script&gt;</code></pre>
+                                <div class="callout callout-success">
+                                    <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
+                                        ></path>
+                                        <polyline
+                                            points="22 4 12 14.01 9 11.01"
+                                        ></polyline>
+                                    </svg>
+                                    <span
+                                        >Assets are served from
+                                        <code
+                                            >/gimme/my-lib@1.0.0/&lt;file&gt;</code
+                                        >
+                                        with full CORS support.</span
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-      <!-- CONFIGURATION -->
-      <section id="configuration" class="doc-section" aria-labelledby="config-title">
-        <h2 id="config-title">Configuration</h2>
-        <p>Config is loaded from <code>gimme.yml</code> (local directory or <code>/config/gimme.yml</code> inside Docker). Every value can be overridden by an environment variable — Viper maps them automatically (e.g. <code>S3_URL</code>, <code>ADMIN_USER</code>).</p>
+                <!-- CONFIGURATION -->
+                <section
+                    id="configuration"
+                    class="doc-section"
+                    aria-labelledby="config-title"
+                >
+                    <h2 id="config-title">Configuration</h2>
+                    <p>
+                        Config is loaded from <code>gimme.yml</code> (local
+                        directory or <code>/config/gimme.yml</code> inside
+                        Docker). Every value can be overridden by an environment
+                        variable — Viper maps them automatically (e.g.
+                        <code>S3_URL</code>, <code>ADMIN_USER</code>).
+                    </p>
 
-        <pre><code class="language-yaml">admin:
+                    <pre><code class="language-yaml">admin:
   user: gimmeadmin
   password: gimmeadmin
 port: 8080
@@ -362,123 +913,517 @@ cache:
   type: redis
   ttl: 3600</code></pre>
 
-        <div class="table-wrapper">
-          <table aria-label="Configuration options reference">
-            <thead>
-              <tr>
-                <th scope="col">Key</th>
-                <th scope="col">Description</th>
-                <th scope="col">Default</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td><code>secret</code></td><td>Token signing secret (<strong>min 32 chars</strong>)</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>admin.user</code></td><td>Admin username (Basic Auth)</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>admin.password</code></td><td>Admin password (Basic Auth)</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>port</code></td><td>HTTP server port</td><td><code>8080</code></td></tr>
-              <tr><td><code>s3.url</code></td><td>S3 / Garage endpoint URL</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>s3.key</code></td><td>S3 access key</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>s3.secret</code></td><td>S3 secret key</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>s3.bucketName</code></td><td>S3 bucket name</td><td><code>gimme</code></td></tr>
-              <tr><td><code>s3.location</code></td><td>S3 region / Garage zone</td><td><span class="badge-required">required</span></td></tr>
-              <tr><td><code>s3.ssl</code></td><td>Enable TLS for S3 connection</td><td><code>true</code></td></tr>
-              <tr><td><code>metrics</code></td><td>Enable <code>/metrics</code> Prometheus endpoint</td><td><code>true</code></td></tr>
-              <tr><td><code>cache.enabled</code></td><td>Enable internal Redis cache</td><td><code>false</code></td></tr>
-              <tr><td><code>cache.type</code></td><td>Cache backend type</td><td><code>redis</code></td></tr>
-              <tr><td><code>cache.ttl</code></td><td>Cache entry TTL in seconds</td><td><code>3600</code></td></tr>
-              <tr><td><code>cache.redis_url</code></td><td>Redis / Valkey connection URL (<strong>required</strong> — used for token storage even when cache is disabled)</td><td><code>redis://localhost:6379</code></td></tr>
-              <tr><td><code>auth.mode</code></td><td>Admin auth mode (<code>basic</code> or <code>oidc</code>)</td><td><code>basic</code></td></tr>
-              <tr><td><code>auth.oidc.issuer</code></td><td>OIDC issuer URL</td><td>required if <code>oidc</code></td></tr>
-              <tr><td><code>auth.oidc.client_id</code></td><td>OIDC client ID</td><td>required if <code>oidc</code></td></tr>
-              <tr><td><code>auth.oidc.client_secret</code></td><td>OIDC client secret</td><td>optional</td></tr>
-              <tr><td><code>auth.oidc.redirect_url</code></td><td>OIDC redirect URI</td><td>required if <code>oidc</code></td></tr>
-              <tr><td><code>auth.oidc.secure_cookies</code></td><td>Use <code>Secure</code> flag on session cookies (disable only for local HTTP dev)</td><td><code>true</code></td></tr>
-              <tr><td><code>cors.allowed_origins</code></td><td>List of allowed CORS origins. Defaults to all origins (<code>*</code>) if empty.</td><td><code>[]</code> (all origins)</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="callout callout-info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          <span><strong>Redis is required.</strong> Gimme uses Redis to store opaque API tokens across restarts. Set <code>cache.redis_url</code> even when the internal cache (<code>cache.enabled</code>) is disabled.</span>
-        </div>
-        <div class="callout callout-info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          <span><code>secret</code> must be <strong>at least 32 characters</strong> long. Gimme will refuse to start with a shorter value.</span>
-        </div>
-      </section>
+                    <div class="table-wrapper">
+                        <table aria-label="Configuration options reference">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Key</th>
+                                    <th scope="col">Description</th>
+                                    <th scope="col">Default</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>secret</code></td>
+                                    <td>
+                                        Token signing secret (<strong
+                                            >min 32 chars</strong
+                                        >)
+                                    </td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>admin.user</code></td>
+                                    <td>Admin username (Basic Auth)</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>admin.password</code></td>
+                                    <td>Admin password (Basic Auth)</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>port</code></td>
+                                    <td>HTTP server port</td>
+                                    <td><code>8080</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.url</code></td>
+                                    <td>S3 / Garage endpoint URL</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.key</code></td>
+                                    <td>S3 access key</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.secret</code></td>
+                                    <td>S3 secret key</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.bucketName</code></td>
+                                    <td>S3 bucket name</td>
+                                    <td><code>gimme</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.location</code></td>
+                                    <td>S3 region / Garage zone</td>
+                                    <td>
+                                        <span class="badge-required"
+                                            >required</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>s3.ssl</code></td>
+                                    <td>Enable TLS for S3 connection</td>
+                                    <td><code>true</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>metrics</code></td>
+                                    <td>
+                                        Enable <code>/metrics</code> Prometheus
+                                        endpoint
+                                    </td>
+                                    <td><code>true</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cache.enabled</code></td>
+                                    <td>Enable internal Redis cache</td>
+                                    <td><code>false</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cache.type</code></td>
+                                    <td>Cache backend type</td>
+                                    <td><code>redis</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cache.ttl</code></td>
+                                    <td>Cache entry TTL in seconds</td>
+                                    <td><code>3600</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cache.redis_url</code></td>
+                                    <td>
+                                        Redis / Valkey connection URL (<strong
+                                            >required</strong
+                                        >
+                                        — used for token storage even when cache
+                                        is disabled)
+                                    </td>
+                                    <td><code>redis://localhost:6379</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>auth.mode</code></td>
+                                    <td>
+                                        Admin auth mode (<code>basic</code> or
+                                        <code>oidc</code>)
+                                    </td>
+                                    <td><code>basic</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>auth.oidc.issuer</code></td>
+                                    <td>OIDC issuer URL</td>
+                                    <td>required if <code>oidc</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>auth.oidc.client_id</code></td>
+                                    <td>OIDC client ID</td>
+                                    <td>required if <code>oidc</code></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>auth.oidc.client_secret</code>
+                                    </td>
+                                    <td>OIDC client secret</td>
+                                    <td>optional</td>
+                                </tr>
+                                <tr>
+                                    <td><code>auth.oidc.redirect_url</code></td>
+                                    <td>OIDC redirect URI</td>
+                                    <td>required if <code>oidc</code></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>auth.oidc.secure_cookies</code>
+                                    </td>
+                                    <td>
+                                        Use <code>Secure</code> flag on session
+                                        cookies (disable only for local HTTP
+                                        dev)
+                                    </td>
+                                    <td><code>true</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cors.allowed_origins</code></td>
+                                    <td>
+                                        List of allowed CORS origins. Defaults
+                                        to all origins (<code>*</code>) if
+                                        empty.
+                                    </td>
+                                    <td><code>[]</code> (all origins)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="callout callout-info">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span
+                            ><strong>Redis is required.</strong> Gimme uses
+                            Redis to store opaque API tokens across restarts.
+                            Set <code>cache.redis_url</code> even when the
+                            internal cache (<code>cache.enabled</code>) is
+                            disabled.</span
+                        >
+                    </div>
+                    <div class="callout callout-info">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span
+                            ><code>secret</code> must be
+                            <strong>at least 32 characters</strong> long. Gimme
+                            will refuse to start with a shorter value.</span
+                        >
+                    </div>
+                </section>
 
-      <!-- DEPLOYMENT -->
-      <section id="deployment" class="doc-section" aria-labelledby="deployment-title">
-        <h2 id="deployment-title">Deployment</h2>
+                <!-- DEPLOYMENT -->
+                <section
+                    id="deployment"
+                    class="doc-section"
+                    aria-labelledby="deployment-title"
+                >
+                    <h2 id="deployment-title">Deployment</h2>
 
-        <ul class="deploy-grid">
-          <li class="deploy-card">
-            <div class="deploy-card-head">
-              <span class="deploy-icon" aria-hidden="true">🐳</span>
-              <h3>Docker Compose + Garage</h3>
-            </div>
-            <p>Zero-setup stack with self-hosted Garage storage, Valkey cache and Prometheus/Grafana monitoring bundled in.</p>
-            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-garage" target="_blank" rel="noopener noreferrer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View on GitHub
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </li>
-          <li class="deploy-card">
-            <div class="deploy-card-head">
-              <span class="deploy-icon" aria-hidden="true">☁️</span>
-              <h3>Docker Compose + managed S3</h3>
-            </div>
-            <p>Connect to any managed provider (AWS S3, OVH, Scaleway, Cellar, R2). Monitoring included.</p>
-            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-managed-s3" target="_blank" rel="noopener noreferrer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View on GitHub
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </li>
-          <li class="deploy-card">
-            <div class="deploy-card-head">
-              <span class="deploy-icon" aria-hidden="true">☸️</span>
-              <h3>Kubernetes</h3>
-            </div>
-            <p>Namespace, Deployment, Service and Ingress manifests. Liveness and readiness probes pre-configured.</p>
-            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/kubernetes" target="_blank" rel="noopener noreferrer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View on GitHub
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </li>
-          <li class="deploy-card">
-            <div class="deploy-card-head">
-              <span class="deploy-icon" aria-hidden="true">⎈</span>
-              <h3>Helm chart</h3>
-            </div>
-            <p>Production-ready Helm chart published on GHCR. Secrets, Ingress, HPA and Redis cache configurable via <code>values.yaml</code>.</p>
-            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/helm/gimme" target="_blank" rel="noopener noreferrer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View on GitHub
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </li>
-          <li class="deploy-card">
-            <div class="deploy-card-head">
-              <span class="deploy-icon" aria-hidden="true">⚙️</span>
-              <h3>systemd</h3>
-            </div>
-            <p>Run as a Linux system service with automatic restarts and environment file support.</p>
-            <a class="deploy-link" href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/systemd" target="_blank" rel="noopener noreferrer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-              View on GitHub
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-          </li>
-        </ul>
+                    <ul class="deploy-grid">
+                        <li class="deploy-card">
+                            <div class="deploy-card-head">
+                                <span class="deploy-icon" aria-hidden="true"
+                                    >🐳</span
+                                >
+                                <h3>Docker Compose + Garage</h3>
+                            </div>
+                            <p>
+                                Zero-setup stack with self-hosted Garage
+                                storage, Valkey cache and Prometheus/Grafana
+                                monitoring bundled in.
+                            </p>
+                            <a
+                                class="deploy-link"
+                                href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-garage"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    ></path>
+                                </svg>
+                                View on GitHub
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                    />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                            </a>
+                        </li>
+                        <li class="deploy-card">
+                            <div class="deploy-card-head">
+                                <span class="deploy-icon" aria-hidden="true"
+                                    >☁️</span
+                                >
+                                <h3>Docker Compose + managed S3</h3>
+                            </div>
+                            <p>
+                                Connect to any managed provider (AWS S3, OVH,
+                                Scaleway, Cellar, R2). Monitoring included.
+                            </p>
+                            <a
+                                class="deploy-link"
+                                href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/docker-compose/with-managed-s3"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    ></path>
+                                </svg>
+                                View on GitHub
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                    />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                            </a>
+                        </li>
+                        <li class="deploy-card">
+                            <div class="deploy-card-head">
+                                <span class="deploy-icon" aria-hidden="true"
+                                    >☸️</span
+                                >
+                                <h3>Kubernetes</h3>
+                            </div>
+                            <p>
+                                Namespace, Deployment, Service and Ingress
+                                manifests. Liveness and readiness probes
+                                pre-configured.
+                            </p>
+                            <a
+                                class="deploy-link"
+                                href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/kubernetes"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    ></path>
+                                </svg>
+                                View on GitHub
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                    />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                            </a>
+                        </li>
+                        <li class="deploy-card">
+                            <div class="deploy-card-head">
+                                <span class="deploy-icon" aria-hidden="true"
+                                    >⎈</span
+                                >
+                                <h3>Helm chart</h3>
+                            </div>
+                            <p>
+                                Production-ready Helm chart published on GHCR.
+                                Secrets, Ingress, HPA and Redis cache
+                                configurable via <code>values.yaml</code>.
+                            </p>
+                            <a
+                                class="deploy-link"
+                                href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/helm/gimme"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    ></path>
+                                </svg>
+                                View on GitHub
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                    />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                            </a>
+                        </li>
+                        <li class="deploy-card">
+                            <div class="deploy-card-head">
+                                <span class="deploy-icon" aria-hidden="true"
+                                    >⚙️</span
+                                >
+                                <h3>systemd</h3>
+                            </div>
+                            <p>
+                                Run as a Linux system service with automatic
+                                restarts and environment file support.
+                            </p>
+                            <a
+                                class="deploy-link"
+                                href="https://github.com/ziggornif/gimme/tree/main/examples/deployment/systemd"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg
+                                    width="13"
+                                    height="13"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+                                    ></path>
+                                </svg>
+                                View on GitHub
+                                <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                    />
+                                    <polyline points="15 3 21 3 21 9" />
+                                    <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
+                            </a>
+                        </li>
+                    </ul>
 
-        <h3 id="helm-chart">Helm chart</h3>
-        <p>The Helm chart is published on GHCR (OCI) and provides a production-ready deployment with credentials in a dedicated Kubernetes <code>Secret</code>, optional Ingress with TLS, HPA and Redis cache.</p>
+                    <h3 id="helm-chart">Helm chart</h3>
+                    <p>
+                        The Helm chart is published on GHCR (OCI) and provides a
+                        production-ready deployment with credentials in a
+                        dedicated Kubernetes <code>Secret</code>, optional
+                        Ingress with TLS, HPA and Redis cache.
+                    </p>
 
-        <h4>Install</h4>
-        <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
+                    <h4>Install</h4>
+                    <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
   --namespace gimme \
   --create-namespace \
   --set credentials.secret=&lt;signing-secret-min-32-chars&gt; \
@@ -488,13 +1433,13 @@ cache:
   --set credentials.s3.secret=&lt;s3-secret&gt; \
   --set s3.url=&lt;s3-endpoint-url&gt;</code></pre>
 
-        <p>Or with a <code>values.yaml</code> file:</p>
-        <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
+                    <p>Or with a <code>values.yaml</code> file:</p>
+                    <pre><code class="language-bash">helm install gimme oci://ghcr.io/ziggornif/charts/gimme \
   --namespace gimme --create-namespace \
   -f my-values.yaml</code></pre>
 
-        <h4>Minimal <code>values.yaml</code></h4>
-        <pre><code class="language-yaml">credentials:
+                    <h4>Minimal <code>values.yaml</code></h4>
+                    <pre><code class="language-yaml">credentials:
   secret: "your-secret-at-least-32-chars-long"
   admin:
     user: "admin"
@@ -509,8 +1454,8 @@ s3:
   location: eu-west-1
   ssl: true</code></pre>
 
-        <h4>Enable Ingress with TLS</h4>
-        <pre><code class="language-yaml">ingress:
+                    <h4>Enable Ingress with TLS</h4>
+                    <pre><code class="language-yaml">ingress:
   enabled: true
   className: nginx
   host: cdn.example.com
@@ -520,272 +1465,509 @@ s3:
     enabled: true
     secretName: gimme-tls</code></pre>
 
-        <h4>Enable Redis cache</h4>
-        <pre><code class="language-yaml">cache:
+                    <h4>Enable Redis cache</h4>
+                    <pre><code class="language-yaml">cache:
   enabled: true
   type: redis
   ttl: 3600
   redisUrl: redis://my-redis-service:6379</code></pre>
 
-        <h4>Enable HPA (auto-scaling)</h4>
-        <pre><code class="language-yaml">hpa:
+                    <h4>Enable HPA (auto-scaling)</h4>
+                    <pre><code class="language-yaml">hpa:
   enabled: true
   minReplicas: 2
   maxReplicas: 10
   targetCPUUtilizationPercentage: 70</code></pre>
 
-        <h4>Upgrade / Uninstall</h4>
-        <pre><code class="language-bash"># Upgrade
+                    <h4>Upgrade / Uninstall</h4>
+                    <pre><code class="language-bash"># Upgrade
 helm upgrade gimme oci://ghcr.io/ziggornif/charts/gimme \
   --namespace gimme -f my-values.yaml
 
 # Uninstall
 helm uninstall gimme --namespace gimme</code></pre>
 
-        <h3>Single Docker container</h3>
-        <pre><code class="language-bash">docker run -p 8080:8080 \
+                    <h3>Single Docker container</h3>
+                    <pre><code class="language-bash">docker run -p 8080:8080 \
   -v "$(pwd)/gimme.yml:/config/gimme.yml" \
   ziggornif/gimme:latest</code></pre>
 
-        <h3>Health probes</h3>
-        <div class="table-wrapper">
-          <table aria-label="Health probe endpoints">
-            <thead>
-              <tr><th scope="col">Endpoint</th><th scope="col">Type</th><th scope="col">Condition</th></tr>
-            </thead>
-            <tbody>
-              <tr><td><code>GET /healthz</code></td><td>Liveness</td><td>Process is alive</td></tr>
-              <tr><td><code>GET /readyz</code></td><td>Readiness</td><td>S3 bucket is reachable</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    <h3>Health probes</h3>
+                    <div class="table-wrapper">
+                        <table aria-label="Health probe endpoints">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Endpoint</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>GET /healthz</code></td>
+                                    <td>Liveness</td>
+                                    <td>Process is alive</td>
+                                </tr>
+                                <tr>
+                                    <td><code>GET /readyz</code></td>
+                                    <td>Readiness</td>
+                                    <td>S3 bucket is reachable</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
-      <!-- API REFERENCE -->
-      <section id="api" class="doc-section" aria-labelledby="api-title">
-        <h2 id="api-title">API Reference</h2>
+                <!-- API REFERENCE -->
+                <section
+                    id="api"
+                    class="doc-section"
+                    aria-labelledby="api-title"
+                >
+                    <h2 id="api-title">API Reference</h2>
 
-        <div class="table-wrapper">
-          <table aria-label="API routes">
-            <thead>
-              <tr>
-                <th scope="col">Method</th>
-                <th scope="col">Route</th>
-                <th scope="col">Auth</th>
-                <th scope="col">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/</code></td>
-                <td>—</td>
-                <td>HTML homepage (ReDoc API docs)</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/admin</code></td>
-                <td><span class="auth-badge basic">Admin auth</span></td>
-                <td>Admin UI (token management)</td>
-              </tr>
-              <tr>
-                <td><span class="method post">POST</span></td>
-                <td><code>/tokens</code></td>
-                <td><span class="auth-badge basic">Admin auth</span></td>
-                <td>Create an opaque access token</td>
-              </tr>
-              <tr>
-                <td><span class="method delete">DELETE</span></td>
-                <td><code>/tokens/:id</code></td>
-                <td><span class="auth-badge basic">Admin auth</span></td>
-                <td>Revoke an access token</td>
-              </tr>
-              <tr>
-                <td><span class="method post">POST</span></td>
-                <td><code>/packages</code></td>
-                <td><span class="auth-badge jwt">Bearer token</span></td>
-                <td>Upload a ZIP package</td>
-              </tr>
-              <tr>
-                <td><span class="method delete">DELETE</span></td>
-                <td><code>/packages/:package</code></td>
-                <td><span class="auth-badge jwt">Bearer token</span></td>
-                <td>Delete a package (<code>name@version</code>)</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/gimme/:package</code></td>
-                <td>—</td>
-                <td>List files in a package (HTML)</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/gimme/:package/*file</code></td>
-                <td>—</td>
-                <td>Serve a static file</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/metrics</code></td>
-                <td>—</td>
-                <td>Prometheus / OpenMetrics endpoint</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/docs</code></td>
-                <td>—</td>
-                <td>Interactive Swagger / ReDoc docs</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/healthz</code></td>
-                <td>—</td>
-                <td>Liveness probe — process alive</td>
-              </tr>
-              <tr>
-                <td><span class="method get">GET</span></td>
-                <td><code>/readyz</code></td>
-                <td>—</td>
-                <td>Readiness probe — S3 bucket reachable</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                    <div class="table-wrapper">
+                        <table aria-label="API routes">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Method</th>
+                                    <th scope="col">Route</th>
+                                    <th scope="col">Auth</th>
+                                    <th scope="col">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/</code></td>
+                                    <td>—</td>
+                                    <td>HTML homepage (ReDoc API docs)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/admin</code></td>
+                                    <td>
+                                        <span class="auth-badge basic"
+                                            >Admin auth</span
+                                        >
+                                    </td>
+                                    <td>Admin UI (token management)</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="method post">POST</span>
+                                    </td>
+                                    <td><code>/tokens</code></td>
+                                    <td>
+                                        <span class="auth-badge basic"
+                                            >Admin auth</span
+                                        >
+                                    </td>
+                                    <td>Create an opaque access token</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="method delete"
+                                            >DELETE</span
+                                        >
+                                    </td>
+                                    <td><code>/tokens/:id</code></td>
+                                    <td>
+                                        <span class="auth-badge basic"
+                                            >Admin auth</span
+                                        >
+                                    </td>
+                                    <td>Revoke an access token</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="method post">POST</span>
+                                    </td>
+                                    <td><code>/packages</code></td>
+                                    <td>
+                                        <span class="auth-badge jwt"
+                                            >Bearer token</span
+                                        >
+                                    </td>
+                                    <td>Upload a ZIP package</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="method delete"
+                                            >DELETE</span
+                                        >
+                                    </td>
+                                    <td><code>/packages/:package</code></td>
+                                    <td>
+                                        <span class="auth-badge jwt"
+                                            >Bearer token</span
+                                        >
+                                    </td>
+                                    <td>
+                                        Delete a package
+                                        (<code>name@version</code>)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/gimme/:package</code></td>
+                                    <td>—</td>
+                                    <td>List files in a package (HTML)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/gimme/:package/*file</code></td>
+                                    <td>—</td>
+                                    <td>Serve a static file</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/metrics</code></td>
+                                    <td>—</td>
+                                    <td>Prometheus / OpenMetrics endpoint</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/docs</code></td>
+                                    <td>—</td>
+                                    <td>Interactive Swagger / ReDoc docs</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/healthz</code></td>
+                                    <td>—</td>
+                                    <td>Liveness probe — process alive</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/readyz</code></td>
+                                    <td>—</td>
+                                    <td>
+                                        Readiness probe — S3 bucket reachable
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-        <h3>Create a token</h3>
-        <div class="callout callout-info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          <span><strong>Breaking change:</strong> Tokens are now opaque strings (<code>gim_&lt;hex&gt;</code>). JWT tokens from previous versions are invalid — regenerate via <code>/admin</code> or <code>POST /tokens</code>. The raw token is returned once and never stored again.</span>
-        </div>
-        <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
+                    <h3>Create a token</h3>
+                    <div class="callout callout-info">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span
+                            ><strong>Breaking change:</strong> Tokens are now
+                            opaque strings (<code>gim_&lt;hex&gt;</code>). JWT
+                            tokens from previous versions are invalid —
+                            regenerate via <code>/admin</code> or
+                            <code>POST /tokens</code>. The raw token is returned
+                            once and never stored again.</span
+                        >
+                    </div>
+                    <pre><code class="language-bash">curl -s -X POST http://localhost:8080/tokens \
   -u gimmeadmin:gimmeadmin \
   -H 'Content-Type: application/json' \
   -d '{"name": "my-token", "expirationDate": "2027-12-31"}'</code></pre>
-        <pre><code class="language-json">{"id": "550e8400-...", "name": "my-token", "token": "gim_4a7b9c2d1e3f...", "createdAt": "...", "expiresAt": "..."}</code></pre>
+                    <pre><code class="language-json">{"id": "550e8400-...", "name": "my-token", "token": "gim_4a7b9c2d1e3f...", "createdAt": "...", "expiresAt": "..."}</code></pre>
 
-        <h3>Upload a package</h3>
-        <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
+                    <h3>Upload a package</h3>
+                    <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@my-lib.zip" \
   -F "name=my-lib" \
   -F "version=1.0.0"
 # → 201 Created</code></pre>
 
-        <h3>Serve a file</h3>
-        <pre><code class="language-bash"># Exact version — cached for 1 year
+                    <h3>Serve a file</h3>
+                    <pre><code class="language-bash"># Exact version — cached for 1 year
 curl http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js
 
 # Partial alias — resolves to latest 1.0.x, cached 5 minutes
 curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
 
-        <h3>Delete a package</h3>
-        <pre><code class="language-bash">curl -X DELETE http://localhost:8080/packages/my-lib@1.0.0 \
+                    <h3>Delete a package</h3>
+                    <pre><code class="language-bash">curl -X DELETE http://localhost:8080/packages/my-lib@1.0.0 \
   -H "Authorization: Bearer $TOKEN"
 # → 204 No Content</code></pre>
-      </section>
+                </section>
 
-      <!-- CACHING -->
-      <section id="caching" class="doc-section" aria-labelledby="caching-title">
-        <h2 id="caching-title">Caching</h2>
-        <p>Two independent caching levels that compose naturally:</p>
+                <!-- CACHING -->
+                <section
+                    id="caching"
+                    class="doc-section"
+                    aria-labelledby="caching-title"
+                >
+                    <h2 id="caching-title">Caching</h2>
+                    <p>
+                        Two independent caching levels that compose naturally:
+                    </p>
 
-        <div class="cache-flow" aria-label="Caching levels: Browser → Nginx/CDN (Level 1) → gimme + Redis (Level 2) → S3">
-          <div class="cache-step">
-            <span class="cache-label">Browser</span>
-          </div>
-          <span class="cache-arrow" aria-hidden="true">→</span>
-          <div class="cache-step cache-step-highlight">
-            <span class="cache-badge">Level 1</span>
-            <span class="cache-label">Nginx / CDN</span>
-            <span class="cache-sub">HTTP Cache-Control</span>
-          </div>
-          <span class="cache-arrow" aria-hidden="true">→</span>
-          <div class="cache-step cache-step-highlight">
-            <span class="cache-badge">Level 2</span>
-            <span class="cache-label">gimme + Redis</span>
-            <span class="cache-sub">version resolution</span>
-          </div>
-          <span class="cache-arrow" aria-hidden="true">→</span>
-          <div class="cache-step">
-            <span class="cache-label">S3</span>
-          </div>
-        </div>
+                    <div
+                        class="cache-flow"
+                        aria-label="Caching levels: Browser → Nginx/CDN (Level 1) → gimme + Redis (Level 2) → S3"
+                    >
+                        <div class="cache-step">
+                            <span class="cache-label">Browser</span>
+                        </div>
+                        <span class="cache-arrow" aria-hidden="true">→</span>
+                        <div class="cache-step cache-step-highlight">
+                            <span class="cache-badge">Level 1</span>
+                            <span class="cache-label">Nginx / CDN</span>
+                            <span class="cache-sub">HTTP Cache-Control</span>
+                        </div>
+                        <span class="cache-arrow" aria-hidden="true">→</span>
+                        <div class="cache-step cache-step-highlight">
+                            <span class="cache-badge">Level 2</span>
+                            <span class="cache-label">gimme + Redis</span>
+                            <span class="cache-sub">version resolution</span>
+                        </div>
+                        <span class="cache-arrow" aria-hidden="true">→</span>
+                        <div class="cache-step">
+                            <span class="cache-label">S3</span>
+                        </div>
+                    </div>
 
-        <h3>Level 1 — HTTP Cache-Control <span class="tag-zero-dep">zero dependency</span></h3>
-        <p>Gimme emits <code>Cache-Control</code> headers on every response. Any HTTP cache honours them automatically.</p>
-        <div class="table-wrapper">
-          <table aria-label="Cache-Control headers by version type">
-            <thead>
-              <tr><th scope="col">Version type</th><th scope="col">Example</th><th scope="col">Cache-Control</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>Pinned (3-part semver)</td><td><code>pkg@1.0.0</code></td><td><code>public, max-age=31536000, immutable</code></td></tr>
-              <tr><td>Partial alias</td><td><code>pkg@1.0</code> or <code>pkg@1</code></td><td><code>public, max-age=300</code></td></tr>
-              <tr><td>Not found (404)</td><td>any</td><td><code>no-store</code></td></tr>
-            </tbody>
-          </table>
-        </div>
+                    <h3>
+                        Level 1 — HTTP Cache-Control
+                        <span class="tag-zero-dep">zero dependency</span>
+                    </h3>
+                    <p>
+                        Gimme emits <code>Cache-Control</code> headers on every
+                        response. Any HTTP cache honours them automatically.
+                    </p>
+                    <div class="table-wrapper">
+                        <table
+                            aria-label="Cache-Control headers by version type"
+                        >
+                            <thead>
+                                <tr>
+                                    <th scope="col">Version type</th>
+                                    <th scope="col">Example</th>
+                                    <th scope="col">Cache-Control</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Pinned (3-part semver)</td>
+                                    <td><code>pkg@1.0.0</code></td>
+                                    <td>
+                                        <code
+                                            >public, max-age=31536000,
+                                            immutable</code
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Partial alias</td>
+                                    <td>
+                                        <code>pkg@1.0</code> or
+                                        <code>pkg@1</code>
+                                    </td>
+                                    <td><code>public, max-age=300</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Not found (404)</td>
+                                    <td>any</td>
+                                    <td><code>no-store</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-        <h3>Level 2 — Internal Redis cache <span class="tag-optional">optional</span></h3>
-        <p>When enabled, the resolved S3 path for partial versions is stored in Redis, skipping <code>ListObjects</code> on repeat requests. File bodies are always streamed directly from S3 — only the path lookup is cached.</p>
-        <pre><code class="language-yaml">cache:
+                    <h3>
+                        Level 2 — Internal Redis cache
+                        <span class="tag-optional">optional</span>
+                    </h3>
+                    <p>
+                        When enabled, the resolved S3 path for partial versions
+                        is stored in Redis, skipping <code>ListObjects</code> on
+                        repeat requests. File bodies are always streamed
+                        directly from S3 — only the path lookup is cached.
+                    </p>
+                    <pre><code class="language-yaml">cache:
   enabled: true
   type: redis
   ttl: 3600
   redis_url: redis://localhost:6379</code></pre>
-        <p>Cache entries are invalidated when a package is deleted via <code>DELETE /packages/:package</code>. Partial-version entries expire naturally via TTL.</p>
-      </section>
+                    <p>
+                        Cache entries are invalidated when a package is deleted
+                        via <code>DELETE /packages/:package</code>.
+                        Partial-version entries expire naturally via TTL.
+                    </p>
+                </section>
 
-      <!-- MONITORING -->
-      <section id="monitoring" class="doc-section" aria-labelledby="monitoring-title">
-        <h2 id="monitoring-title">Monitoring</h2>
-        <p>Every instance exposes a <code>/metrics</code> endpoint in <a href="https://openmetrics.io/" target="_blank" rel="noopener noreferrer">OpenMetrics</a> format. In addition to standard Go runtime metrics, gimme tracks:</p>
+                <!-- MONITORING -->
+                <section
+                    id="monitoring"
+                    class="doc-section"
+                    aria-labelledby="monitoring-title"
+                >
+                    <h2 id="monitoring-title">Monitoring</h2>
+                    <p>
+                        Every instance exposes a <code>/metrics</code> endpoint
+                        in
+                        <a
+                            href="https://openmetrics.io/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >OpenMetrics</a
+                        >
+                        format. In addition to standard Go runtime metrics,
+                        gimme tracks:
+                    </p>
 
-        <div class="table-wrapper">
-          <table aria-label="Prometheus metrics exposed by gimme">
-            <thead>
-              <tr><th scope="col">Metric</th><th scope="col">Type</th><th scope="col">Description</th></tr>
-            </thead>
-            <tbody>
-              <tr><td><code>gimme_http_requests_total</code></td><td><span class="metric-type">Counter</span></td><td>HTTP requests by route, method and status code</td></tr>
-              <tr><td><code>gimme_s3_operation_duration_seconds</code></td><td><span class="metric-type">Histogram</span></td><td>S3 operation latency by operation name</td></tr>
-              <tr><td><code>gimme_cache_hits_total</code></td><td><span class="metric-type">Counter</span></td><td>Cache hits on partial-version resolution</td></tr>
-              <tr><td><code>gimme_cache_misses_total</code></td><td><span class="metric-type">Counter</span></td><td>Cache misses on partial-version resolution</td></tr>
-              <tr><td><code>gimme_packages_uploaded_total</code></td><td><span class="metric-type">Counter</span></td><td>Packages successfully uploaded</td></tr>
-              <tr><td><code>gimme_packages_deleted_total</code></td><td><span class="metric-type">Counter</span></td><td>Packages successfully deleted</td></tr>
-            </tbody>
-          </table>
+                    <div class="table-wrapper">
+                        <table aria-label="Prometheus metrics exposed by gimme">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Metric</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <code>gimme_http_requests_total</code>
+                                    </td>
+                                    <td>
+                                        <span class="metric-type">Counter</span>
+                                    </td>
+                                    <td>
+                                        HTTP requests by route, method and
+                                        status code
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >gimme_s3_operation_duration_seconds</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="metric-type"
+                                            >Histogram</span
+                                        >
+                                    </td>
+                                    <td>
+                                        S3 operation latency by operation name
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>gimme_cache_hits_total</code></td>
+                                    <td>
+                                        <span class="metric-type">Counter</span>
+                                    </td>
+                                    <td>
+                                        Cache hits on partial-version resolution
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>gimme_cache_misses_total</code>
+                                    </td>
+                                    <td>
+                                        <span class="metric-type">Counter</span>
+                                    </td>
+                                    <td>
+                                        Cache misses on partial-version
+                                        resolution
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >gimme_packages_uploaded_total</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="metric-type">Counter</span>
+                                    </td>
+                                    <td>Packages successfully uploaded</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >gimme_packages_deleted_total</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="metric-type">Counter</span>
+                                    </td>
+                                    <td>Packages successfully deleted</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>
+                        A pre-configured Prometheus + Grafana stack ships with
+                        both Docker Compose examples. Once running: Prometheus
+                        at <code>:9090</code>, Grafana at <code>:3000</code>.
+                    </p>
+                </section>
+            </main>
         </div>
-        <p>A pre-configured Prometheus + Grafana stack ships with both Docker Compose examples. Once running: Prometheus at <code>:9090</code>, Grafana at <code>:3000</code>.</p>
-      </section>
 
+        <!-- FOOTER -->
+        <footer class="site-footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <img
+                        src="./assets/gimme.png"
+                        width="26"
+                        height="26"
+                        alt=""
+                        aria-hidden="true"
+                        class="logo-mark"
+                        style="border-radius: 5px"
+                    />
+                    <span class="footer-brand-name">gimme</span>
+                    <span class="footer-copy"
+                        >Released under the
+                        <a
+                            href="https://github.com/ziggornif/gimme/blob/main/LICENSE"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >MIT License</a
+                        ></span
+                    >
+                </div>
+                <nav class="footer-nav" aria-label="Footer links">
+                    <a
+                        href="https://github.com/ziggornif/gimme"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >GitHub</a
+                    >
+                    <a
+                        href="https://github.com/ziggornif/gimme/issues"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Issues</a
+                    >
+                    <a
+                        href="https://github.com/ziggornif/gimme/releases"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >Releases</a
+                    >
+                </nav>
+            </div>
+        </footer>
 
-
-    </main>
-  </div>
-
-  <!-- FOOTER -->
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <span class="logo-mark" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="28" height="28" rx="7" fill="#2563EB"/>
-            <path d="M8 14.5L12.5 19L20 10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-        <span class="footer-brand-name">gimme</span>
-        <span class="footer-copy">Released under the <a href="https://github.com/ziggornif/gimme/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></span>
-      </div>
-      <nav class="footer-nav" aria-label="Footer links">
-        <a href="https://github.com/ziggornif/gimme" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <a href="https://github.com/ziggornif/gimme/issues" target="_blank" rel="noopener noreferrer">Issues</a>
-        <a href="https://github.com/ziggornif/gimme/releases" target="_blank" rel="noopener noreferrer">Releases</a>
-      </nav>
-    </div>
-  </footer>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
-  <script src="script.js"></script>
-</body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+        <script src="script.js"></script>
+    </body>
 </html>

@@ -1,5 +1,9 @@
 # gimme
 
+<p align="center">
+  <img src="assets/gimme.png" width="120" alt="Gimme CDN logo" />
+</p>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ziggornif/gimme)](https://goreportcard.com/report/github.com/ziggornif/gimme)
 

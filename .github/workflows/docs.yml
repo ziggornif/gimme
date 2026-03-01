@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'assets/**'
   workflow_dispatch:
 
 permissions:
@@ -35,13 +36,13 @@ jobs:
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Copy assets into docs/site/
+        run: cp -r assets/ docs/site/assets/
+
       - name: Upload docs/ as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Serve the entire docs/ directory as the GitHub Pages root.
-          # docs/site/ contains the documentation website.
-          # docs/api/  contains swagger.json (accessible at /api/swagger.json on Pages).
-          path: docs/
+          path: docs/site/
 
       - name: Deploy to GitHub Pages
         id: deployment

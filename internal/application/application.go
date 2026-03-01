@@ -183,6 +183,7 @@ func (app *Application) setupServer() {
 	router.Use(cors.New(corsConfig(app.config.CORSAllowedOrigins)))
 	router.Use(metricsMiddleware())
 	router.Static("/docs", "./docs")
+	router.Static("/assets", "./assets")
 	router.SetFuncMap(api.TemplateFuncs())
 	router.LoadHTMLGlob("templates/*.tmpl")
 
