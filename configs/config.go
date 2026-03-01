@@ -70,6 +70,14 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
+	// Explicitly bind env vars for keys that have no default value and may not
+	// be present in the config file (credentials injected via environment).
+	_ = viper.BindEnv("secret", "GIMME_SECRET")
+	_ = viper.BindEnv("admin.user", "GIMME_ADMIN_USER")
+	_ = viper.BindEnv("admin.password", "GIMME_ADMIN_PASSWORD")
+	_ = viper.BindEnv("s3.key", "GIMME_S3_KEY")
+	_ = viper.BindEnv("s3.secret", "GIMME_S3_SECRET")
+
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
