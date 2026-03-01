@@ -12,3 +12,5 @@ dist
 *.md
 gimme.yml
 .air.toml
+docs/site
+docs/index.html

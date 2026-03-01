@@ -17,7 +17,7 @@ release:
 	rm -rf dist
 	mkdir dist
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o gimme ./cmd/server/main.go && upx --fast ./gimme
-	cp -R gimme docs templates ./dist
+	cp -R gimme docs templates assets ./dist
 
 # release-fast skips UPX compression — useful for quick local Docker builds
 .PHONY: release-fast
@@ -25,7 +25,7 @@ release-fast:
 	rm -rf dist
 	mkdir dist
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
-	cp -R gimme docs templates ./dist
+	cp -R gimme docs templates assets ./dist
 
 .PHONY: test
 test: garage-start

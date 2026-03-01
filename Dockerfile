@@ -16,6 +16,7 @@ WORKDIR /app
 COPY --chown=gimme:gimme --from=builder /build/dist/gimme     /bin/gimme
 COPY --chown=gimme:gimme --from=builder /build/dist/templates /app/templates
 COPY --chown=gimme:gimme --from=builder /build/dist/docs      /app/docs
+COPY --chown=gimme:gimme --from=builder /build/dist/assets    /app/assets
 
 ENV GIN_MODE=release
 
