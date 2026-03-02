@@ -212,8 +212,9 @@ func (app *Application) setupServer() {
 	}
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", app.config.AppPort),
-		Handler: router,
+		Addr:              fmt.Sprintf(":%s", app.config.AppPort),
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
