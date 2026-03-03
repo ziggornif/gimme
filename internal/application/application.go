@@ -68,9 +68,14 @@ func (app *Application) loadModules() {
 		if redisErr != nil {
 			log.Fatalf("failed to connect to Redis: %v — set cache.redis_url in gimme.yml", redisErr)
 		}
+
+		// Init Redis token store mode if enabled
+		if app.config.TokenStore.Mode == "redis" {
+			app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
+			logrus.Info("[Application] loadModules - token store: Redis")
+		}
+
 		app.redisClient = redisClient
-		app.tokenStore = auth.NewRedisTokenStoreWithClient(redisClient)
-		logrus.Info("[Application] loadModules - token store: Redis")
 	} else {
 		logrus.Warn("[Application] loadModules - cache.redis_url is not set: using FileTokenStore (standalone mode). Data is persisted locally but not shared across instances.")
 		fileStore, fileErr := auth.NewFileTokenStore(app.config.Secret, app.config.Cache.FilePath)

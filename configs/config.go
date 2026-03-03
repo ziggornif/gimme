@@ -39,6 +39,13 @@ type AuthConfig struct {
 	OIDC OIDCConfig
 }
 
+// TokenStoreConfig controls the tokens storage (api keys) mode
+// Mode "file" (default) store tokens in a JSON file stored in filesystem
+// Mode "redis" store tokens in a Redis token store
+type TokenStoreConfig struct {
+	Mode string // "file" (default) | "redis"
+}
+
 type Configuration struct {
 	AppPort            string
 	AdminUser          string
@@ -54,6 +61,7 @@ type Configuration struct {
 	CORSAllowedOrigins []string
 	Cache              CacheConfig
 	Auth               AuthConfig
+	TokenStore         TokenStoreConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -92,6 +100,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("auth.oidc.client_secret", "GIMME_AUTH_OIDC_CLIENT_SECRET")
 	_ = viper.BindEnv("auth.oidc.redirect_url", "GIMME_AUTH_OIDC_REDIRECT_URL")
 	_ = viper.BindEnv("auth.oidc.secure_cookies", "GIMME_AUTH_OIDC_SECURE_COOKIES")
+	_ = viper.BindEnv("tokenStore.mode", "GIMME_TOKENSTORE_MODE")
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
@@ -105,6 +114,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("cache.file_path", "/tmp/gimme-tokens.enc")
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
+	viper.SetDefault("tokenStore.mode", "file")
 
 	err := viper.ReadInConfig()
 	if err != nil {
