@@ -99,7 +99,7 @@ spec:
             - name: config-volume
               mountPath: /config/
               readOnly: true
-            {{- if not .Values.cache.redisUrl}}  # TODO: improve with dedicated token store configuration 
+            {{- if eq .Values.tokenStore.mode "file" }}
             - name: tmp-volume
               mountPath: /tmp
             {{- end }}
@@ -107,7 +107,7 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "gimme.fullname" . }}-config
-        {{- if not .Values.cache.redisUrl}} # TODO: improve with dedicated token store configuration 
+        {{- if eq .Values.tokenStore.mode "file" }}
         - name: tmp-volume
           emptyDir: {}
         {{- end }}

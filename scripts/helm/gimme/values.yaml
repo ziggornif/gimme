@@ -95,6 +95,12 @@ auth:
     secureCookies: true  # set to false only for local dev (HTTP)
     # clientSecret is stored in credentials.oidcClientSecret (Secret) — see below
 
+# Token store mode
+# mode: "file" (default) - Store generated api keys on the filesystem
+# mode: "redis"          - Store generated api keys on a redis store 
+tokenStore:
+  mode: file
+
 # Kubernetes Service
 service:
   type: ClusterIP
