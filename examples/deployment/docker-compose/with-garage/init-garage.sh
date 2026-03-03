@@ -155,6 +155,7 @@ CACHE_ENABLED="${CACHE_ENABLED:-true}"
 CACHE_REDIS_URL="${CACHE_REDIS_URL:-redis://redis:6379}"
 CACHE_TTL="${CACHE_TTL:-3600}"
 AUTH_MODE="${AUTH_MODE:-basic}"
+TOKEN_STORE_MODE="${TOKEN_STORE_MODE:-file}"
 
 log "Writing ${GIMME_CONFIG_PATH}..."
 mkdir -p "$(dirname "$GIMME_CONFIG_PATH")"
@@ -177,6 +178,8 @@ cache:
   type: redis
   ttl: ${CACHE_TTL}
   redis_url: ${CACHE_REDIS_URL}
+tokenStore:
+  mode: ${TOKEN_STORE_MODE}
 EOF
 
 # Append OIDC block only when AUTH_MODE=oidc

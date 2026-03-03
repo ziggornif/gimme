@@ -50,6 +50,7 @@ services:
       # AUTH_OIDC_CLIENT_ID: gimme
       # AUTH_OIDC_CLIENT_SECRET: change_me_oidc_secret
       # AUTH_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
+      # TOKEN_STORE_MODE: file or redis
     entrypoint: ["/bin/sh", "/init-garage.sh"]
     restart: "no"
 
