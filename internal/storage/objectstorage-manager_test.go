@@ -10,6 +10,7 @@ import (
 	"github.com/gimme-cdn/gimme/test/mocks"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestObjectStorageManager_CreateBucket(t *testing.T) {
@@ -98,4 +99,47 @@ func TestObjectStorageManager_RemoveObjects(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
 	err := osm.RemoveObjects(context.Background(), "test")
 	assert.Nil(t, err)
+}
+
+// TestObjectStorageManager_RemoveObjects_ListErr checks that a listing error
+// (object.Err != nil) is collected and returned as a GimmeError.
+func TestObjectStorageManager_RemoveObjects_ListErr(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
+	err := osm.RemoveObjects(context.Background(), "test")
+	assert.NotNil(t, err)
+}
+
+// TestObjectStorageManager_RemoveObjects_DeleteErr checks that a deletion error
+// (rErr.Err != nil) is collected and returned as a GimmeError.
+func TestObjectStorageManager_RemoveObjects_DeleteErr(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClientRemoveErr{})
+	err := osm.RemoveObjects(context.Background(), "test")
+	assert.NotNil(t, err)
+}
+
+// TestObjectStorageManager_Ping_Success checks that Ping succeeds when the
+// bucket exists.
+func TestObjectStorageManager_Ping_Success(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClientBucketExists{})
+	// CreateBucket first so osm.bucketName is set.
+	require.Nil(t, osm.CreateBucket(context.Background(), "test", "test"))
+	err := osm.Ping(context.Background())
+	assert.Nil(t, err)
+}
+
+// TestObjectStorageManager_Ping_BucketNotFound checks that Ping returns an error
+// when the bucket does not exist.
+func TestObjectStorageManager_Ping_BucketNotFound(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClient{})
+	// MockOSClient.BucketExists returns false, nil → bucket not found.
+	err := osm.Ping(context.Background())
+	assert.NotNil(t, err)
+}
+
+// TestObjectStorageManager_Ping_ClientErr checks that Ping returns an error
+// when BucketExists returns an error.
+func TestObjectStorageManager_Ping_ClientErr(t *testing.T) {
+	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
+	err := osm.Ping(context.Background())
+	assert.NotNil(t, err)
 }

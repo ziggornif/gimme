@@ -80,6 +80,13 @@ s3:
 | `cache.type` | Cache backend type (`redis`) | `redis` |
 | `cache.ttl` | Cache TTL in seconds | `3600` |
 | `cache.redisUrl` | Redis/Valkey URL (required when `cache.enabled=true`) | `""` |
+| `auth.mode` | Authentication mode: `basic` or `oidc` | `basic` |
+| `auth.oidc.issuer` | OIDC issuer URL (required when `auth.mode=oidc`) | `""` |
+| `auth.oidc.clientId` | OIDC client ID (required when `auth.mode=oidc`) | `""` |
+| `auth.oidc.redirectUrl` | OIDC redirect URI (required when `auth.mode=oidc`) | `""` |
+| `auth.oidc.secureCookies` | Enable secure cookies (set to `false` for local HTTP dev) | `true` |
+| `credentials.oidcClientSecret` | OIDC client secret (required when `auth.mode=oidc`) | `""` |
+| `tokenStore.mode` | Token store backend: `file` (standalone) or `redis` | `file` |
 | `service.type` | Kubernetes Service type | `ClusterIP` |
 | `service.port` | Service port | `80` |
 | `ingress.enabled` | Enable Ingress | `false` |
@@ -101,6 +108,16 @@ s3:
 | `nodeSelector` | Node selector | `{}` |
 | `tolerations` | Pod tolerations | `[]` |
 | `affinity` | Pod affinity rules | `{}` |
+| `imagePullSecrets` | Image pull secrets for private registries | `[]` |
+| `serviceAccount.annotations` | Annotations to add to the ServiceAccount | `{}` |
+| `podAnnotations` | Annotations to add to the pod | `{}` |
+| `podLabels` | Additional labels to add to the pod | `{}` |
+| `podSecurityContext.runAsNonRoot` | Run pod as non-root | `true` |
+| `podSecurityContext.runAsUser` | Pod user UID | `1000` |
+| `podSecurityContext.fsGroup` | Pod filesystem GID | `1000` |
+| `securityContext.allowPrivilegeEscalation` | Allow privilege escalation | `false` |
+| `securityContext.readOnlyRootFilesystem` | Mount root filesystem as read-only | `true` |
+| `securityContext.capabilities.drop` | Linux capabilities to drop | `["ALL"]` |
 
 ## Examples
 

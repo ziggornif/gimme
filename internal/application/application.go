@@ -59,37 +59,29 @@ func (app *Application) loadConfig() {
 func (app *Application) loadModules() {
 	var err *gimmeerr.GimmeError
 
-	// Token store selection: use Redis when cache.redis_url is configured, otherwise
-	// fall back to FileTokenStore (encrypted local file, zero-dependency mode).
-	if app.config.Cache.RedisURL != "" {
-		// Build a single shared Redis client for both the token store and the cache.
-		// This avoids opening two separate connection pools to the same Redis instance.
-		redisClient, redisErr := newRedisClient(app.config.Cache.RedisURL)
+	// Build a single shared Redis client if a Redis URL is configured.
+	// It is used by any component that needs Redis (token store, cache).
+	// validateConfig ensures redis_url is set whenever a Redis-backed
+	// component is enabled, so no extra check is needed here.
+	if app.config.RedisURL != "" {
+		redisClient, redisErr := newRedisClient(app.config.RedisURL)
 		if redisErr != nil {
-			log.Fatalf("failed to connect to Redis: %v — set cache.redis_url in gimme.yml", redisErr)
+			log.Fatalf("failed to connect to Redis: %v", redisErr)
 		}
-
-		// // Init Redis token store mode if enabled
-		// if app.config.TokenStore.Mode == "redis" {
-		// 	app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
-		// 	logrus.Info("[Application] loadModules - token store: Redis")
-		// }
-
 		app.redisClient = redisClient
 	}
 
-			// Init Redis token store mode if enabled
-		if app.config.TokenStore.Mode == "redis" {
-			app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
-			logrus.Info("[Application] loadModules - token store: Redis")
-		} else {
-		logrus.Warn("[Application] loadModules - cache.redis_url is not set: using FileTokenStore (standalone mode). Data is persisted locally but not shared across instances.")
-		fileStore, fileErr := auth.NewFileTokenStore(app.config.Secret, app.config.Cache.FilePath)
+	// Token store: Redis or file, driven by tokenStore.mode (default: "file").
+	if app.config.TokenStore.Mode == "redis" {
+		app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
+		logrus.Info("[Application] loadModules - token store: Redis")
+	} else {
+		fileStore, fileErr := auth.NewFileTokenStore(app.config.Secret, app.config.TokenFile)
 		if fileErr != nil {
-			log.Fatalf("failed to initialise FileTokenStore at %q: %v", app.config.Cache.FilePath, fileErr)
+			log.Fatalf("failed to initialise FileTokenStore at %q: %v", app.config.TokenFile, fileErr)
 		}
 		app.tokenStore = fileStore
-		logrus.Infof("[Application] loadModules - token store: file (%s)", app.config.Cache.FilePath)
+		logrus.Infof("[Application] loadModules - token store: file (%s)", app.config.TokenFile)
 	}
 
 	app.authManager = auth.NewAuthManager(app.tokenStore)
@@ -248,15 +240,15 @@ func (app *Application) setupServer() {
 		logrus.Fatal("Server forced to shutdown")
 	}
 
-	// Shut down the token store. In Redis mode the shared client is closed below;
-	// in FileTokenStore mode Close() stops the background purge goroutine.
+	// In file mode, Close() stops the background purge goroutine.
+	// In redis mode, Close() is a no-op — the client is owned by app and
+	// closed below via app.redisClient.Close().
 	if app.tokenStore != nil {
 		app.tokenStore.Close()
 	}
 
-	// Close the shared Redis client only after all in-flight requests have
-	// completed. Both the token store and the cache share this single client,
-	// so a single Close() is sufficient.
+	// Close the shared Redis client. It is the single owner of the connection;
+	// no other component calls Close() on it.
 	if app.redisClient != nil {
 		if closeErr := app.redisClient.Close(); closeErr != nil {
 			logrus.Warnf("Error closing Redis connection: %v", closeErr)

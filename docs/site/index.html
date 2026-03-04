@@ -575,10 +575,9 @@ curl -X POST https://cdn.example.com/packages \
                                     <span class="arch-node-label"
                                         >Redis / Valkey</span
                                     >
-                                    <span class="arch-node-sub"
-                                        >required (tokens + optional
-                                        cache)</span
-                                    >
+                                     <span class="arch-node-sub"
+                                         >optional (tokens + cache)</span
+                                     >
                                 </div>
                             </div>
                             <div class="arch-connector" aria-hidden="true">
@@ -910,11 +909,19 @@ s3:
   location: garage       # region as defined by your backend
   ssl: false             # set false for local Garage
 metrics: true            # expose /metrics (Prometheus)
-cache:
-  redis_url: redis://localhost:6379  # required for token storage
-  enabled: false         # optional version-resolution cache
-  type: redis
-  ttl: 3600</code></pre>
+
+# Token store: "file" (default, no external dependency) or "redis"
+# tokenStore:
+#   mode: file           # "file" | "redis"
+
+# Redis — required when tokenStore.mode is "redis" or cache.enabled is true
+# redis_url: redis://localhost:6379
+
+# cache:
+#   enabled: false       # optional version-resolution cache
+#   type: redis
+#   ttl: 3600
+#   file_path: /tmp/gimme-tokens.enc  # used only when tokenStore.mode is "file"</code></pre>
 
                     <div class="table-wrapper">
                         <table aria-label="Configuration options reference">
@@ -942,20 +949,12 @@ cache:
                                 <tr>
                                     <td><code>admin.user</code></td>
                                     <td>Admin username (Basic Auth)</td>
-                                    <td>
-                                        <span class="badge-required"
-                                            >required</span
-                                        >
-                                    </td>
+                                    <td>required if <code>basic</code></td>
                                 </tr>
                                 <tr>
                                     <td><code>admin.password</code></td>
                                     <td>Admin password (Basic Auth)</td>
-                                    <td>
-                                        <span class="badge-required"
-                                            >required</span
-                                        >
-                                    </td>
+                                    <td>required if <code>basic</code></td>
                                 </tr>
                                 <tr>
                                     <td><code>port</code></td>
@@ -1032,15 +1031,36 @@ cache:
                                     <td><code>3600</code></td>
                                 </tr>
                                 <tr>
-                                    <td><code>cache.redis_url</code></td>
+                                    <td><code>redis_url</code></td>
                                     <td>
-                                        Redis / Valkey connection URL (<strong
-                                            >required</strong
-                                        >
-                                        — used for token storage even when cache
-                                        is disabled)
+                                        Redis / Valkey connection URL. Required
+                                        when <code>tokenStore.mode</code> is
+                                        <code>redis</code> or
+                                        <code>cache.enabled</code> is
+                                        <code>true</code>.
                                     </td>
-                                    <td><code>redis://localhost:6379</code></td>
+                                    <td><code>""</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>cache.file_path</code></td>
+                                    <td>
+                                        Path to the encrypted token file used
+                                        when <code>tokenStore.mode</code> is
+                                        <code>file</code>
+                                    </td>
+                                    <td><code>/tmp/gimme-tokens.enc</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>tokenStore.mode</code></td>
+                                    <td>
+                                        Token persistence backend.
+                                        <code>file</code> stores tokens in an
+                                        encrypted local file (no external
+                                        dependency). <code>redis</code> stores
+                                        tokens in Redis — requires
+                                        <code>redis_url</code>.
+                                    </td>
+                                    <td><code>file</code></td>
                                 </tr>
                                 <tr>
                                     <td><code>auth.mode</code></td>
@@ -1112,11 +1132,13 @@ cache:
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
                         <span
-                            ><strong>Redis is required.</strong> Gimme uses
-                            Redis to store opaque API tokens across restarts.
-                            Set <code>cache.redis_url</code> even when the
-                            internal cache (<code>cache.enabled</code>) is
-                            disabled.</span
+                            ><strong>Token store mode.</strong>
+                            By default (<code>tokenStore.mode: file</code>),
+                            tokens are persisted to an encrypted local file —
+                            no external dependency needed. Set
+                            <code>tokenStore.mode: redis</code> and provide
+                            <code>redis_url</code> to share tokens across
+                            multiple instances.</span
                         >
                     </div>
                     <div class="callout callout-info">
@@ -1799,11 +1821,11 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
                         repeat requests. File bodies are always streamed
                         directly from S3 — only the path lookup is cached.
                     </p>
-                    <pre><code class="language-yaml">cache:
+                    <pre><code class="language-yaml">redis_url: redis://localhost:6379
+cache:
   enabled: true
   type: redis
-  ttl: 3600
-  redis_url: redis://localhost:6379</code></pre>
+  ttl: 3600</code></pre>
                     <p>
                         Cache entries are invalidated when a package is deleted
                         via <code>DELETE /packages/:package</code>.

@@ -11,8 +11,8 @@ s3:
   bucketName: gimme
   location: eu-west-1
   ssl: true
+redis_url: redis://localhost:6379
 cache:
   enabled: true
   type: memory
   ttl: 3600
-  redis_url: redis://localhost:6379

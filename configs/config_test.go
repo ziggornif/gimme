@@ -49,18 +49,21 @@ func TestNewConfig(t *testing.T) {
 		S3SSL:              true,
 		EnableMetrics:      true,
 		CORSAllowedOrigins: []string{},
+		RedisURL:           "",
+		TokenFile:          "/tmp/gimme-tokens.enc",
 		Cache: CacheConfig{
-			Enabled:  false,
-			Type:     "redis",
-			TTL:      3600,
-			RedisURL: "",
-			FilePath: "/tmp/gimme-tokens.enc",
+			Enabled: false,
+			Type:    "redis",
+			TTL:     3600,
 		},
 		Auth: AuthConfig{
 			Mode: "basic",
 			OIDC: OIDCConfig{
 				SecureCookies: true,
 			},
+		},
+		TokenStore: TokenStoreConfig{
+			Mode: "file",
 		},
 	}, confObj)
 	assert.Nil(t, err)
@@ -162,7 +165,7 @@ func TestNewConfigValidationErrCacheNoRedisURL(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, "configuration is not valid: cache.redis_url is required when cache.enabled is true", err.Error())
+	assert.Equal(t, "configuration is not valid: redis_url is required when cache.enabled is true", err.Error())
 }
 
 func TestNewConfigValidationErrAuthInvalidMode(t *testing.T) {
@@ -207,6 +210,28 @@ func TestNewConfigValidationErrOIDCNoRedirectURL(t *testing.T) {
 	_, err := NewConfig()
 
 	assert.Equal(t, `configuration is not valid: auth.oidc.redirect_url is required when auth.mode is "oidc"`, err.Error())
+}
+
+func TestNewConfigValidationErrTokenStoreRedisNoRedisURL(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "tokenstore-redis-no-redis-url.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: redis_url is required when tokenStore.mode is "redis"`, err.Error())
+}
+
+func TestNewConfigValidationErrTokenStoreInvalidMode(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "tokenstore-invalid-mode.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: tokenStore.mode "database" is not supported (supported: "file", "redis")`, err.Error())
 }
 
 // TestNewConfigOIDCValid asserts that a valid OIDC config does not require

@@ -11,14 +11,9 @@ import (
 )
 
 type CacheConfig struct {
-	Enabled  bool
-	Type     string // "redis" ; "memory" reserved for future use
-	TTL      int    // seconds
-	RedisURL string
-	// FilePath is the path to the encrypted token file used by FileTokenStore.
-	// Only relevant when RedisURL is empty (standalone mode).
-	// Defaults to "./gimme-tokens.enc".
-	FilePath string
+	Enabled bool
+	Type    string // "redis" ; "memory" reserved for future use
+	TTL     int    // seconds
 }
 
 // OIDCConfig holds the configuration for the OIDC provider.
@@ -59,9 +54,14 @@ type Configuration struct {
 	S3SSL              bool
 	EnableMetrics      bool
 	CORSAllowedOrigins []string
-	Cache              CacheConfig
-	Auth               AuthConfig
-	TokenStore         TokenStoreConfig
+	// RedisURL is the shared Redis connection URL used by any Redis-backed
+	// component (token store, cache). A single client is created from this URL
+	// and injected wherever needed.
+	RedisURL   string
+	TokenFile  string // path to the encrypted token file (FileTokenStore)
+	Cache      CacheConfig
+	Auth       AuthConfig
+	TokenStore TokenStoreConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -89,11 +89,11 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("s3.ssl", "GIMME_S3_SSL")
 	_ = viper.BindEnv("port", "GIMME_APP_PORT")
 	_ = viper.BindEnv("metrics", "GIMME_METRICS")
+	_ = viper.BindEnv("redis_url", "GIMME_REDIS_URL")
+	_ = viper.BindEnv("token_file", "GIMME_TOKEN_FILE")
 	_ = viper.BindEnv("cache.enabled", "GIMME_CACHE_ENABLED")
 	_ = viper.BindEnv("cache.type", "GIMME_CACHE_TYPE")
 	_ = viper.BindEnv("cache.ttl", "GIMME_CACHE_TTL")
-	_ = viper.BindEnv("cache.redis_url", "GIMME_CACHE_REDIS_URL")
-	_ = viper.BindEnv("cache.file_path", "GIMME_CACHE_FILE_PATH")
 	_ = viper.BindEnv("auth.mode", "GIMME_AUTH_MODE")
 	_ = viper.BindEnv("auth.oidc.issuer", "GIMME_AUTH_OIDC_ISSUER")
 	_ = viper.BindEnv("auth.oidc.client_id", "GIMME_AUTH_OIDC_CLIENT_ID")
@@ -107,11 +107,11 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("s3.ssl", true)
 	viper.SetDefault("metrics", true)
 	viper.SetDefault("cors.allowed_origins", []string{})
+	viper.SetDefault("redis_url", "")
+	viper.SetDefault("token_file", "/tmp/gimme-tokens.enc")
 	viper.SetDefault("cache.enabled", false)
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
-	viper.SetDefault("cache.redis_url", "")
-	viper.SetDefault("cache.file_path", "/tmp/gimme-tokens.enc")
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
@@ -135,12 +135,12 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
 	config.CORSAllowedOrigins = viper.GetStringSlice("cors.allowed_origins")
+	config.RedisURL = viper.GetString("redis_url")
+	config.TokenFile = viper.GetString("token_file")
 	config.Cache = CacheConfig{
-		Enabled:  viper.GetBool("cache.enabled"),
-		Type:     viper.GetString("cache.type"),
-		TTL:      viper.GetInt("cache.ttl"),
-		RedisURL: viper.GetString("cache.redis_url"),
-		FilePath: viper.GetString("cache.file_path"),
+		Enabled: viper.GetBool("cache.enabled"),
+		Type:    viper.GetString("cache.type"),
+		TTL:     viper.GetInt("cache.ttl"),
 	}
 	config.Auth = AuthConfig{
 		Mode: viper.GetString("auth.mode"),
@@ -151,6 +151,11 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 			RedirectURL:   viper.GetString("auth.oidc.redirect_url"),
 			SecureCookies: viper.GetBool("auth.oidc.secure_cookies"),
 		},
+	}
+	// viper.SetDefault("tokenStore.mode", "file") guarantees a non-empty value
+	// when the key is absent from the config file.
+	config.TokenStore = TokenStoreConfig{
+		Mode: viper.GetString("tokenStore.mode"),
 	}
 
 	if err := validateConfig(&config); err != nil {
@@ -193,17 +198,24 @@ func validateConfig(config *Configuration) error {
 	if config.S3Location == "" {
 		return fmt.Errorf("s3.location is not set")
 	}
-	// cache.redis_url is optional: when absent Gimme falls back to FileTokenStore
-	// (encrypted local file). When present, RedisTokenStore is used instead.
-	// If the content cache is explicitly enabled (cache.enabled=true) Redis must be
-	// configured because FileTokenStore only handles token persistence, not caching.
+	// redis_url is optional: when absent Gimme falls back to FileTokenStore.
+	// When present, a single shared Redis client is built and injected into any
+	// Redis-backed component (token store, cache).
 	if config.Cache.Enabled {
 		if config.Cache.Type != "redis" {
 			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
 		}
-		if config.Cache.RedisURL == "" {
-			return fmt.Errorf("cache.redis_url is required when cache.enabled is true")
+		if config.RedisURL == "" {
+			return fmt.Errorf("redis_url is required when cache.enabled is true")
 		}
+	}
+	// Validate tokenStore.mode: check it is a known value first, then check
+	// mode-specific constraints.
+	if config.TokenStore.Mode != "file" && config.TokenStore.Mode != "redis" {
+		return fmt.Errorf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\")", config.TokenStore.Mode)
+	}
+	if config.TokenStore.Mode == "redis" && config.RedisURL == "" {
+		return fmt.Errorf("redis_url is required when tokenStore.mode is \"redis\"")
 	}
 	switch config.Auth.Mode {
 	case "basic":

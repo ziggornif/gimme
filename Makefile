@@ -108,3 +108,14 @@ garage-stop:
 
 .PHONY: test-integration
 test-integration: test
+
+DOC_PORT ?= 8000
+
+.PHONY: docs-serve
+docs-serve:
+	@echo "Linking assets..."
+	@rm -rf docs/site/assets
+	@ln -s ../../assets docs/site/assets
+	@echo "Starting doc server at http://localhost:$(DOC_PORT) (Ctrl+C to stop)"
+	@trap 'echo "Unlinking assets..."; rm -f docs/site/assets; echo "Done."' EXIT INT TERM; \
+	 cd docs/site && python3 -m http.server $(DOC_PORT)

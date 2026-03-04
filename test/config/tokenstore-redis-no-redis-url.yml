@@ -1,4 +1,4 @@
-# Cache enabled but redis_url is absent — must fail validation
+# tokenStore.mode=redis but redis_url is absent — must fail validation
 admin:
   user: test
   password: test
@@ -11,7 +11,5 @@ s3:
   bucketName: gimme
   location: eu-west-1
   ssl: true
-cache:
-  enabled: true
-  type: redis
-  ttl: 3600
+tokenStore:
+  mode: redis

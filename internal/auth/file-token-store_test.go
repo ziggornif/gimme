@@ -337,6 +337,108 @@ func TestDeriveAESKey(t *testing.T) {
 	assert.NotEqual(t, key1a, key2, "different secrets must produce different keys")
 }
 
+// invalidFlushPath returns a file path whose parent directory does not exist,
+// causing os.CreateTemp to fail. The path is constructed portably so tests
+// pass on both Unix and Windows.
+func invalidFlushPath(t *testing.T) string {
+	t.Helper()
+	// Create a real temp dir, remove it, then reference a file inside it.
+	// The directory no longer exists → CreateTemp will fail.
+	dir := filepath.Join(t.TempDir(), "deleted")
+	return filepath.Join(dir, "tokens.enc")
+}
+
+// TestFileTokenStore_Flush_InvalidDir checks that flush returns an error when
+// the directory does not exist (os.CreateTemp fails).
+func TestFileTokenStore_Flush_InvalidDir(t *testing.T) {
+	store := newTestFileStore(t)
+
+	// Point the store at a non-existent directory so CreateTemp fails.
+	store.filePath = invalidFlushPath(t)
+
+	// Flush is called internally by Save — it must propagate the error.
+	err := store.Save(ctx, makeEntry("id-x", "test", "hash-x"))
+	assert.Error(t, err)
+}
+
+// TestFileTokenStore_Revoke_FlushError checks that Revoke still returns true
+// when the flush fails (the in-memory mutation is applied regardless).
+func TestFileTokenStore_Revoke_FlushError(t *testing.T) {
+	store := newTestFileStore(t)
+	entry := makeEntry("id-1", "test", "hash-abc")
+	require.NoError(t, store.Save(ctx, entry))
+
+	// Break the file path so the subsequent flush in Revoke will fail.
+	store.filePath = invalidFlushPath(t)
+
+	// Revoke should still succeed (in-memory state is updated).
+	revoked := store.Revoke(ctx, "id-1")
+	assert.True(t, revoked)
+}
+
+// TestFileTokenStore_Delete_FlushError checks that Delete still returns true
+// when the flush fails (the in-memory mutation is applied regardless).
+func TestFileTokenStore_Delete_FlushError(t *testing.T) {
+	store := newTestFileStore(t)
+	entry := makeEntry("id-1", "test", "hash-abc")
+	require.NoError(t, store.Save(ctx, entry))
+
+	// Break the file path so the subsequent flush in Delete will fail.
+	store.filePath = invalidFlushPath(t)
+
+	deleted := store.Delete(ctx, "id-1")
+	assert.True(t, deleted)
+}
+
+// TestFileTokenStore_PurgeExpired_FlushError checks that purgeExpired logs but
+// does not panic when the flush fails.
+func TestFileTokenStore_PurgeExpired_FlushError(t *testing.T) {
+	store := newTestFileStore(t)
+
+	expired := &TokenEntry{
+		ID:        "exp-1",
+		Name:      "expired",
+		TokenHash: "hash-expired",
+		CreatedAt: time.Now().Add(-time.Hour),
+		ExpiresAt: time.Now().Add(-time.Minute),
+	}
+	require.NoError(t, store.Save(ctx, expired))
+
+	// Break the file path so purgeExpired's flush fails silently.
+	store.filePath = invalidFlushPath(t)
+
+	assert.NotPanics(t, func() {
+		store.purgeExpired()
+	})
+}
+
+// TestFileTokenStore_Load_CorruptFile checks that loading a file with invalid
+// (non-JSON) plaintext after decryption returns an error.
+func TestFileTokenStore_Load_CorruptFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tokens.enc")
+
+	// Write a valid encrypted file.
+	store1, err := NewFileTokenStore(testSecret, path)
+	require.NoError(t, err)
+	require.NoError(t, store1.Save(ctx, makeEntry("id-1", "test", "h1")))
+	store1.Close()
+
+	// Corrupt the ciphertext by overwriting bytes past the nonce (first 12 bytes).
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	// Flip a byte in the ciphertext body (after the 12-byte nonce) to cause
+	// GCM authentication failure.
+	if len(data) > 13 {
+		data[13] ^= 0xFF
+	}
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	// Reload must fail with an error (decrypt will fail).
+	_, err = NewFileTokenStore(testSecret, path)
+	assert.Error(t, err)
+}
+
 // TestFileTokenStore_ConcurrentSave exercises concurrent writes to catch race
 // conditions (run with -race).
 func TestFileTokenStore_ConcurrentSave(t *testing.T) {

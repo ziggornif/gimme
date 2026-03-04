@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.23.2
@@ -71,6 +72,7 @@ require (
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect

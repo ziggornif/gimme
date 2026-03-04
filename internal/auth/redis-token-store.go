@@ -279,12 +279,11 @@ func (s *RedisTokenStore) Delete(ctx context.Context, id string) bool {
 	return deleted > 0
 }
 
-// Close closes the underlying Redis client connection.
-func (s *RedisTokenStore) Close() {
-	if err := s.client.Close(); err != nil {
-		logrus.Warnf("[RedisTokenStore] Close - error closing client: %v", err)
-	}
-}
+// Close is a no-op for RedisTokenStore. The *redis.Client is shared and owned
+// by the application layer (Application.redisClient), which is responsible for
+// closing it after all components have shut down. Closing it here would cause a
+// double-close since application.go always calls app.redisClient.Close().
+func (s *RedisTokenStore) Close() {}
 
 // getByID fetches and deserialises a single token entry by ID.
 // Returns nil, false if the key does not exist (e.g. expired in Redis).

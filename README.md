@@ -173,7 +173,7 @@ s3:
 | `cache.enabled`   | Enable internal Redis cache for version resolution | `false`  |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
-| `cache.redis_url` | Redis/Valkey connection URL (**required** — used for API token storage even when cache is disabled) | `redis://localhost:6379` |
+| `redis_url`       | Redis/Valkey connection URL (**required** — used for API token storage even when cache is disabled) | `redis://localhost:6379` |
 | `auth.mode`       | Admin auth mode (`basic` or `oidc`)      | `basic`  |
 | `auth.oidc.issuer`       | OIDC issuer URL                 | required if `oidc` |
 | `auth.oidc.client_id`    | OIDC client ID                  | required if `oidc` |
@@ -181,7 +181,7 @@ s3:
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
 
-> **Redis is required.** Gimme uses Redis to persist opaque API tokens across restarts. A running Redis / Valkey instance must be reachable at `cache.redis_url` even when the internal version-resolution cache (`cache.enabled`) is disabled. Without Redis, the application will refuse to start.
+> **Redis is required.** Gimme uses Redis to persist opaque API tokens across restarts. A running Redis / Valkey instance must be reachable at `redis_url` even when the internal version-resolution cache (`cache.enabled`) is disabled. Without Redis, the application will refuse to start.
 
 ### OIDC authentication (optional)
 
@@ -404,11 +404,11 @@ Pinned versions (`pkg@1.0.0`) are **not** stored in Redis — their path is dete
 #### Configuration
 
 ```yaml
+redis_url: redis://localhost:6379
 cache:
   enabled: true
   type: redis          # only "redis" is supported; "memory" is reserved for future use
   ttl: 3600            # TTL in seconds (default: 3600)
-  redis_url: redis://localhost:6379
 ```
 
 | Key               | Description                              | Default                      |
@@ -416,18 +416,18 @@ cache:
 | `cache.enabled`   | Enable the internal cache                | `false`                      |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`                      |
 | `cache.ttl`       | Entry TTL in seconds                     | `3600`                       |
-| `cache.redis_url` | Redis/Valkey connection URL              | `redis://localhost:6379`     |
+| `redis_url`       | Redis/Valkey connection URL              | `redis://localhost:6379`     |
 
 #### Docker Compose example
 
 A ready-to-use stack with Garage + Valkey is available in [`examples/deployment/docker-compose/with-garage/`](examples/deployment/docker-compose/with-garage/). Add the following to your `gimme.yml` to enable the cache:
 
 ```yaml
+redis_url: redis://valkey:6379
 cache:
   enabled: true
   type: redis
   ttl: 3600
-  redis_url: redis://valkey:6379
 ```
 
 ---

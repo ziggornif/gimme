@@ -12,17 +12,15 @@ s3:
   location: eu-west-1
   ssl: true
 
-# Redis is REQUIRED for API token persistence (opaque tokens stored in Redis).
-# This URL is also used by the optional internal cache below.
-# cache:
-#   redis_url: redis://localhost:6379
+# Redis connection URL — used by any Redis-backed component (token store, cache).
+# Required when tokenStore.mode is "redis" or cache.enabled is true.
+# redis_url: redis://localhost:6379
 
 # Optional internal cache (disabled by default)
 # cache:
 #   enabled: true
 #   type: redis        # "redis" supported ; "memory" reserved for future use
 #   ttl: 3600          # seconds
-#   redis_url: redis://localhost:6379   # required for both token storage and cache
 
 # CORS allowed origins for cross-origin requests.
 # Leave empty (default) to deny all cross-origin requests.

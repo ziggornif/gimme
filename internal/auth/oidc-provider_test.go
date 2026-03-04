@@ -460,6 +460,139 @@ func TestOIDCProvider_LoginMiddleware_WrongAudience(t *testing.T) {
 	assert.Equal(t, "/auth/login", w.Header().Get("Location"))
 }
 
+// TestOIDCProvider_HandleCallback_CodeExchangeFailed checks that a failed
+// OAuth2 code exchange returns 502.
+func TestOIDCProvider_HandleCallback_CodeExchangeFailed(t *testing.T) {
+	ts := newOIDCTestServer(t)
+	p := newTestOIDCProvider(t, ts)
+
+	// Stub a token endpoint that always returns an error.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "server error", http.StatusInternalServerError)
+	}))
+	defer tokenServer.Close()
+
+	p.oauth2Config.Endpoint.TokenURL = tokenServer.URL
+
+	router := gin.New()
+	p.RegisterRoutes(router)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback?code=code&state=s", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "s"})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadGateway, w.Code)
+}
+
+// TestOIDCProvider_HandleCallback_NonceMismatch checks that a nonce mismatch
+// after a successful code exchange returns 400.
+func TestOIDCProvider_HandleCallback_NonceMismatch(t *testing.T) {
+	ts := newOIDCTestServer(t)
+	p := newTestOIDCProvider(t, ts)
+
+	// Build a valid RS256 ID token signed with the test server key but with a
+	// nonce that does NOT match the one stored in the cookie.
+	now := time.Now()
+	idTokenClaims := map[string]interface{}{
+		"iss":   ts.issuer,
+		"sub":   "user-1",
+		"aud":   testClientID,
+		"email": "user@example.com",
+		"name":  "User",
+		"nonce": "correct-nonce",
+		"exp":   now.Add(time.Hour).Unix(),
+		"iat":   now.Unix(),
+	}
+	idTokenRaw, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(idTokenClaims)).
+		SignedString(ts.priv)
+	require.NoError(t, err)
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "acc",
+			"token_type":   "Bearer",
+			"id_token":     idTokenRaw,
+			"expires_in":   strconv.Itoa(int(time.Hour.Seconds())),
+		})
+	}))
+	defer tokenServer.Close()
+
+	p.oauth2Config.Endpoint.TokenURL = tokenServer.URL
+
+	router := gin.New()
+	p.RegisterRoutes(router)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback?code=code&state=s", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "s"})
+	// The nonce cookie value differs from the one embedded in the ID token.
+	req.AddCookie(&http.Cookie{Name: nonceCookieName, Value: "wrong-nonce"})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestOIDCProvider_HandleCallback_Success checks the happy path: a valid OIDC
+// callback issues a session cookie and redirects to /admin.
+func TestOIDCProvider_HandleCallback_Success(t *testing.T) {
+	ts := newOIDCTestServer(t)
+	p := newTestOIDCProvider(t, ts)
+
+	nonce := "test-nonce-12345"
+	now := time.Now()
+	idTokenClaims := map[string]interface{}{
+		"iss":   ts.issuer,
+		"sub":   "user-42",
+		"aud":   testClientID,
+		"email": "user@example.com",
+		"name":  "Test User",
+		"nonce": nonce,
+		"exp":   now.Add(time.Hour).Unix(),
+		"iat":   now.Unix(),
+	}
+	idTokenRaw, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(idTokenClaims)).
+		SignedString(ts.priv)
+	require.NoError(t, err)
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "acc",
+			"token_type":   "Bearer",
+			"id_token":     idTokenRaw,
+			"expires_in":   strconv.Itoa(int(time.Hour.Seconds())),
+		})
+	}))
+	defer tokenServer.Close()
+
+	p.oauth2Config.Endpoint.TokenURL = tokenServer.URL
+
+	router := gin.New()
+	p.RegisterRoutes(router)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/callback?code=code&state=s", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "s"})
+	req.AddCookie(&http.Cookie{Name: nonceCookieName, Value: nonce})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "/admin", w.Header().Get("Location"))
+
+	// A session cookie must be set.
+	var sessionCookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == sessionCookieName {
+			sessionCookie = c
+			break
+		}
+	}
+	require.NotNil(t, sessionCookie, "session cookie must be set after successful callback")
+	assert.NotEmpty(t, sessionCookie.Value)
+}
+
 func TestOIDCProvider_HandleCallback_MissingIDToken(t *testing.T) {
 	ts := newOIDCTestServer(t)
 	p := newTestOIDCProvider(t, ts)
