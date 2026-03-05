@@ -65,9 +65,9 @@ jobs:
           # Strip leading 'v' if present (e.g. v1.2.3 -> 1.2.3)
           CHART_VERSION="${VERSION#v}"
           echo "CHART_VERSION=${CHART_VERSION}" >> "$GITHUB_ENV"
-          sed -i "s/^version:.*/version: ${CHART_VERSION}/" examples/deployment/helm/gimme/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" examples/deployment/helm/gimme/Chart.yaml
+          sed -i "s/^version:.*/version: ${CHART_VERSION}/" scripts/helm/gimme/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" scripts/helm/gimme/Chart.yaml
       - name: Package Helm chart
-        run: helm package examples/deployment/helm/gimme/
+        run: helm package scripts/helm/gimme/
       - name: Push Helm chart to GHCR
         run: helm push "gimme-${CHART_VERSION}.tgz" oci://ghcr.io/${{ github.repository_owner }}/charts
