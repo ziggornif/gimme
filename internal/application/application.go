@@ -220,13 +220,14 @@ func (app *Application) setupServer() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
+	quit := make(chan os.Signal, 1)
+
 	go func() {
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logrus.Error(err)
+			logrus.Errorf("[Application] setupServer - ListenAndServe failed: %v", err)
+			quit <- syscall.SIGTERM
 		}
 	}()
-
-	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logrus.Info("Shutting down server...")

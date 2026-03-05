@@ -101,7 +101,7 @@ func (osm *objectStorageManager) AddObject(ctx context.Context, objectName strin
 	defer func(src io.ReadCloser) {
 		err := src.Close()
 		if err != nil {
-			logrus.Error("AddObject - Fail to close file")
+			logrus.Error("[ObjectStorageManager] AddObject - Fail to close file")
 		}
 	}(src)
 

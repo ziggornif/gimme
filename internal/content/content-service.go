@@ -100,7 +100,7 @@ func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string,
 func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
 	archive, err := zip.NewReader(file, fileSize)
 	if err != nil {
-		logrus.Error("[UploadManager] ArchiveProcessor - Error while reading zip file", err)
+		logrus.Error("[ContentService] CreatePackage - Error while reading zip file", err)
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while reading zip file"))
 	}
 
@@ -114,10 +114,10 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 
 	for _, currentFile := range archive.File {
 		eg.Go(func() error {
-			logrus.Debug("[UploadManager] ArchiveProcessor - Unzipping file ", currentFile.Name)
-			fileName := re.ReplaceAllString(currentFile.FileHeader.Name, folderName)
+			logrus.Debug("[ContentService] CreatePackage - Unzipping file ", currentFile.Name)
+			fileName := re.ReplaceAllString(currentFile.Name, folderName)
 			if err := svc.objectStorageManager.AddObject(ctx, fileName, currentFile); err != nil {
-				logrus.Errorf("[UploadManager] ArchiveProcessor - Error while processing file %s", fileName)
+				logrus.Errorf("[ContentService] CreatePackage - Error while processing file %s", fileName)
 				return err.Err
 			}
 			return nil

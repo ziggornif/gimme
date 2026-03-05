@@ -22,8 +22,8 @@ ENV GIN_MODE=release
 
 EXPOSE 8080
 
-# HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-#   CMD ["wget", "-qO-",  "http://localhost:8080/"] || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:8080/healthz || exit 1
 
 USER gimme
 

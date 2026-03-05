@@ -2,6 +2,7 @@ suite: deployment tests
 templates:
   - templates/deployment.yaml
   - templates/configmap.yaml
+  - templates/secret.yaml
 set:
   s3.url: "http://fake:3900"
   credentials.secret: "test-secret"
@@ -230,4 +231,10 @@ tests:
     asserts:
       - exists:
           path: spec.template.metadata.annotations["checksum/config"]
+        template: templates/deployment.yaml
+
+  - it: should have checksum annotation for secret
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
         template: templates/deployment.yaml
