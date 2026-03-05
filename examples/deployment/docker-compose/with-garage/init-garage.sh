@@ -177,7 +177,7 @@ cache:
   enabled: ${CACHE_ENABLED}
   type: redis
   ttl: ${CACHE_TTL}
-  redis_url: ${CACHE_REDIS_URL}
+redis_url: ${CACHE_REDIS_URL}
 tokenStore:
   mode: ${TOKEN_STORE_MODE}
 EOF
