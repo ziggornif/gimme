@@ -313,13 +313,13 @@ Si `cache.redis_url` est absent ou vide → FileTokenStore activé automatiqueme
 - [x] Mise à jour de `configs/config.go` : `cache.redis_url` devient optionnel (validation conditionnelle)
 - [x] Ajouter les tests unitaires pour `FileTokenStore`
 - [x] Supprimer `MemoryTokenStore` (remplacé par `FileTokenStore`) et migrer tous les usages dans les tests
-- [ ] Documenter dans le README : mode standalone vs mode Redis
-- [ ] Introduire une config dédiée `tokenStore` pour découpler le choix du backend de stockage des tokens de la config cache Redis — remplacer l'inférence implicite `cache.redis_url != ""` par un champ explicite `tokenStore.mode: file|redis` (extensible à `postgres` etc.) — impacts : `configs/config.go` (nouvelle struct `TokenStoreConfig`, déplacement de `FilePath`), `internal/application/application.go` (switch sur `tokenStore.mode` au lieu de `cache.redis_url`), Helm chart (`values.yaml` + `configmap.yaml`, conditionner `tmp-volume` sur `tokenStore.mode == "file"`)
+- [x] Documenter dans le README : mode standalone vs mode Redis
+- [x] Introduire une config dédiée `tokenStore` pour découpler le choix du backend de stockage des tokens de la config cache Redis — remplacer l'inférence implicite `cache.redis_url != ""` par un champ explicite `tokenStore.mode: file|redis` (extensible à `postgres` etc.) — impacts : `configs/config.go` (nouvelle struct `TokenStoreConfig`, déplacement de `FilePath`), `internal/application/application.go` (switch sur `tokenStore.mode` au lieu de `cache.redis_url`), Helm chart (`values.yaml` + `configmap.yaml`, conditionner `tmp-volume` sur `tokenStore.mode == "file"`)
 - [ ] Implémenter `PGTokenStore` dans `internal/auth/pg-token-store.go` (interface `TokenStore`) — backend PostgreSQL pour les déploiements qui disposent déjà d'une base relationnelle et préfèrent éviter Redis — nécessite l'introduction de `pgx` ou `database/sql` + driver `lib/pq`, une table `gimme_tokens` (id, hash, created_at, expires_at, revoked_at, metadata JSON), et la config `tokenStore.postgres.dsn` — dépend de la tâche précédente (`tokenStore.mode: postgres`)
 
 ## Priorité 19 — Finitions visuelles & contenu (non prioritaire)
 
-- [ ] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS
+- [x] Ajouter un vrai logo Gimme (fichier SVG/PNG) utilisé dans le site GitHub Pages (`docs/site/`) et les templates Go (`templates/`) — actuellement remplacé par un logotype texte + carré CSS
 - [ ] Vidéo embarquée (à évaluer) : screencast montrant le déploiement + une utilisation concrète, intégré en section dédiée ou dans le Quickstart du site de documentation
 - [ ] Tests E2E Playwright : couvrir la navigation dans un package, la copie d'URL, l'affichage des tailles, et les critères d'accessibilité de base (axe-core via `@axe-core/playwright`)
 

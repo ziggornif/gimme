@@ -45,11 +45,11 @@ graph LR
     Gimme["gimme\n:8080"]
     S3["Any S3-compatible storage\n(AWS S3, OVH, Cellar, Garage, …)"]
     Cache["Cache layer\n(Nginx / CDN) — optional"]
-    Redis["Redis / Valkey\n(tokens + optional cache)"]
+    Redis["Redis / Valkey\n(optional — tokens + cache)"]
 
     Client -->|"GET /gimme/pkg@1.0/file.js"| Cache
     Cache -->|cache miss| Gimme
-    Gimme -->|"version resolution (partial)"| Redis
+    Gimme -.->|"version resolution (partial)"| Redis
     Gimme -->|stream object| S3
     Client -->|"POST /packages (Bearer token)"| Gimme
     Gimme -->|store objects| S3
@@ -154,6 +154,19 @@ s3:
   location: garage          # use region name matching your backend
   ssl: false                # default is true; set false for local backends (Garage, dev)
 # metrics: true             # optional — expose /metrics (Prometheus), defaults to true
+
+# Token store: "file" (default, no external dependency) or "redis"
+# tokenStore:
+#   mode: file              # "file" | "redis"
+
+# Redis — required when tokenStore.mode is "redis" or cache.enabled is true
+# redis_url: redis://localhost:6379
+
+# cache:
+#   enabled: false          # optional version-resolution cache
+#   type: redis
+#   ttl: 3600
+#   file_path: /tmp/gimme-tokens.enc  # used only when tokenStore.mode is "file"
 ```
 
 | Key               | Description                              | Default  |
@@ -170,10 +183,12 @@ s3:
 | `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
 | `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
 | `cors.allowed_origins` | List of allowed CORS origins. Defaults to all origins (`*`) if empty. | `[]` (all origins) |
+| `tokenStore.mode` | Token persistence backend. `file` stores tokens in an encrypted local file (no external dependency). `redis` stores tokens in Redis (requires `redis_url`). | `file` |
 | `cache.enabled`   | Enable internal Redis cache for version resolution | `false`  |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
-| `redis_url`       | Redis/Valkey connection URL (**required** — used for API token storage even when cache is disabled) | `redis://localhost:6379` |
+| `cache.file_path` | Path to the encrypted token file (used when `tokenStore.mode` is `file`) | `/tmp/gimme-tokens.enc` |
+| `redis_url`       | Redis/Valkey connection URL. Required when `tokenStore.mode` is `redis` or `cache.enabled` is `true`. | `""` |
 | `auth.mode`       | Admin auth mode (`basic` or `oidc`)      | `basic`  |
 | `auth.oidc.issuer`       | OIDC issuer URL                 | required if `oidc` |
 | `auth.oidc.client_id`    | OIDC client ID                  | required if `oidc` |
@@ -181,7 +196,7 @@ s3:
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
 
-> **Redis is required.** Gimme uses Redis to persist opaque API tokens across restarts. A running Redis / Valkey instance must be reachable at `redis_url` even when the internal version-resolution cache (`cache.enabled`) is disabled. Without Redis, the application will refuse to start.
+> **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances.
 
 ### OIDC authentication (optional)
 
@@ -221,9 +236,9 @@ auth:
 
 ### 1. Create an access token
 
-> **Breaking change:** API tokens are now cryptographically random opaque strings (`gim_<hex>`, 68 chars), stored as SHA-256 hashes in Redis. **JWT tokens issued by previous versions are invalid and must be regenerated via `/admin` or `POST /tokens`.**
+> **Breaking change:** API tokens are now cryptographically random opaque strings (`gim_<hex>`, 68 chars), stored as SHA-256 hashes in the token store (encrypted file or Redis). **JWT tokens issued by previous versions are invalid and must be regenerated via `/admin` or `POST /tokens`.**
 >
-> The raw token is returned **once** — store it securely. Only its hash is persisted in Redis.
+> The raw token is returned **once** — store it securely. Only its hash is persisted.
 
 In `basic` mode, use your `admin.user` / `admin.password` as HTTP Basic Auth credentials:
 
@@ -247,7 +262,7 @@ In `oidc` mode, authenticate via the admin UI at `/admin` and use the token mana
 }
 ```
 
-> The raw token (`gim_<hex>`, 68 chars) is returned **once** — store it securely. Only its SHA-256 hash is persisted in Redis.
+> The raw token (`gim_<hex>`, 68 chars) is returned **once** — store it securely. Only its SHA-256 hash is persisted.
 
 > If `expirationDate` is omitted, the token expires in **90 days**.
 
