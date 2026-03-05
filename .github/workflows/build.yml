@@ -87,8 +87,21 @@ jobs:
       - name: Coverage
         run: go tool cover -func coverage.out
 
+  helm-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: Helm lint
+        run: make helm-lint
+      - name: Helm unit tests
+        run: make helm-test
+
   build:
-    needs: test
+    needs: [test, helm-test]
     runs-on: ubuntu-latest
     env:
       REPO: ${{ secrets.DOCKER_REPO }}

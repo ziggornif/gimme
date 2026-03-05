@@ -1,0 +1,45 @@
+suite: service tests
+templates:
+  - templates/service.yaml
+set:
+  s3.url: "http://fake:3900"
+  credentials.secret: "x"
+  credentials.admin.user: "x"
+  credentials.admin.password: "x"
+  credentials.s3.key: "x"
+  credentials.s3.secret: "x"
+tests:
+  - it: should render a Service
+    asserts:
+      - isKind:
+          of: Service
+
+  - it: should default to ClusterIP
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: should use default port 80
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+
+  - it: should use custom type and port
+    set:
+      service.type: NodePort
+      service.port: 8080
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+
+  - it: should target the http port
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http

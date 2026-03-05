@@ -109,6 +109,20 @@ garage-stop:
 .PHONY: test-integration
 test-integration: test
 
+.PHONY: helm-test
+helm-test:
+	helm unittest scripts/helm/gimme
+
+.PHONY: helm-lint
+helm-lint:
+	helm lint scripts/helm/gimme \
+	  --set s3.url=http://fake:3900 \
+	  --set credentials.secret=x \
+	  --set credentials.admin.user=x \
+	  --set credentials.admin.password=x \
+	  --set credentials.s3.key=x \
+	  --set credentials.s3.secret=x
+
 DOC_PORT ?= 8000
 
 .PHONY: docs-serve

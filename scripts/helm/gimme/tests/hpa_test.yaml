@@ -1,0 +1,64 @@
+suite: hpa tests
+templates:
+  - templates/hpa.yaml
+set:
+  s3.url: "http://fake:3900"
+  credentials.secret: "x"
+  credentials.admin.user: "x"
+  credentials.admin.password: "x"
+  credentials.s3.key: "x"
+  credentials.s3.secret: "x"
+tests:
+  - it: should not create an HPA by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create an HPA when enabled
+    set:
+      hpa.enabled: true
+    asserts:
+      - isKind:
+          of: HorizontalPodAutoscaler
+
+  - it: should use default values
+    set:
+      hpa.enabled: true
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 1
+      - equal:
+          path: spec.maxReplicas
+          value: 5
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 70
+
+  - it: should use custom values
+    set:
+      hpa.enabled: true
+      hpa.minReplicas: 2
+      hpa.maxReplicas: 10
+      hpa.targetCPUUtilizationPercentage: 80
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 10
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 80
+
+  - it: should target the correct deployment
+    set:
+      hpa.enabled: true
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef.kind
+          value: Deployment
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: RELEASE-NAME-gimme

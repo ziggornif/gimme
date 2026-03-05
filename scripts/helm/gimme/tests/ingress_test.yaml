@@ -1,0 +1,80 @@
+suite: ingress tests
+templates:
+  - templates/ingress.yaml
+set:
+  s3.url: "http://fake:3900"
+  credentials.secret: "x"
+  credentials.admin.user: "x"
+  credentials.admin.password: "x"
+  credentials.s3.key: "x"
+  credentials.s3.secret: "x"
+tests:
+  - it: should not create an Ingress by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create an Ingress when enabled
+    set:
+      ingress.enabled: true
+    asserts:
+      - isKind:
+          of: Ingress
+
+  - it: should set ingressClassName
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+
+  - it: should set the host
+    set:
+      ingress.enabled: true
+      ingress.host: "cdn.example.com"
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: "cdn.example.com"
+
+  - it: should include annotations when provided
+    set:
+      ingress.enabled: true
+      ingress.annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+    asserts:
+      - equal:
+          path: metadata.annotations["cert-manager.io/cluster-issuer"]
+          value: letsencrypt-prod
+
+  - it: should configure TLS when enabled
+    set:
+      ingress.enabled: true
+      ingress.host: "cdn.example.com"
+      ingress.tls.enabled: true
+      ingress.tls.secretName: cdn-tls
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: cdn-tls
+      - contains:
+          path: spec.tls[0].hosts
+          content: "cdn.example.com"
+
+  - it: should not have TLS section when disabled
+    set:
+      ingress.enabled: true
+    asserts:
+      - notExists:
+          path: spec.tls
+
+  - it: should use service port as backend port
+    set:
+      ingress.enabled: true
+      service.port: 8080
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080

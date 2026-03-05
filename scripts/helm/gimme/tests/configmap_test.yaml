@@ -1,0 +1,98 @@
+suite: configmap tests
+templates:
+  - templates/configmap.yaml
+set:
+  s3.url: "http://garage:3900"
+  credentials.secret: "test-secret"
+  credentials.admin.user: "admin"
+  credentials.admin.password: "admin-pass"
+  credentials.s3.key: "s3key"
+  credentials.s3.secret: "s3secret"
+tests:
+  - it: should render a ConfigMap
+    asserts:
+      - isKind:
+          of: ConfigMap
+
+  - it: should contain gimme.yml with S3 config
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "url: \"http://garage:3900\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "bucketName: \"gimme\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "location: \"us-east-1\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "ssl: true"
+
+  - it: should contain port and metrics config
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "port: 8080"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "metrics: true"
+
+  - it: should not contain cache section when disabled
+    asserts:
+      - notMatchRegex:
+          path: data["gimme.yml"]
+          pattern: "cache:"
+
+  - it: should contain cache section when enabled
+    set:
+      cache.enabled: true
+      cache.type: redis
+      cache.ttl: 7200
+      cache.redisUrl: "redis://localhost:6379"
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "cache:"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "type: \"redis\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "ttl: 7200"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "redis_url: \"redis://localhost:6379\""
+
+  - it: should not contain auth section when mode is basic
+    asserts:
+      - notMatchRegex:
+          path: data["gimme.yml"]
+          pattern: "auth:"
+
+  - it: should contain auth OIDC section when mode is oidc
+    set:
+      auth.mode: oidc
+      auth.oidc.issuer: "https://idp.example.com/realms/gimme"
+      auth.oidc.clientId: "gimme-client"
+      auth.oidc.redirectUrl: "https://gimme.example.com/callback"
+      auth.oidc.secureCookies: true
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "auth:"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "mode: oidc"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "issuer: \"https://idp.example.com/realms/gimme\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "client_id: \"gimme-client\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "redirect_url: \"https://gimme.example.com/callback\""
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "secure_cookies: true"
