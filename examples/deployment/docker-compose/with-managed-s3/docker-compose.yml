@@ -5,6 +5,12 @@ services:
       - "8080:8080"
     volumes:
       - ./gimme.yml:/config/gimme.yml
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:latest
