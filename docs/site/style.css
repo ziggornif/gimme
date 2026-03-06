@@ -1060,7 +1060,12 @@ tbody tr:hover td { background: var(--bg-subtle); }
   .footer-inner { flex-direction: column; align-items: flex-start; gap: 1rem; }
   .cache-flow { flex-direction: column; align-items: flex-start; }
   .cache-arrow { transform: rotate(90deg); align-self: center; }
-  .arch-row { flex-wrap: wrap; }
+  .arch-diagram { overflow-x: visible; }
+  .arch-row {
+    flex-direction: column;
+    align-items: center;
+  }
+  .arch-connector { transform: rotate(90deg); }
   .main-content { padding: 2rem 1.25rem 4rem; }
 }
 
