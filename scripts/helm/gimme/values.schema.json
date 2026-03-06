@@ -135,7 +135,7 @@
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["file", "redis", "pg_url"]
+          "enum": ["file", "redis", "postgres"]
         },
         "pgUrl": {
           "type": "string"
