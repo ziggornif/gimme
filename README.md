@@ -17,6 +17,7 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 
 ## Table of Contents
 
+- [Documentation](#documentation)
 - [Architecture](#architecture)
   - [Components](#components)
   - [Upload flow](#upload-flow)
@@ -34,6 +35,10 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 - [Monitoring](#monitoring)
 
 ---
+
+## Documentation
+
+The Gimme documentation is available at https://ziggornif.github.io/gimme/.
 
 ## Architecture
 
