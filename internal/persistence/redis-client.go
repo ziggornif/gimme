@@ -43,5 +43,6 @@ func (rc *RedisClient) CloseConnection() {
 		if closeErr := rc.client.Close(); closeErr != nil {
 			logrus.Warnf("Error closing Redis connection: %v", closeErr)
 		}
+		rc.client = nil
 	}
 }

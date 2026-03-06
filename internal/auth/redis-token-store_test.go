@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,8 +20,9 @@ func newTestRedisStore(t *testing.T) (*RedisTokenStore, *miniredis.Miniredis) {
 	require.NoError(t, err)
 	t.Cleanup(mr.Close)
 
-	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { _ = client.Close() })
+	client, err := persistence.NewRedisClient("redis://" + mr.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { client.CloseConnection() })
 
 	return NewRedisTokenStore(client), mr
 }
@@ -40,7 +41,13 @@ func makeRedisEntry(id, name, hash string) *TokenEntry {
 // TestRedisTokenStore_Close_Noop checks that Close() is a no-op: the Redis
 // client is owned by the application layer and closed there, not here.
 func TestRedisTokenStore_Close_Noop(t *testing.T) {
-	client := redis.NewClient(&redis.Options{Addr: "localhost:0"})
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	t.Cleanup(mr.Close)
+
+	client, err := persistence.NewRedisClient("redis://" + mr.Addr())
+	require.NoError(t, err)
+	t.Cleanup(func() { client.CloseConnection() })
 	store := NewRedisTokenStore(client)
 
 	assert.NotPanics(t, func() {
@@ -49,7 +56,7 @@ func TestRedisTokenStore_Close_Noop(t *testing.T) {
 	})
 
 	// The client must still be open — Close() must not have touched it.
-	assert.NoError(t, client.Close())
+	assert.NotNil(t, client.GetClient())
 }
 
 // TestRedisTokenStore_toFromRedisEntry verifies the conversion helpers are

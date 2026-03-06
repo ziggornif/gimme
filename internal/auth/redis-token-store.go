@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
@@ -67,8 +68,8 @@ type RedisTokenStore struct {
 
 // NewRedisTokenStore creates a RedisTokenStore using an already-connected *redis.Client
 // The caller is responsible for the client lifecycle (ping, close).
-func NewRedisTokenStore(client *redis.Client) *RedisTokenStore {
-	return &RedisTokenStore{client: client}
+func NewRedisTokenStore(client *persistence.RedisClient) *RedisTokenStore {
+	return &RedisTokenStore{client: client.GetClient()}
 }
 
 func (s *RedisTokenStore) key(id string) string {

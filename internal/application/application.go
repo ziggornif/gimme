@@ -26,7 +26,6 @@ import (
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
@@ -40,7 +39,7 @@ type Application struct {
 	cacheManager   cache.CacheManager
 	tokenStore     auth.TokenStore
 	redisClient    *persistence.RedisClient
-	pgPool         *pgxpool.Pool
+	pgClient       *persistence.PGClient
 }
 
 // NewApplication create an application instance
@@ -76,20 +75,16 @@ func (app *Application) loadModules() {
 	// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
 	switch app.config.TokenStore.Mode {
 	case "redis":
-		app.tokenStore = auth.NewRedisTokenStore(app.redisClient.GetClient())
+		app.tokenStore = auth.NewRedisTokenStore(app.redisClient)
 		logrus.Info("[Application] loadModules - token store: Redis")
 	case "postgres":
-		pgCtx, pgCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer pgCancel()
-		pool, pgErr := pgxpool.New(pgCtx, app.config.TokenStore.PostgresURL)
-		if pgErr != nil {
-			log.Fatalf("failed to create PostgreSQL pool: %v", pgErr)
+		pgClient, pgClientErr := persistence.NewPGClient(app.config.TokenStore.PostgresURL)
+		if pgClientErr != nil {
+			log.Fatalf("failed to connect to Postgres: %v", pgClientErr)
 		}
-		if pgErr = pool.Ping(pgCtx); pgErr != nil {
-			log.Fatalf("failed to reach PostgreSQL: %v", pgErr)
-		}
-		app.pgPool = pool
-		pgStore, pgStoreErr := auth.NewPGTokenStore(pool)
+		app.pgClient = pgClient
+
+		pgStore, pgStoreErr := auth.NewPGTokenStore(app.pgClient.GetPool())
 		if pgStoreErr != nil {
 			log.Fatalf("failed to initialise PGTokenStore: %v", pgStoreErr)
 		}
@@ -287,8 +282,8 @@ func (app *Application) setupServer() {
 	}
 
 	// Close the PostgreSQL connection pool.
-	if app.pgPool != nil {
-		app.pgPool.Close()
+	if app.pgClient != nil {
+		app.pgClient.CloseConnection()
 	}
 
 	logrus.Info("Server exiting.")
