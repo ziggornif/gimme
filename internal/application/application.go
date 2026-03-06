@@ -56,23 +56,9 @@ func (app *Application) loadConfig() {
 	}
 }
 
-// loadModules load app modules
-func (app *Application) loadModules() {
-	var err *gimmeerr.GimmeError
-
-	// Build a single shared Redis client if a Redis URL is configured.
-	// It is used by any component that needs Redis (token store, cache).
-	// validateConfig ensures redis_url is set whenever a Redis-backed
-	// component is enabled, so no extra check is needed here.
-	if app.config.RedisURL != "" {
-		redisClient, redisErr := persistence.NewRedisClient(app.config.RedisURL)
-		if redisErr != nil {
-			log.Fatalf("failed to connect to Redis: %v", redisErr)
-		}
-		app.redisClient = redisClient
-	}
-
-	// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
+// configureTokenStore
+// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
+func (app *Application) configureTokenStore() {
 	switch app.config.TokenStore.Mode {
 	case "redis":
 		app.tokenStore = auth.NewRedisTokenStore(app.redisClient)
@@ -98,9 +84,11 @@ func (app *Application) loadModules() {
 		app.tokenStore = fileStore
 		logrus.Infof("[Application] loadModules - token store: file (%s)", app.config.TokenFile)
 	}
+}
 
-	app.authManager = auth.NewAuthManager(app.tokenStore)
-
+// configureAuthProvider
+// Auth mode is oidc or basic by default
+func (app *Application) configureAuthProvider() {
 	switch app.config.Auth.Mode {
 	case "oidc":
 		oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -125,6 +113,27 @@ func (app *Application) loadModules() {
 	default: // "basic"
 		app.authProvider = auth.NewBasicAuthProvider(app.config.AdminUser, app.config.AdminPassword)
 	}
+}
+
+// loadModules load app modules
+func (app *Application) loadModules() {
+	var err *gimmeerr.GimmeError
+
+	// Build a single shared Redis client if a Redis URL is configured.
+	// It is used by any component that needs Redis (token store, cache).
+	// validateConfig ensures redis_url is set whenever a Redis-backed
+	// component is enabled, so no extra check is needed here.
+	if app.config.RedisURL != "" {
+		redisClient, redisErr := persistence.NewRedisClient(app.config.RedisURL)
+		if redisErr != nil {
+			log.Fatalf("failed to connect to Redis: %v", redisErr)
+		}
+		app.redisClient = redisClient
+	}
+
+	app.configureTokenStore()
+	app.authManager = auth.NewAuthManager(app.tokenStore)
+	app.configureAuthProvider()
 
 	osmClient, err := storage.NewObjectStorageClient(app.config)
 	if err != nil {
