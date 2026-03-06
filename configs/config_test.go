@@ -231,7 +231,18 @@ func TestNewConfigValidationErrTokenStoreInvalidMode(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	assert.Equal(t, `configuration is not valid: tokenStore.mode "database" is not supported (supported: "file", "redis")`, err.Error())
+	assert.Equal(t, `configuration is not valid: tokenStore.mode "database" is not supported (supported: "file", "redis", "postgres")`, err.Error())
+}
+
+func TestNewConfigValidationErrTokenStorePostgresNoDSN(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "tokenstore-postgres-no-dsn.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	assert.Equal(t, `configuration is not valid: tokenStore.pg_url is required when tokenStore.mode is "postgres"`, err.Error())
 }
 
 // TestNewConfigOIDCValid asserts that a valid OIDC config does not require

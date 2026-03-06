@@ -25,6 +25,7 @@ import (
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,7 @@ type Application struct {
 	cacheManager   cache.CacheManager
 	tokenStore     auth.TokenStore
 	redisClient    *redis.Client
+	pgPool         *pgxpool.Pool
 }
 
 // NewApplication create an application instance
@@ -71,11 +73,29 @@ func (app *Application) loadModules() {
 		app.redisClient = redisClient
 	}
 
-	// Token store: Redis or file, driven by tokenStore.mode (default: "file").
-	if app.config.TokenStore.Mode == "redis" {
+	// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
+	switch app.config.TokenStore.Mode {
+	case "redis":
 		app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
 		logrus.Info("[Application] loadModules - token store: Redis")
-	} else {
+	case "postgres":
+		pgCtx, pgCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer pgCancel()
+		pool, pgErr := pgxpool.New(pgCtx, app.config.TokenStore.PostgresURL)
+		if pgErr != nil {
+			log.Fatalf("failed to create PostgreSQL pool: %v", pgErr)
+		}
+		if pgErr = pool.Ping(pgCtx); pgErr != nil {
+			log.Fatalf("failed to reach PostgreSQL: %v", pgErr)
+		}
+		app.pgPool = pool
+		pgStore, pgStoreErr := auth.NewPGTokenStoreWithPool(pool)
+		if pgStoreErr != nil {
+			log.Fatalf("failed to initialise PGTokenStore: %v", pgStoreErr)
+		}
+		app.tokenStore = pgStore
+		logrus.Info("[Application] loadModules - token store: PostgreSQL")
+	default: // "file"
 		fileStore, fileErr := auth.NewFileTokenStore(app.config.Secret, app.config.TokenFile)
 		if fileErr != nil {
 			log.Fatalf("failed to initialise FileTokenStore at %q: %v", app.config.TokenFile, fileErr)
@@ -244,6 +264,8 @@ func (app *Application) setupServer() {
 	// In file mode, Close() stops the background purge goroutine.
 	// In redis mode, Close() is a no-op — the client is owned by app and
 	// closed below via app.redisClient.Close().
+	// In postgres mode, Close() stops the background purge goroutine — the
+	// pool is owned by app and closed below via app.pgPool.Close().
 	if app.tokenStore != nil {
 		app.tokenStore.Close()
 	}
@@ -254,6 +276,11 @@ func (app *Application) setupServer() {
 		if closeErr := app.redisClient.Close(); closeErr != nil {
 			logrus.Warnf("Error closing Redis connection: %v", closeErr)
 		}
+	}
+
+	// Close the PostgreSQL connection pool.
+	if app.pgPool != nil {
+		app.pgPool.Close()
 	}
 
 	logrus.Info("Server exiting.")

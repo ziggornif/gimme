@@ -37,8 +37,10 @@ type AuthConfig struct {
 // TokenStoreConfig controls the tokens storage (api keys) mode
 // Mode "file" (default) store tokens in a JSON file stored in filesystem
 // Mode "redis" store tokens in a Redis token store
+// Mode "postgres" store tokens in a PostgreSQL database
 type TokenStoreConfig struct {
-	Mode string // "file" (default) | "redis"
+	Mode        string // "file" (default) | "redis" | "postgres"
+	PostgresURL string // required when Mode is "postgres"
 }
 
 type Configuration struct {
@@ -101,6 +103,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("auth.oidc.redirect_url", "GIMME_AUTH_OIDC_REDIRECT_URL")
 	_ = viper.BindEnv("auth.oidc.secure_cookies", "GIMME_AUTH_OIDC_SECURE_COOKIES")
 	_ = viper.BindEnv("tokenStore.mode", "GIMME_TOKENSTORE_MODE")
+	_ = viper.BindEnv("tokenStore.pg_url", "GIMME_TOKENSTORE_PG_URL")
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
@@ -155,7 +158,8 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	// viper.SetDefault("tokenStore.mode", "file") guarantees a non-empty value
 	// when the key is absent from the config file.
 	config.TokenStore = TokenStoreConfig{
-		Mode: viper.GetString("tokenStore.mode"),
+		Mode:        viper.GetString("tokenStore.mode"),
+		PostgresURL: viper.GetString("tokenStore.pg_url"),
 	}
 
 	if err := validateConfig(&config); err != nil {
@@ -211,11 +215,14 @@ func validateConfig(config *Configuration) error {
 	}
 	// Validate tokenStore.mode: check it is a known value first, then check
 	// mode-specific constraints.
-	if config.TokenStore.Mode != "file" && config.TokenStore.Mode != "redis" {
-		return fmt.Errorf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\")", config.TokenStore.Mode)
+	if config.TokenStore.Mode != "file" && config.TokenStore.Mode != "redis" && config.TokenStore.Mode != "postgres" {
+		return fmt.Errorf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\", \"postgres\")", config.TokenStore.Mode)
 	}
 	if config.TokenStore.Mode == "redis" && config.RedisURL == "" {
 		return fmt.Errorf("redis_url is required when tokenStore.mode is \"redis\"")
+	}
+	if config.TokenStore.Mode == "postgres" && config.TokenStore.PostgresURL == "" {
+		return fmt.Errorf("tokenStore.pg_url is required when tokenStore.mode is \"postgres\"")
 	}
 	switch config.Auth.Mode {
 	case "basic":

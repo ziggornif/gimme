@@ -97,9 +97,11 @@ auth:
 
 # Token store mode
 # mode: "file" (default) - Store generated api keys on the filesystem
-# mode: "redis"          - Store generated api keys on a redis store 
+# mode: "redis"          - Store generated api keys on a redis store
+# mode: "postgres"       - Store generated api keys in PostgreSQL
 tokenStore:
   mode: file
+  pgUrl: ""  # Required when tokenStore.mode is "postgres"
 
 # Kubernetes Service
 service:

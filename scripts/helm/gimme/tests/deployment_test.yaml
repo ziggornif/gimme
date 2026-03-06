@@ -153,6 +153,42 @@ tests:
                 key: oidc-client-secret
         template: templates/deployment.yaml
 
+  - it: should include postgres URL env var when tokenStore.mode is postgres
+    set:
+      tokenStore.mode: postgres
+      tokenStore.pgUrl: "postgres://gimme:pass@localhost:5432/gimme"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_TOKENSTORE_PG_URL
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-gimme-credentials
+                key: pg-url
+        template: templates/deployment.yaml
+
+  - it: should not include postgres URL env var when tokenStore.mode is file
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_TOKENSTORE_PG_URL
+          any: true
+        template: templates/deployment.yaml
+
+  - it: should not have tmp-volume when tokenStore.mode is postgres
+    set:
+      tokenStore.mode: postgres
+      tokenStore.pgUrl: "postgres://gimme:pass@localhost:5432/gimme"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp-volume
+            mountPath: /tmp
+        template: templates/deployment.yaml
+
   - it: should not include OIDC env var when auth.mode is basic
     asserts:
       - notContains:

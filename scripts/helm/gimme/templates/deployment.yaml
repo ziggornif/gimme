@@ -78,6 +78,13 @@ spec:
                   name: {{ include "gimme.fullname" . }}-credentials
                   key: oidc-client-secret
             {{- end }}
+            {{- if eq .Values.tokenStore.mode "postgres" }}
+            - name: GIMME_TOKENSTORE_PG_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gimme.fullname" . }}-credentials
+                  key: pg-url
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

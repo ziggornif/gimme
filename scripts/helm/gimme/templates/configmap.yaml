@@ -21,6 +21,10 @@ data:
       ttl: {{ .Values.cache.ttl }}
       redis_url: {{ .Values.cache.redisUrl | quote }}
     {{- end }}
+    {{- if ne .Values.tokenStore.mode "file" }}
+    tokenStore:
+      mode: {{ .Values.tokenStore.mode | quote }}
+    {{- end }}
     {{- if eq .Values.auth.mode "oidc" }}
     auth:
       mode: oidc

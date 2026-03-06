@@ -50,7 +50,8 @@ services:
       # AUTH_OIDC_CLIENT_ID: gimme
       # AUTH_OIDC_CLIENT_SECRET: change_me_oidc_secret
       # AUTH_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
-      # TOKEN_STORE_MODE: file or redis
+      # TOKEN_STORE_MODE: file, redis, or postgres
+      # GIMME_TOKENSTORE_PG_URL: postgres://gimme:gimme_password_change_me@gimme-db:5432/gimme?sslmode=disable
     entrypoint: ["/bin/sh", "/init-garage.sh"]
     restart: "no"
 
@@ -62,6 +63,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # Optional: PostgreSQL for token store (tokenStore.mode: postgres)
+  # Uncomment and set TOKEN_STORE_MODE=postgres + GIMME_TOKENSTORE_POSTGRES_DSN
+  # in init-garage environment.
+  #
+  # gimme-db:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     POSTGRES_DB: gimme
+  #     POSTGRES_USER: gimme
+  #     POSTGRES_PASSWORD: gimme_password_change_me
+  #   volumes:
+  #     - gimme-db:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U gimme"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
 
   # Optional: Keycloak OIDC provider
   # Uncomment the keycloak-db and keycloak services (and the keycloak-db volume at the
@@ -161,4 +180,5 @@ volumes:
   garage-meta:
   garage-data:
   gimme-config:
+  # gimme-db: # Uncomment if PostgreSQL token store is enabled
   # keycloak-db: # Uncomment if Keycloak is enabled

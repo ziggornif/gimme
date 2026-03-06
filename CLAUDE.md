@@ -118,6 +118,8 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 | `s3.location`     | S3 region / Garage zone                  | required |
 | `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
 | `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
+| `tokenStore.mode` | Token persistence backend (`file`, `redis`, `postgres`) | `file` |
+| `tokenStore.pg_url` | PostgreSQL URL (required when mode is `postgres`) | `""` |
 
 ---
 
@@ -207,6 +209,7 @@ Required GitHub secrets: `DOCKER_REPO`, `DOCKER_USER`, `DOCKER_PASS`.
 | `golang.org/x/mod/semver`       | v0.33.0   | Semver parsing and sorting                |
 | `golang.org/x/sync/errgroup`    | v0.19.0   | Goroutine error propagation               |
 | `redis/go-redis/v9`             | v9.18.0   | Redis client (internal cache backend)     |
+| `jackc/pgx/v5`                  | v5.8.0    | PostgreSQL driver and connection pool     |
 
 ---
 
@@ -237,7 +240,7 @@ After implementing a task, the following checks **must all pass** before proposi
 
 ```bash
 # 1. Format
-gofmt -l ./...         # must output nothing (no unformatted files)
+gofmt -l .         # must output nothing (no unformatted files)
 
 # 2. Lint (requires golangci-lint)
 golangci-lint run ./...

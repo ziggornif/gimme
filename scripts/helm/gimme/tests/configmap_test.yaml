@@ -64,6 +64,35 @@ tests:
           path: data["gimme.yml"]
           pattern: "redis_url: \"redis://localhost:6379\""
 
+  - it: should not contain tokenStore section when mode is file
+    asserts:
+      - notMatchRegex:
+          path: data["gimme.yml"]
+          pattern: "tokenStore:"
+
+  - it: should contain tokenStore section when mode is postgres
+    set:
+      tokenStore.mode: postgres
+      tokenStore.pgUrl: "postgres://gimme:pass@localhost:5432/gimme"
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "tokenStore:"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: 'mode: "postgres"'
+
+  - it: should contain tokenStore section when mode is redis
+    set:
+      tokenStore.mode: redis
+    asserts:
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: "tokenStore:"
+      - matchRegex:
+          path: data["gimme.yml"]
+          pattern: 'mode: "redis"'
+
   - it: should not contain auth section when mode is basic
     asserts:
       - notMatchRegex:

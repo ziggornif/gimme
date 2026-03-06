@@ -910,9 +910,10 @@ s3:
   ssl: false             # set false for local Garage
 metrics: true            # expose /metrics (Prometheus)
 
-# Token store: "file" (default, no external dependency) or "redis"
+# Token store: "file" (default), "redis", or "postgres"
 # tokenStore:
-#   mode: file           # "file" | "redis"
+#   mode: file           # "file" | "redis" | "postgres"
+#   pg_url: postgres://gimme:password@localhost:5432/gimme?sslmode=disable
 
 # Redis — required when tokenStore.mode is "redis" or cache.enabled is true
 # redis_url: redis://localhost:6379
@@ -1059,8 +1060,20 @@ metrics: true            # expose /metrics (Prometheus)
                                         dependency). <code>redis</code> stores
                                         tokens in Redis — requires
                                         <code>redis_url</code>.
+                                        <code>postgres</code> stores tokens in
+                                        PostgreSQL — requires
+                                        <code>tokenStore.pg_url</code>.
                                     </td>
                                     <td><code>file</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>tokenStore.pg_url</code></td>
+                                    <td>
+                                        PostgreSQL connection URL. Required when
+                                        <code>tokenStore.mode</code> is
+                                        <code>postgres</code>.
+                                    </td>
+                                    <td><code>""</code></td>
                                 </tr>
                                 <tr>
                                     <td><code>auth.mode</code></td>
@@ -1138,7 +1151,10 @@ metrics: true            # expose /metrics (Prometheus)
                             no external dependency needed. Set
                             <code>tokenStore.mode: redis</code> and provide
                             <code>redis_url</code> to share tokens across
-                            multiple instances.</span
+                            multiple instances. Set
+                            <code>tokenStore.mode: postgres</code> and provide
+                            <code>tokenStore.pg_url</code> for deployments
+                            that already have a PostgreSQL database.</span
                         >
                     </div>
                     <div class="callout callout-info">

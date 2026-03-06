@@ -32,6 +32,11 @@ s3:
 # To allow any origin (not recommended in production):
 #     - "*"
 
+# Token store backend: "file" (default), "redis", or "postgres"
+# tokenStore:
+#   mode: file              # "file" | "redis" | "postgres"
+#   pg_url: postgres://gimme:password@localhost:5432/gimme?sslmode=disable
+
 # Authentication mode for the admin interface (default: basic)
 # auth:
 #   mode: basic        # "basic" (HTTP Basic Auth) | "oidc" (external OIDC provider)

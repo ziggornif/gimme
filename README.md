@@ -155,9 +155,10 @@ s3:
   ssl: false                # default is true; set false for local backends (Garage, dev)
 # metrics: true             # optional — expose /metrics (Prometheus), defaults to true
 
-# Token store: "file" (default, no external dependency) or "redis"
+# Token store: "file" (default, no external dependency), "redis", or "postgres"
 # tokenStore:
-#   mode: file              # "file" | "redis"
+#   mode: file              # "file" | "redis" | "postgres"
+#   pg_url: postgres://gimme:password@localhost:5432/gimme?sslmode=disable
 
 # Redis — required when tokenStore.mode is "redis" or cache.enabled is true
 # redis_url: redis://localhost:6379
@@ -183,7 +184,8 @@ s3:
 | `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
 | `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
 | `cors.allowed_origins` | List of allowed CORS origins. Defaults to all origins (`*`) if empty. | `[]` (all origins) |
-| `tokenStore.mode` | Token persistence backend. `file` stores tokens in an encrypted local file (no external dependency). `redis` stores tokens in Redis (requires `redis_url`). | `file` |
+| `tokenStore.mode` | Token persistence backend. `file` stores tokens in an encrypted local file (no external dependency). `redis` stores tokens in Redis (requires `redis_url`). `postgres` stores tokens in PostgreSQL (requires `tokenStore.pg_url`). | `file` |
+| `tokenStore.pg_url` | PostgreSQL connection URL. Required when `tokenStore.mode` is `postgres`. | `""` |
 | `cache.enabled`   | Enable internal Redis cache for version resolution | `false`  |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
@@ -196,7 +198,7 @@ s3:
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
 
-> **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances.
+> **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances. Set `tokenStore.mode: postgres` and provide `tokenStore.pg_url` for deployments that already have a PostgreSQL database.
 
 ### OIDC authentication (optional)
 
