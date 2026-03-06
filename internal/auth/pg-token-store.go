@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,35 +39,9 @@ CREATE TABLE IF NOT EXISTS gimme_tokens (
 CREATE INDEX IF NOT EXISTS idx_gimme_tokens_hash ON gimme_tokens (token_hash);
 `
 
-// NewPGTokenStore creates a PGTokenStore connected to the given PostgreSQL URL.
-// It creates a pool, pings, auto-creates the table and starts the purge goroutine.
-func NewPGTokenStore(pgURL string) (*PGTokenStore, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pool, err := pgxpool.New(ctx, pgURL)
-	if err != nil {
-		return nil, fmt.Errorf("pg-token-store: failed to create pool: %w", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("pg-token-store: cannot reach PostgreSQL: %w", err)
-	}
-
-	store, storeErr := NewPGTokenStoreWithPool(pool)
-	if storeErr != nil {
-		pool.Close()
-		return nil, storeErr
-	}
-
-	logrus.Info("[PGTokenStore] connected to PostgreSQL")
-	return store, nil
-}
-
-// NewPGTokenStoreWithPool creates a PGTokenStore using an already-connected pool.
-// The caller is responsible for closing the pool.
-func NewPGTokenStoreWithPool(pool PGPool) (*PGTokenStore, error) {
+// NewPGTokenStore creates a PGTokenStore using a PostgreSQL connection.
+// Auto-creates the table and starts the purge goroutine.
+func NewPGTokenStore(pool PGPool) (*PGTokenStore, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
@@ -15,32 +16,8 @@ type redisCache struct {
 }
 
 // NewRedisCache creates a new Redis-backed CacheManager.
-// redisURL must be a valid Redis URL (e.g. "redis://localhost:6379").
-// Use NewRedisCacheWithClient to share an existing *redis.Client.
-func NewRedisCache(redisURL string) (CacheManager, error) {
-	opts, err := redis.ParseURL(redisURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid redis URL: %w", err)
-	}
-
-	client := redis.NewClient(opts)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("redis unreachable: %w", err)
-	}
-
-	logrus.Infof("[RedisCache] NewRedisCache - Connected to Redis at %s", opts.Addr)
-	return &redisCache{client: client}, nil
-}
-
-// NewRedisCacheWithClient creates a Redis-backed CacheManager using an already-connected
-// *redis.Client. The caller is responsible for the client lifecycle (ping, close).
-// Use this to share a single Redis connection across multiple components.
-func NewRedisCacheWithClient(client *redis.Client) CacheManager {
-	return &redisCache{client: client}
+func NewRedisCache(client *persistence.RedisClient) CacheManager {
+	return &redisCache{client: client.GetClient()}
 }
 
 // Get retrieves a CacheEntry by key. Returns nil, false on miss or error.

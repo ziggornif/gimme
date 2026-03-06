@@ -23,7 +23,7 @@ func newTestRedisStore(t *testing.T) (*RedisTokenStore, *miniredis.Miniredis) {
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 
-	return NewRedisTokenStoreWithClient(client), mr
+	return NewRedisTokenStore(client), mr
 }
 
 // makeRedisEntry builds a minimal TokenEntry with a 15-minute expiry.
@@ -41,7 +41,7 @@ func makeRedisEntry(id, name, hash string) *TokenEntry {
 // client is owned by the application layer and closed there, not here.
 func TestRedisTokenStore_Close_Noop(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "localhost:0"})
-	store := NewRedisTokenStoreWithClient(client)
+	store := NewRedisTokenStore(client)
 
 	assert.NotPanics(t, func() {
 		store.Close()
@@ -66,27 +66,6 @@ func TestRedisTokenStore_toFromRedisEntry(t *testing.T) {
 	assert.Equal(t, original.TokenHash, back.TokenHash)
 	assert.Equal(t, original.ExpiresAt.Unix(), back.ExpiresAt.Unix())
 	assert.Equal(t, original.RevokedAt.Unix(), back.RevokedAt.Unix())
-}
-
-// TestRedisTokenStore_NewRedisTokenStore_InvalidURL checks that an invalid URL
-// is rejected immediately.
-func TestRedisTokenStore_NewRedisTokenStore_InvalidURL(t *testing.T) {
-	_, err := NewRedisTokenStore("://not-a-url")
-	assert.Error(t, err)
-}
-
-// TestRedisTokenStore_NewRedisTokenStore_Unreachable checks that an unreachable
-// Redis host returns an error at construction time.
-// Uses a closed miniredis port so the test fails fast without waiting for a
-// network timeout.
-func TestRedisTokenStore_NewRedisTokenStore_Unreachable(t *testing.T) {
-	mr, err := miniredis.Run()
-	require.NoError(t, err)
-	addr := mr.Addr()
-	mr.Close() // close immediately so the address is unreachable
-
-	_, err = NewRedisTokenStore("redis://" + addr)
-	assert.Error(t, err)
 }
 
 // TestRedisTokenStore_Save_AndGetByHash checks the basic round-trip.

@@ -2,6 +2,14 @@
 audit:
 	gosec ./...
 
+.PHONY: lint
+lint:
+	golangci-lint run ./...
+
+.PHONY: fmt
+fmt:
+	go fmt ./...
+
 .PHONY: build
 build:
 	go build -ldflags "-w -s" -o gimme ./cmd/server/main.go

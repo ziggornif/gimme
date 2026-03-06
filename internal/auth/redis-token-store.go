@@ -65,32 +65,9 @@ type RedisTokenStore struct {
 	client *redis.Client
 }
 
-// NewRedisTokenStore creates a RedisTokenStore connected to the given Redis URL.
-// It pings Redis on startup and returns an error if the connection fails.
-// Use NewRedisTokenStoreWithClient to share an existing *redis.Client.
-func NewRedisTokenStore(redisURL string) (*RedisTokenStore, error) {
-	opt, err := redis.ParseURL(redisURL)
-	if err != nil {
-		return nil, fmt.Errorf("redis-token-store: invalid URL: %w", err)
-	}
-
-	client := redis.NewClient(opt)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("redis-token-store: cannot reach Redis at %q: %w", opt.Addr, err)
-	}
-
-	logrus.Infof("[RedisTokenStore] connected to Redis at %s", opt.Addr)
-	return &RedisTokenStore{client: client}, nil
-}
-
-// NewRedisTokenStoreWithClient creates a RedisTokenStore using an already-connected
-// *redis.Client. The caller is responsible for the client lifecycle (ping, close).
-// Use this to share a single Redis connection across multiple components.
-func NewRedisTokenStoreWithClient(client *redis.Client) *RedisTokenStore {
+// NewRedisTokenStore creates a RedisTokenStore using an already-connected *redis.Client
+// The caller is responsible for the client lifecycle (ping, close).
+func NewRedisTokenStore(client *redis.Client) *RedisTokenStore {
 	return &RedisTokenStore{client: client}
 }
 

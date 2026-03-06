@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,27 +20,9 @@ func newTestRedisCache(t *testing.T) (CacheManager, *miniredis.Miniredis) {
 	require.NoError(t, err)
 	t.Cleanup(mr.Close)
 
-	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { _ = client.Close() })
-	return NewRedisCacheWithClient(client), mr
-}
-
-// TestNewRedisCache_InvalidURL checks that an invalid Redis URL is rejected.
-func TestNewRedisCache_InvalidURL(t *testing.T) {
-	_, err := NewRedisCache("://not-a-url")
-	assert.Error(t, err)
-}
-
-// TestNewRedisCache_Unreachable checks that an unreachable Redis host returns
-// an error at construction time.
-func TestNewRedisCache_Unreachable(t *testing.T) {
-	mr, err := miniredis.Run()
-	require.NoError(t, err)
-	addr := mr.Addr()
-	mr.Close() // close immediately so the port is unreachable
-
-	_, err = NewRedisCache("redis://" + addr)
-	assert.Error(t, err)
+	client, _ := persistence.NewRedisClient("redis://" + mr.Addr())
+	t.Cleanup(func() { client.CloseConnection() })
+	return NewRedisCache(client), mr
 }
 
 // TestRedisCache_NewRedisCacheWithClient checks that the constructor wiring a

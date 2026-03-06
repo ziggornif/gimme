@@ -22,12 +22,12 @@ import (
 	"github.com/gimme-cdn/gimme/internal/content"
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/metrics"
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,7 +39,7 @@ type Application struct {
 	storageManager storage.ObjectStorageManager
 	cacheManager   cache.CacheManager
 	tokenStore     auth.TokenStore
-	redisClient    *redis.Client
+	redisClient    *persistence.RedisClient
 	pgPool         *pgxpool.Pool
 }
 
@@ -66,7 +66,7 @@ func (app *Application) loadModules() {
 	// validateConfig ensures redis_url is set whenever a Redis-backed
 	// component is enabled, so no extra check is needed here.
 	if app.config.RedisURL != "" {
-		redisClient, redisErr := newRedisClient(app.config.RedisURL)
+		redisClient, redisErr := persistence.NewRedisClient(app.config.RedisURL)
 		if redisErr != nil {
 			log.Fatalf("failed to connect to Redis: %v", redisErr)
 		}
@@ -76,7 +76,7 @@ func (app *Application) loadModules() {
 	// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
 	switch app.config.TokenStore.Mode {
 	case "redis":
-		app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
+		app.tokenStore = auth.NewRedisTokenStore(app.redisClient.GetClient())
 		logrus.Info("[Application] loadModules - token store: Redis")
 	case "postgres":
 		pgCtx, pgCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -89,7 +89,7 @@ func (app *Application) loadModules() {
 			log.Fatalf("failed to reach PostgreSQL: %v", pgErr)
 		}
 		app.pgPool = pool
-		pgStore, pgStoreErr := auth.NewPGTokenStoreWithPool(pool)
+		pgStore, pgStoreErr := auth.NewPGTokenStore(pool)
 		if pgStoreErr != nil {
 			log.Fatalf("failed to initialise PGTokenStore: %v", pgStoreErr)
 		}
@@ -140,7 +140,7 @@ func (app *Application) loadModules() {
 	cacheTTL := time.Duration(app.config.Cache.TTL) * time.Second
 	if app.config.Cache.Enabled {
 		// cache.enabled=true implies cache.redis_url is set (validated in config).
-		app.cacheManager = cache.NewRedisCacheWithClient(app.redisClient)
+		app.cacheManager = cache.NewRedisCache(app.redisClient)
 	}
 
 	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL)
@@ -213,6 +213,16 @@ func corsConfig(allowedOrigins []string) cors.Config {
 	return cfg
 }
 
+// deriveSecret produces a domain-separated key from a master secret and a label
+// using HMAC-SHA256. This ensures that keys used for different purposes (e.g.
+// API token signing vs. OIDC session cookies) are cryptographically independent
+// even when they share the same master secret.
+func deriveSecret(masterSecret, label string) string {
+	mac := hmac.New(sha256.New, []byte(masterSecret))
+	mac.Write([]byte(label))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 // loadHttpServer load http (go gin) server
 func (app *Application) setupServer() {
 	router := gin.Default()
@@ -273,9 +283,7 @@ func (app *Application) setupServer() {
 	// Close the shared Redis client. It is the single owner of the connection;
 	// no other component calls Close() on it.
 	if app.redisClient != nil {
-		if closeErr := app.redisClient.Close(); closeErr != nil {
-			logrus.Warnf("Error closing Redis connection: %v", closeErr)
-		}
+		app.redisClient.CloseConnection()
 	}
 
 	// Close the PostgreSQL connection pool.
@@ -291,35 +299,4 @@ func (app *Application) Run() {
 	app.loadConfig()
 	app.loadModules()
 	app.setupServer()
-}
-
-// deriveSecret produces a domain-separated key from a master secret and a label
-// using HMAC-SHA256. This ensures that keys used for different purposes (e.g.
-// API token signing vs. OIDC session cookies) are cryptographically independent
-// even when they share the same master secret.
-func deriveSecret(masterSecret, label string) string {
-	mac := hmac.New(sha256.New, []byte(masterSecret))
-	mac.Write([]byte(label))
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
-// newRedisClient parses redisURL, creates a *redis.Client, pings it and returns it.
-// Used to build a single shared client that is passed to both the token store and the cache.
-func newRedisClient(redisURL string) (*redis.Client, error) {
-	opt, err := redis.ParseURL(redisURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Redis URL: %w", err)
-	}
-
-	client := redis.NewClient(opt)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("cannot reach Redis at %q: %w", opt.Addr, err)
-	}
-
-	logrus.Infof("[Application] newRedisClient - connected to Redis at %s", opt.Addr)
-	return client, nil
 }
