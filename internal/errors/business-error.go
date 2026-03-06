@@ -8,10 +8,10 @@ type ErrorKindEnum string
 
 const (
 	Unauthorized   ErrorKindEnum = "Unauthorized"
-	InternalError                = "InternalError"
-	BadRequest                   = "BadRequest"
-	Conflict                     = "Conflict"
-	NotImplemented               = "NotImplemented"
+	InternalError  ErrorKindEnum = "InternalError"
+	BadRequest     ErrorKindEnum = "BadRequest"
+	Conflict       ErrorKindEnum = "Conflict"
+	NotImplemented ErrorKindEnum = "NotImplemented"
 )
 
 var httpCodes = map[ErrorKindEnum]int{
@@ -23,18 +23,30 @@ var httpCodes = map[ErrorKindEnum]int{
 }
 
 type GimmeError struct {
-	Kind  ErrorKindEnum
-	Error error
+	Kind ErrorKindEnum
+	Err  error
 }
 
 func NewBusinessError(kind ErrorKindEnum, err error) *GimmeError {
 	return &GimmeError{kind, err}
 }
 
-func (err GimmeError) String() string {
-	return err.Error.Error()
+func (e GimmeError) Error() string {
+	if e.Err == nil {
+		return string(e.Kind)
+	}
+	return e.Err.Error()
 }
 
-func (err GimmeError) GetHTTPCode() int {
-	return httpCodes[err.Kind]
+// Unwrap returns the wrapped error so that errors.Is and errors.As can
+// traverse the error chain through a GimmeError.
+func (e GimmeError) Unwrap() error {
+	return e.Err
+}
+
+func (e GimmeError) GetHTTPCode() int {
+	if code, ok := httpCodes[e.Kind]; ok {
+		return code
+	}
+	return http.StatusInternalServerError
 }

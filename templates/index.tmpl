@@ -1,24 +1,240 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Gimme CDN</title>
-    <!-- needed for adaptive design -->
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gimme CDN — API Reference</title>
+  <meta name="description" content="Interactive API documentation for Gimme CDN — a self-hosted CDN backed by S3-compatible storage." />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:            #FFFFFF;
+      --bg-subtle:     #F8FAFC;
+      --bg-muted:      #F1F5F9;
+      --border:        #E2E8F0;
+      --border-strong: #CBD5E1;
+      --text-primary:  #0F172A;
+      --text-secondary:#475569;
+      --text-muted:    #94A3B8;
+      --accent:        #2563EB;
+      --accent-hover:  #1D4ED8;
+      --accent-light:  #EFF6FF;
+      --accent-mid:    #BFDBFE;
 
-    <!--
-    Redoc doesn't change outer page styles
-    -->
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-    </style>
+      --font-display:  'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body:     'Inter', system-ui, sans-serif;
+
+      --header-height: 64px;
+      --radius-sm:     6px;
+      --radius-xs:     4px;
+      --transition:    180ms ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- Skip link ---- */
+    .skip-link {
+      position: absolute;
+      top: -48px;
+      left: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      z-index: 9999;
+      transition: top var(--transition);
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 8px; }
+
+    /* ---- Header ---- */
+    .site-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-height);
+    }
+
+    /* ---- Push ReDoc below the fixed header ---- */
+    #redoc-container {
+      padding-top: var(--header-height);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      max-width: 1380px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 100%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: color var(--transition);
+    }
+    .logo:hover { color: var(--accent); }
+    .logo:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: var(--radius-xs);
+    }
+    .logo-text { letter-spacing: -0.03em; }
+
+    /* ---- Page label ---- */
+    .page-label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .page-label-sep { color: var(--border-strong); }
+
+    .page-label-text {
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    /* ---- Header nav ---- */
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-left: auto;
+    }
+
+    .header-nav a {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .header-nav a:hover { color: var(--text-primary); }
+    .header-nav a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-xs);
+    }
+
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.85rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 0.84rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .btn-github:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+      color: var(--text-primary);
+    }
+    .btn-github:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Ensure ReDoc fills the space */
+    redoc {
+      display: block;
+    }
+
+    /* ---- Reduced motion ---- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 640px) {
+      .page-label { display: none; }
+      .header-nav a:not(.btn-github) { display: none; }
+    }
+
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  </style>
 </head>
 <body>
-<redoc spec-url='/docs/swagger.json'></redoc>
-<script src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"> </script>
+
+  <a class="skip-link" href="#redoc-container">Skip to API documentation</a>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="logo" aria-label="Gimme CDN — home">
+        <img src="/assets/gimme.png" width="32" height="32" alt="" aria-hidden="true" style="border-radius:6px;" />
+        <span class="logo-text">gimme</span>
+      </a>
+
+      <div class="page-label" aria-hidden="true">
+        <span class="page-label-sep">/</span>
+        <span class="page-label-text">API Reference</span>
+      </div>
+
+      <nav class="header-nav" aria-label="Site navigation">
+        <a href="/docs/site/">Documentation</a>
+        <a
+          href="https://github.com/ziggornif/gimme"
+          class="btn-github"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="View Gimme on GitHub (opens in new tab)"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- REDOC API DOCS -->
+  <main id="redoc-container" aria-label="API Reference documentation">
+    <redoc spec-url='/docs/api/swagger.json'></redoc>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/redoc@2.5.2/bundles/redoc.standalone.js"></script>
 </body>
 </html>

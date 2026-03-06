@@ -2,40 +2,130 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "**" ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup minio
+      - uses: actions/checkout@v4
+
+      - name: Setup Garage
         run: |
-          docker run -d -p 9000:9000 --name minio \
-             -e "MINIO_ACCESS_KEY=minioadmin" \
-             -e "MINIO_SECRET_KEY=minioadmin" \
-             -v /tmp/data:/data \
-             -v /tmp/config:/root/.minio \
-             minio/minio server /data
+          set -euo pipefail
+          mkdir -p /tmp/garage/{meta,data}
+          printf '%s\n' \
+            'metadata_dir = "/var/lib/garage/meta"' \
+            'data_dir = "/var/lib/garage/data"' \
+            'db_engine = "sqlite"' \
+            'replication_factor = 1' \
+            'rpc_bind_addr = "[::]:3901"' \
+            'rpc_public_addr = "127.0.0.1:3901"' \
+            'rpc_secret = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+            '[s3_api]' \
+            's3_region = "garage"' \
+            'api_bind_addr = "[::]:3900"' \
+            '[admin]' \
+            'api_bind_addr = "[::]:3903"' \
+            > /tmp/garage.toml
+          docker run -d --name garage \
+            -p 3900:3900 -p 3901:3901 -p 3903:3903 \
+            -v /tmp/garage.toml:/etc/garage.toml \
+            -v /tmp/garage/meta:/var/lib/garage/meta \
+            -v /tmp/garage/data:/var/lib/garage/data \
+            dxflrs/garage:v1.3.1
+
+          echo "Waiting for Garage to be ready..."
+          for i in $(seq 1 15); do
+            docker exec garage /garage status 2>/dev/null && break
+            echo "  attempt $i/15..."
+            sleep 2
+          done
+
+          NODE_ID=$(docker exec garage /garage status | grep -oP '[0-9a-f]{16}' | head -1)
+          if [ -z "$NODE_ID" ]; then
+            echo "ERROR: Could not determine Garage node ID"
+            docker logs garage
+            exit 1
+          fi
+          echo "Node ID: $NODE_ID"
+
+          docker exec garage /garage layout assign -z dc1 -c 1G "$NODE_ID"
+          docker exec garage /garage layout apply --version 1
+          docker exec garage /garage key create gimme-key
+          docker exec garage /garage bucket create gimme
+          docker exec garage /garage bucket allow --read --write --owner gimme --key gimme-key
+
+      - name: Get Garage credentials
+        id: garage-creds
+        run: |
+          set -euo pipefail
+          KEY_ID=$(docker exec garage /garage key info --show-secret gimme-key | grep 'Key ID' | awk '{print $3}')
+          SECRET=$(docker exec garage /garage key info --show-secret gimme-key | grep 'Secret key' | awk '{print $3}')
+          echo "::add-mask::$SECRET"
+          echo "key_id=$KEY_ID" >> $GITHUB_OUTPUT
+          echo "secret=$SECRET" >> $GITHUB_OUTPUT
+
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: '^1.18'
+          go-version: '^1.26'
+
       - name: Test
-        run: go test  ./... -coverprofile=coverage.out
+        env:
+          TEST_S3_URL: localhost:3900
+          TEST_S3_KEY: ${{ steps.garage-creds.outputs.key_id }}
+          TEST_S3_SECRET: ${{ steps.garage-creds.outputs.secret }}
+          TEST_S3_BUCKET: gimme
+          TEST_S3_LOCATION: garage
+        run: |
+          go test ./... -coverprofile=coverage.out
+          grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out
+
       - name: Coverage
         run: go tool cover -func coverage.out
+
+  helm-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+      - name: Helm lint
+        run: make helm-lint
+      - name: Helm unit tests
+        run: make helm-test
+
   build:
+    needs: [test, helm-test]
     runs-on: ubuntu-latest
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
+      - name: Compute Docker tag
+        id: docker-tag
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_NAME" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            # Sanitize branch name: replace '/' and any non-alphanumeric chars with '-'
+            BRANCH=$(echo "$REF_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            echo "tag=${BRANCH}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Docker login
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASS }}
+        run: echo "${{ secrets.DOCKER_PASS }}" | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
+
       - name: Build the Docker image
-        run: docker build -t $REPO:latest .
+        run: docker build -t $REPO:${{ steps.docker-tag.outputs.tag }} .
+
       - name: Publish Docker image
-        run: docker push $REPO:latest
+        run: docker push $REPO:${{ steps.docker-tag.outputs.tag }}

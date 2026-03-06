@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — API Keys — Gimme CDN</title>
+  <meta name="description" content="Manage API keys for Gimme CDN" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:            #FFFFFF;
+      --bg-subtle:     #F8FAFC;
+      --bg-muted:      #F1F5F9;
+      --border:        #E2E8F0;
+      --border-strong: #CBD5E1;
+      --text-primary:  #0F172A;
+      --text-secondary:#475569;
+      --text-muted:    #94A3B8;
+      --accent:        #2563EB;
+      --accent-hover:  #1D4ED8;
+      --accent-light:  #EFF6FF;
+      --accent-mid:    #BFDBFE;
+      --danger:        #DC2626;
+      --danger-light:  #FEF2F2;
+      --danger-mid:    #FECACA;
+      --green:         #16A34A;
+      --green-light:   #F0FDF4;
+
+      --font-display:  'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body:     'Inter', system-ui, sans-serif;
+      --font-mono:     'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+
+      --header-height: 64px;
+      --radius:        10px;
+      --radius-sm:     6px;
+      --radius-xs:     4px;
+      --shadow-sm:     0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow:        0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+      --transition:    180ms ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Skip link ---- */
+    .skip-link {
+      position: absolute; top: -48px; left: 8px;
+      background: var(--accent); color: #fff;
+      font-weight: 600; font-size: 0.875rem;
+      padding: 8px 14px; border-radius: var(--radius-sm);
+      z-index: 9999; transition: top var(--transition); text-decoration: none;
+    }
+    .skip-link:focus { top: 8px; }
+
+    /* ---- Header ---- */
+    .site-header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-height);
+    }
+
+    .header-inner {
+      display: flex; align-items: center; gap: 1rem;
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 1.5rem; height: 100%;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font-display); font-weight: 700; font-size: 1.1rem;
+      color: var(--text-primary); text-decoration: none; flex-shrink: 0;
+      transition: color var(--transition);
+    }
+    .logo:hover { color: var(--accent); }
+    .logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-xs); }
+    .logo-text { letter-spacing: -0.03em; }
+
+    .header-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 3px 8px; border-radius: 100px;
+      background: #FEF3C7; color: #B45309;
+      border: 1px solid #FDE68A;
+    }
+
+    /* ---- Main layout ---- */
+    main {
+      flex: 1;
+      max-width: 1100px; width: 100%;
+      margin: 0 auto; padding: 2.5rem 1.5rem 4rem;
+      display: flex; flex-direction: column; gap: 2.5rem;
+    }
+
+    /* ---- Section headers ---- */
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.2rem; font-weight: 700;
+      letter-spacing: -0.02em; color: var(--text-primary);
+      margin-bottom: 1.25rem;
+    }
+
+    /* ---- Card ---- */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-body { padding: 1.5rem; }
+
+    /* ---- Form ---- */
+    .form-row {
+      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 180px; }
+
+    label {
+      font-size: 0.8rem; font-weight: 600;
+      color: var(--text-secondary); letter-spacing: 0.01em;
+    }
+
+    input[type="text"], input[type="date"] {
+      height: 38px;
+      padding: 0 0.75rem;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body); font-size: 0.875rem;
+      color: var(--text-primary); background: var(--bg);
+      transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+    }
+    input[type="text"]:focus, input[type="date"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    input::placeholder { color: var(--text-muted); }
+
+    .form-hint {
+      font-size: 0.75rem; color: var(--text-muted);
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 0.4rem; padding: 0 1rem; height: 38px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body); font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; transition: background var(--transition), box-shadow var(--transition),
+        border-color var(--transition), color var(--transition);
+      border: 1px solid transparent; text-decoration: none; white-space: nowrap;
+    }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .btn-primary {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-danger {
+      background: transparent; color: var(--danger); border-color: var(--danger-mid);
+    }
+    .btn-danger:hover { background: var(--danger-light); border-color: var(--danger); }
+
+    .btn-sm { height: 30px; padding: 0 0.7rem; font-size: 0.8rem; }
+
+    /* ---- Token reveal modal ---- */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,0.45);
+      z-index: 500; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 580px; width: 100%;
+      padding: 2rem;
+      animation: modal-in 200ms ease;
+    }
+
+    @keyframes modal-in {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-title {
+      font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-desc {
+      font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+
+    .modal-desc strong { color: var(--danger); }
+
+    .token-box {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .token-value {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      color: var(--text-primary); word-break: break-all;
+      flex: 1; user-select: all;
+    }
+
+    .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+    /* ---- Tokens table ---- */
+    .table-wrapper {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead { background: var(--bg-subtle); }
+    th {
+      text-align: left; padding: 0.7rem 1rem;
+      font-weight: 600; font-size: 0.72rem; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--text-muted);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    th.col-actions { text-align: right; width: 90px; }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary); vertical-align: middle;
+    }
+    tbody tr:first-child td { border-top: none; }
+    tbody tr:hover td { background: var(--bg-subtle); }
+
+    .token-name {
+      font-weight: 600; color: var(--text-primary);
+    }
+
+    .token-id {
+      font-family: var(--font-mono); font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .token-date { white-space: nowrap; font-size: 0.82rem; }
+
+    .badge-expires {
+      display: inline-block; font-size: 0.72rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 100px;
+      background: var(--accent-light); color: var(--accent);
+      border: 1px solid var(--accent-mid); white-space: nowrap;
+    }
+    .badge-expires.expired {
+      background: var(--danger-light); color: var(--danger);
+      border-color: var(--danger-mid);
+    }
+
+    .badge-revoked {
+      display: inline-block; font-size: 0.68rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 100px;
+      background: var(--danger-light); color: var(--danger);
+      border: 1px solid var(--danger-mid); white-space: nowrap;
+      text-transform: uppercase; letter-spacing: 0.03em;
+      margin-left: 0.4rem; vertical-align: middle;
+    }
+
+    .row-revoked td { opacity: 0.55; }
+    .row-revoked .token-name { text-decoration: line-through; }
+
+    .col-actions-data { text-align: right; }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+      text-align: center; padding: 3.5rem 2rem; color: var(--text-muted);
+    }
+    .empty-state svg { margin-bottom: 1rem; opacity: 0.35; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--text-primary); color: #fff;
+      font-size: 0.84rem; font-weight: 500;
+      padding: 0.6rem 1rem; border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity var(--transition), transform var(--transition);
+      pointer-events: none; z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ---- Error banner ---- */
+    .error-banner {
+      display: none; align-items: center; gap: 0.5rem;
+      background: var(--danger-light); border: 1px solid var(--danger-mid);
+      border-radius: var(--radius-sm); padding: 0.65rem 1rem;
+      font-size: 0.875rem; color: var(--danger); margin-top: 0.75rem;
+    }
+    .error-banner.visible { display: flex; }
+
+    /* ---- Footer ---- */
+    .site-footer {
+      border-top: 1px solid var(--border); background: var(--bg-subtle); margin-top: auto;
+    }
+    .footer-inner {
+      max-width: 1100px; margin: 0 auto; padding: 1.25rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .footer-brand { display: flex; align-items: center; gap: 0.5rem; }
+    .footer-brand-name { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; }
+    .footer-copy { font-size: 0.78rem; color: var(--text-muted); }
+    .footer-nav { display: flex; gap: 1.25rem; }
+    .footer-nav a { font-size: 0.82rem; color: var(--text-muted); text-decoration: none; transition: color var(--transition); }
+    .footer-nav a:hover { color: var(--text-primary); }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 640px) {
+      main { padding: 1.5rem 1rem 3rem; }
+      .form-row { flex-direction: column; }
+      .form-group { min-width: 0; }
+      th, td { padding: 0.6rem 0.75rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="logo" aria-label="Gimme CDN — back to home">
+        <img src="/assets/gimme.png" width="32" height="32" alt="" aria-hidden="true" style="border-radius:6px;" />
+        <span class="logo-text">gimme</span>
+      </a>
+      <span class="header-badge" aria-label="Administration area">Admin</span>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main-content">
+
+    <!-- CREATE TOKEN SECTION -->
+    <section aria-labelledby="create-section-title">
+      <h1 class="section-title" id="create-section-title">Create API Key</h1>
+      <div class="card">
+        <div class="card-body">
+          <form id="create-form" novalidate>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="token-name">Name <span aria-hidden="true">*</span></label>
+                <input
+                  type="text" id="token-name" name="name"
+                  placeholder="e.g. CI/CD pipeline, Frontend app"
+                  autocomplete="off" required
+                  aria-required="true"
+                  aria-describedby="name-hint"
+                />
+                <span id="name-hint" class="form-hint">A label to identify this key later.</span>
+              </div>
+              <div class="form-group" style="max-width:200px;">
+                <label for="token-expiry">Expiration date</label>
+                <input
+                  type="date" id="token-expiry" name="expirationDate"
+                  aria-describedby="expiry-hint"
+                />
+                <span id="expiry-hint" class="form-hint">Leave blank — defaults to 15 min.</span>
+              </div>
+              <div class="form-group" style="flex:0; min-width:unset;">
+                <label style="visibility:hidden;" aria-hidden="true">Action</label>
+                <button type="submit" class="btn btn-primary" id="create-btn">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Generate
+                </button>
+              </div>
+            </div>
+            <div class="error-banner" id="create-error" role="alert" aria-live="polite">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="create-error-msg"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOKENS LIST SECTION -->
+    <section aria-labelledby="list-section-title">
+      <h2 class="section-title" id="list-section-title">
+        API Keys
+        <span id="token-count" style="font-size:0.85rem;font-weight:500;color:var(--text-muted);margin-left:0.5rem;"></span>
+      </h2>
+
+      <div id="tokens-list-wrapper">
+        {{ if .tokens }}
+        <div class="table-wrapper">
+          <table aria-label="API keys" aria-describedby="list-section-title">
+            <thead>
+              <tr>
+                <th scope="col">Name / ID</th>
+                <th scope="col">Created</th>
+                <th scope="col">Expires</th>
+                <th scope="col" class="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tokens-tbody">
+              {{ range .tokens }}
+              <tr id="row-{{ .ID }}" data-id="{{ .ID }}" {{ if isRevoked .RevokedAt }}class="row-revoked"{{ end }}>
+                <td>
+                  <div class="token-name">{{ .Name }}{{ if isRevoked .RevokedAt }} <span class="badge-revoked" aria-label="revoked">revoked</span>{{ end }}</div>
+                  <div class="token-id">{{ .ID }}</div>
+                </td>
+                <td class="token-date">{{ formatTime .CreatedAt }}</td>
+                <td>
+                  <span class="badge-expires {{ if isExpired .ExpiresAt }}expired{{ end }}">
+                    {{ formatTime .ExpiresAt }}
+                  </span>
+                </td>
+                <td class="col-actions-data">
+                  {{ if isRevoked .RevokedAt }}
+                  <span class="text-muted" style="font-size:0.8rem;">Revoked {{ formatTime .RevokedAt }}</span>
+                  {{ else }}
+                  <button
+                    class="btn btn-danger btn-sm revoke-btn"
+                    type="button"
+                    data-id="{{ .ID }}"
+                    data-name="{{ .Name }}"
+                    aria-label="Revoke token {{ .Name }}"
+                  >Revoke</button>
+                  {{ end }}
+                </td>
+              </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+        {{ else }}
+        <div class="empty-state" id="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <p>No API keys yet. Create your first one above.</p>
+        </div>
+        {{ end }}
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="/assets/gimme.png" width="24" height="24" alt="" aria-hidden="true" style="border-radius:4px;" />
+        <span class="footer-brand-name">gimme</span>
+        <span class="footer-copy">Self-hosted CDN</span>
+      </div>
+      <nav class="footer-nav" aria-label="Footer links">
+        <a href="/">API docs</a>
+        <a href="https://github.com/ziggornif/gimme" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- TOKEN REVEAL MODAL -->
+  <div class="modal-backdrop" id="token-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <h2 class="modal-title" id="modal-title">API Key created</h2>
+      <p class="modal-desc">
+        Copy this key now — <strong>it will not be shown again.</strong>
+      </p>
+      <div class="token-box">
+        <span class="token-value" id="modal-token-value" aria-label="API key value"></span>
+        <button class="btn btn-sm" id="modal-copy-btn" type="button" aria-label="Copy API key">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="modal-close-btn" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ---- Helpers ---- */
+    var toast = document.getElementById('toast');
+    var toastTimer;
+
+    function showToast(msg, isError) {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.style.background = isError ? '#DC2626' : '';
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+        toast.style.background = '';
+      }, 3000);
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(function () {
+          showToast('Copied!', false);
+        }).catch(function () { fallbackCopy(text); });
+      }
+      fallbackCopy(text);
+    }
+
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+      if (ok) { showToast('Copied!', false); } else { showToast('Copy failed', true); }
+    }
+
+    /* ---- Token count badge ---- */
+    function updateCount() {
+      var rows = document.querySelectorAll('#tokens-tbody tr');
+      var el = document.getElementById('token-count');
+      if (el) el.textContent = '(' + rows.length + ')';
+    }
+    updateCount();
+
+    /* ---- Create form ---- */
+    var form      = document.getElementById('create-form');
+    var createBtn = document.getElementById('create-btn');
+    var errBanner = document.getElementById('create-error');
+    var errMsg    = document.getElementById('create-error-msg');
+
+    function showCreateError(msg) {
+      errMsg.textContent = msg;
+      errBanner.classList.add('visible');
+    }
+    function clearCreateError() {
+      errBanner.classList.remove('visible');
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearCreateError();
+
+      var name = document.getElementById('token-name').value.trim();
+      var expiry = document.getElementById('token-expiry').value;
+
+      if (!name) {
+        showCreateError('Name is required.');
+        document.getElementById('token-name').focus();
+        return;
+      }
+
+      createBtn.disabled = true;
+      createBtn.textContent = 'Generating…';
+
+      var payload = { name: name };
+      if (expiry) payload.expirationDate = expiry;
+
+      fetch('/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function (res) {
+        if (res.status === 401) {
+          showCreateError('Session expired — please reload the page and authenticate again.');
+          return { skip: true };
+        }
+        return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+      })
+      .then(function (result) {
+        if (!result || result.skip) return;
+        if (!result.ok) {
+          showCreateError(result.data.error || 'An error occurred.');
+          return;
+        }
+
+        /* Show modal with token */
+        document.getElementById('modal-token-value').textContent = result.data.token;
+        document.getElementById('token-modal').classList.add('open');
+        document.getElementById('modal-close-btn').focus();
+
+        /* Inject new row into table */
+        injectRow(result.data);
+
+        /* Reset form */
+        form.reset();
+        updateCount();
+      })
+      .catch(function () {
+        showCreateError('Network error — please try again.');
+      })
+      .finally(function () {
+        createBtn.disabled = false;
+        createBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Generate';
+      });
+    });
+
+    /* ---- Inject new row ---- */
+    function formatDate(iso) {
+      if (!iso) return '—';
+      var d = new Date(iso);
+      if (isNaN(d)) return iso;
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+             ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function isExpired(iso) {
+      if (!iso) return false;
+      return new Date(iso) < new Date();
+    }
+
+    function injectRow(data) {
+      /* Remove empty state if present */
+      var empty = document.getElementById('empty-state');
+      if (empty) empty.remove();
+
+      var wrapper = document.getElementById('tokens-list-wrapper');
+      var tableWrapper = wrapper.querySelector('.table-wrapper');
+
+      if (!tableWrapper) {
+        tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+        tableWrapper.innerHTML =
+          '<table aria-label="API keys"><thead><tr>' +
+          '<th scope="col">Name / ID</th><th scope="col">Created</th>' +
+          '<th scope="col">Expires</th><th scope="col" class="col-actions">Actions</th>' +
+          '</tr></thead><tbody id="tokens-tbody"></tbody></table>';
+        wrapper.appendChild(tableWrapper);
+      }
+
+      var tbody = document.getElementById('tokens-tbody');
+      var expiredCls = isExpired(data.expiresAt) ? ' expired' : '';
+      var row = document.createElement('tr');
+      row.id = 'row-' + data.id;
+      row.dataset.id = data.id;
+      row.innerHTML =
+        '<td><div class="token-name">' + escHtml(data.name) + '</div>' +
+        '<div class="token-id">' + escHtml(data.id) + '</div></td>' +
+        '<td class="token-date">' + formatDate(data.createdAt) + '</td>' +
+        '<td><span class="badge-expires' + expiredCls + '">' + formatDate(data.expiresAt) + '</span></td>' +
+        '<td class="col-actions-data"><button class="btn btn-danger btn-sm revoke-btn" type="button"' +
+        ' data-id="' + escHtml(data.id) + '" data-name="' + escHtml(data.name) + '"' +
+        ' aria-label="Revoke token ' + escHtml(data.name) + '">Revoke</button></td>';
+      tbody.prepend(row);
+      attachRevoke(row.querySelector('.revoke-btn'));
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ---- Modal ---- */
+    var modal     = document.getElementById('token-modal');
+    var closeBtn  = document.getElementById('modal-close-btn');
+    var copyBtn   = document.getElementById('modal-copy-btn');
+
+    closeBtn.addEventListener('click', function () {
+      modal.classList.remove('open');
+    });
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.classList.remove('open');
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.classList.contains('open')) {
+        modal.classList.remove('open');
+      }
+    });
+
+    copyBtn.addEventListener('click', function () {
+      var val = document.getElementById('modal-token-value').textContent;
+      copyText(val);
+    });
+
+    /* ---- Revoke ---- */
+    function attachRevoke(btn) {
+      btn.addEventListener('click', function () {
+        var id   = btn.dataset.id;
+        var name = btn.dataset.name;
+        if (!confirm('Revoke token "' + name + '"?\nThis cannot be undone — any service using this key will be denied.')) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Revoking…';
+
+        fetch('/tokens/' + encodeURIComponent(id), { method: 'DELETE' })
+          .then(function (res) {
+            if (res.status === 401) {
+              showToast('Session expired — please reload the page.', true);
+              btn.disabled = false;
+              btn.textContent = 'Revoke';
+              return;
+            }
+            if (res.ok || res.status === 204) {
+              /* Mark the row as revoked in place instead of removing it */
+              var row = document.getElementById('row-' + id);
+              if (row) {
+                row.classList.add('row-revoked');
+                /* Add revoked badge to name cell */
+                var nameDiv = row.querySelector('.token-name');
+                if (nameDiv && !nameDiv.querySelector('.badge-revoked')) {
+                  var badge = document.createElement('span');
+                  badge.className = 'badge-revoked';
+                  badge.setAttribute('aria-label', 'revoked');
+                  badge.textContent = 'revoked';
+                  nameDiv.appendChild(badge);
+                }
+                /* Replace the Revoke button with a revoked-at label */
+                var now = new Date();
+                var revokedLabel = now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+                                   ' ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                var cell = btn.closest('td');
+                if (cell) {
+                  var span = document.createElement('span');
+                  span.className = 'text-muted';
+                  span.style.fontSize = '0.8rem';
+                  span.textContent = 'Revoked ' + revokedLabel;
+                  cell.innerHTML = '';
+                  cell.appendChild(span);
+                }
+              }
+              showToast('Token revoked.', false);
+            } else {
+              return res.json().then(function (d) {
+                showToast(d.error || 'Failed to revoke token.', true);
+                btn.disabled = false;
+                btn.textContent = 'Revoke';
+              });
+            }
+          })
+          .catch(function () {
+            showToast('Network error.', true);
+            btn.disabled = false;
+            btn.textContent = 'Revoke';
+          });
+      });
+    }
+
+    document.querySelectorAll('.revoke-btn').forEach(attachRevoke);
+
+  })();
+  </script>
+
+</body>
+</html>

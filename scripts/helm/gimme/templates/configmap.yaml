@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gimme.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gimme.labels" . | nindent 4 }}
+data:
+  gimme.yml: |-
+    port: {{ .Values.config.port }}
+    metrics: {{ .Values.config.metrics }}
+    s3:
+      url: {{ required "s3.url is required" .Values.s3.url | quote }}
+      bucketName: {{ .Values.s3.bucketName | quote }}
+      location: {{ .Values.s3.location | quote }}
+      ssl: {{ .Values.s3.ssl }}
+    {{- if .Values.cache.enabled }}
+    cache:
+      enabled: true
+      type: {{ .Values.cache.type | quote }}
+      ttl: {{ .Values.cache.ttl }}
+      redis_url: {{ .Values.cache.redisUrl | quote }}
+    {{- end }}
+    {{- if ne .Values.tokenStore.mode "file" }}
+    tokenStore:
+      mode: {{ .Values.tokenStore.mode | quote }}
+    {{- end }}
+    {{- if eq .Values.auth.mode "oidc" }}
+    auth:
+      mode: oidc
+      oidc:
+        issuer: {{ required "auth.oidc.issuer is required when auth.mode is oidc" .Values.auth.oidc.issuer | quote }}
+        client_id: {{ required "auth.oidc.clientId is required when auth.mode is oidc" .Values.auth.oidc.clientId | quote }}
+        redirect_url: {{ required "auth.oidc.redirectUrl is required when auth.mode is oidc" .Values.auth.oidc.redirectUrl | quote }}
+        secure_cookies: {{ .Values.auth.oidc.secureCookies }}
+    {{- end }}

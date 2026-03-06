@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/gimme-cdn/gimme/internal/errors"
 
@@ -11,18 +10,60 @@ import (
 	"github.com/spf13/viper"
 )
 
+type CacheConfig struct {
+	Enabled bool
+	Type    string // "redis" ; "memory" reserved for future use
+	TTL     int    // seconds
+}
+
+// OIDCConfig holds the configuration for the OIDC provider.
+// Only used when AuthConfig.Mode is "oidc".
+type OIDCConfig struct {
+	Issuer        string
+	ClientID      string
+	ClientSecret  string
+	RedirectURL   string
+	SecureCookies bool // set to true when Gimme is served over HTTPS (default: true)
+}
+
+// AuthConfig controls the authentication mode for the admin interface.
+// Mode "basic" (default) uses HTTP Basic Auth with admin credentials.
+// Mode "oidc" delegates authentication to an external OIDC provider.
+type AuthConfig struct {
+	Mode string // "basic" (default) | "oidc"
+	OIDC OIDCConfig
+}
+
+// TokenStoreConfig controls the tokens storage (api keys) mode
+// Mode "file" (default) store tokens in a JSON file stored in filesystem
+// Mode "redis" store tokens in a Redis token store
+// Mode "postgres" store tokens in a PostgreSQL database
+type TokenStoreConfig struct {
+	Mode        string // "file" (default) | "redis" | "postgres"
+	PostgresURL string // required when Mode is "postgres"
+}
+
 type Configuration struct {
-	AppPort       string
-	AdminUser     string
-	AdminPassword string
-	Secret        string
-	S3Url         string
-	S3Key         string
-	S3Secret      string
-	S3BucketName  string
-	S3Location    string
-	S3SSL         bool
-	EnableMetrics bool
+	AppPort            string
+	AdminUser          string
+	AdminPassword      string
+	Secret             string
+	S3Url              string
+	S3Key              string
+	S3Secret           string
+	S3BucketName       string
+	S3Location         string
+	S3SSL              bool
+	EnableMetrics      bool
+	CORSAllowedOrigins []string
+	// RedisURL is the shared Redis connection URL used by any Redis-backed
+	// component (token store, cache). A single client is created from this URL
+	// and injected wherever needed.
+	RedisURL   string
+	TokenFile  string // path to the encrypted token file (FileTokenStore)
+	Cache      CacheConfig
+	Auth       AuthConfig
+	TokenStore TokenStoreConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -30,12 +71,53 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")       // local path
 	viper.AddConfigPath("/config") // docker path
-	viper.AutomaticEnv()
+	// Enable env var overrides with GIMME_ prefix.
+	// e.g. GIMME_SECRET overrides config key "secret",
+	//      GIMME_ADMIN_USER overrides "admin.user",
+	//      GIMME_S3_KEY overrides "s3.key", etc.
+	// Bind env vars explicitly for all overridable keys.
+	// AutomaticEnv() is intentionally NOT used: with prefix "GIMME", Kubernetes
+	// automatically injects env vars such as GIMME_PORT (service discovery) that
+	// would silently override config-file values (e.g. port).
+	// Explicit BindEnv calls give full control over which env vars are read.
+	_ = viper.BindEnv("secret", "GIMME_SECRET")
+	_ = viper.BindEnv("admin.user", "GIMME_ADMIN_USER")
+	_ = viper.BindEnv("admin.password", "GIMME_ADMIN_PASSWORD")
+	_ = viper.BindEnv("s3.url", "GIMME_S3_URL")
+	_ = viper.BindEnv("s3.key", "GIMME_S3_KEY")
+	_ = viper.BindEnv("s3.secret", "GIMME_S3_SECRET")
+	_ = viper.BindEnv("s3.bucketName", "GIMME_S3_BUCKETNAME")
+	_ = viper.BindEnv("s3.location", "GIMME_S3_LOCATION")
+	_ = viper.BindEnv("s3.ssl", "GIMME_S3_SSL")
+	_ = viper.BindEnv("port", "GIMME_APP_PORT")
+	_ = viper.BindEnv("metrics", "GIMME_METRICS")
+	_ = viper.BindEnv("redis_url", "GIMME_REDIS_URL")
+	_ = viper.BindEnv("token_file", "GIMME_TOKEN_FILE")
+	_ = viper.BindEnv("cache.enabled", "GIMME_CACHE_ENABLED")
+	_ = viper.BindEnv("cache.type", "GIMME_CACHE_TYPE")
+	_ = viper.BindEnv("cache.ttl", "GIMME_CACHE_TTL")
+	_ = viper.BindEnv("auth.mode", "GIMME_AUTH_MODE")
+	_ = viper.BindEnv("auth.oidc.issuer", "GIMME_AUTH_OIDC_ISSUER")
+	_ = viper.BindEnv("auth.oidc.client_id", "GIMME_AUTH_OIDC_CLIENT_ID")
+	_ = viper.BindEnv("auth.oidc.client_secret", "GIMME_AUTH_OIDC_CLIENT_SECRET")
+	_ = viper.BindEnv("auth.oidc.redirect_url", "GIMME_AUTH_OIDC_REDIRECT_URL")
+	_ = viper.BindEnv("auth.oidc.secure_cookies", "GIMME_AUTH_OIDC_SECURE_COOKIES")
+	_ = viper.BindEnv("tokenStore.mode", "GIMME_TOKENSTORE_MODE")
+	_ = viper.BindEnv("tokenStore.pg_url", "GIMME_TOKENSTORE_PG_URL")
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
 	viper.SetDefault("s3.ssl", true)
 	viper.SetDefault("metrics", true)
+	viper.SetDefault("cors.allowed_origins", []string{})
+	viper.SetDefault("redis_url", "")
+	viper.SetDefault("token_file", "/tmp/gimme-tokens.enc")
+	viper.SetDefault("cache.enabled", false)
+	viper.SetDefault("cache.type", "redis")
+	viper.SetDefault("cache.ttl", 3600)
+	viper.SetDefault("auth.mode", "basic")
+	viper.SetDefault("auth.oidc.secure_cookies", true)
+	viper.SetDefault("tokenStore.mode", "file")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -55,9 +137,32 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
+	config.CORSAllowedOrigins = viper.GetStringSlice("cors.allowed_origins")
+	config.RedisURL = viper.GetString("redis_url")
+	config.TokenFile = viper.GetString("token_file")
+	config.Cache = CacheConfig{
+		Enabled: viper.GetBool("cache.enabled"),
+		Type:    viper.GetString("cache.type"),
+		TTL:     viper.GetInt("cache.ttl"),
+	}
+	config.Auth = AuthConfig{
+		Mode: viper.GetString("auth.mode"),
+		OIDC: OIDCConfig{
+			Issuer:        viper.GetString("auth.oidc.issuer"),
+			ClientID:      viper.GetString("auth.oidc.client_id"),
+			ClientSecret:  viper.GetString("auth.oidc.client_secret"),
+			RedirectURL:   viper.GetString("auth.oidc.redirect_url"),
+			SecureCookies: viper.GetBool("auth.oidc.secure_cookies"),
+		},
+	}
+	// viper.SetDefault("tokenStore.mode", "file") guarantees a non-empty value
+	// when the key is absent from the config file.
+	config.TokenStore = TokenStoreConfig{
+		Mode:        viper.GetString("tokenStore.mode"),
+		PostgresURL: viper.GetString("tokenStore.pg_url"),
+	}
 
-	err = validateConfig(&config)
-	if err != nil {
+	if err := validateConfig(&config); err != nil {
 		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
 		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
 	}
@@ -66,24 +171,77 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 }
 
 func validateConfig(config *Configuration) error {
-	var configKeys = []string{"AdminUser", "AdminPassword", "Secret", "S3Url", "S3Key", "S3Secret", "S3Location"}
-	var throwableError error
-
-	for _, key := range configKeys {
-		if err := assertConfigKey(config, key); err != nil {
-			throwableError = err
-			break
+	// Admin credentials are only required in "basic" mode.
+	// In "oidc" mode, authentication is fully delegated to the OIDC provider
+	// and admin credentials are not used.
+	if config.Auth.Mode == "basic" {
+		if config.AdminUser == "" {
+			return fmt.Errorf("admin.user is not set")
+		}
+		if config.AdminPassword == "" {
+			return fmt.Errorf("admin.password is not set")
 		}
 	}
-
-	return throwableError
-}
-
-func assertConfigKey(config *Configuration, key string) error {
-	r := reflect.ValueOf(config)
-	f := reflect.Indirect(r).FieldByName(key)
-	if f.Len() == 0 {
-		return fmt.Errorf("%v is not set", key)
+	if config.Secret == "" {
+		return fmt.Errorf("secret is not set")
+	}
+	if len(config.Secret) < 32 {
+		// len() counts bytes, not Unicode code points — acceptable here because
+		// secrets are expected to be ASCII (hex, base64, etc.).
+		return fmt.Errorf("secret must be at least 32 bytes long (got %d)", len(config.Secret))
+	}
+	if config.S3Url == "" {
+		return fmt.Errorf("s3.url is not set")
+	}
+	if config.S3Key == "" {
+		return fmt.Errorf("s3.key is not set")
+	}
+	if config.S3Secret == "" {
+		return fmt.Errorf("s3.secret is not set")
+	}
+	if config.S3Location == "" {
+		return fmt.Errorf("s3.location is not set")
+	}
+	// redis_url is optional: when absent Gimme falls back to FileTokenStore.
+	// When present, a single shared Redis client is built and injected into any
+	// Redis-backed component (token store, cache).
+	if config.Cache.Enabled {
+		if config.Cache.Type != "redis" {
+			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
+		}
+		if config.RedisURL == "" {
+			return fmt.Errorf("redis_url is required when cache.enabled is true")
+		}
+	}
+	// Validate tokenStore.mode: check it is a known value first, then check
+	// mode-specific constraints.
+	if config.TokenStore.Mode != "file" && config.TokenStore.Mode != "redis" && config.TokenStore.Mode != "postgres" {
+		return fmt.Errorf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\", \"postgres\")", config.TokenStore.Mode)
+	}
+	if config.TokenStore.Mode == "redis" && config.RedisURL == "" {
+		return fmt.Errorf("redis_url is required when tokenStore.mode is \"redis\"")
+	}
+	if config.TokenStore.Mode == "postgres" && config.TokenStore.PostgresURL == "" {
+		return fmt.Errorf("tokenStore.pg_url is required when tokenStore.mode is \"postgres\"")
+	}
+	switch config.Auth.Mode {
+	case "basic":
+		// no additional fields required
+	case "oidc":
+		if config.Auth.OIDC.Issuer == "" {
+			return fmt.Errorf("auth.oidc.issuer is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.ClientID == "" {
+			return fmt.Errorf("auth.oidc.client_id is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.RedirectURL == "" {
+			return fmt.Errorf("auth.oidc.redirect_url is required when auth.mode is \"oidc\"")
+		}
+		if config.Auth.OIDC.ClientSecret == "" {
+			logrus.Warn("auth.oidc.client_secret is empty — token exchange may fail with confidential clients")
+		}
+	default:
+		return fmt.Errorf("auth.mode %q is not supported (supported: \"basic\", \"oidc\")", config.Auth.Mode)
 	}
 	return nil
 }

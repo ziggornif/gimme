@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	stderrors "errors"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -16,7 +16,7 @@ import (
 )
 
 type PackageController struct {
-	authManager    auth.AuthManager
+	authManager    *auth.AuthManager
 	contentService content.ContentService
 }
 
@@ -26,20 +26,31 @@ type packageSlice struct {
 }
 
 func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.GimmeError) {
-	slice := strings.Split(pkg, "@")
-	if len(slice) <= 1 {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("Invalid URL (valid format : GET /gimme/<package>@<version>/<file>)"))
+	const invalidURLMsg = "invalid URL (valid format: /gimme/<package>@<version>/<file>)"
 
+	slice := strings.SplitN(pkg, "@", 2)
+	if len(slice) < 2 {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New(invalidURLMsg))
+	}
+
+	name := slice[0]
+	version := slice[1]
+
+	if name == "" {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New("package name must not be empty — "+invalidURLMsg))
+	}
+	if version == "" {
+		return nil, errors.NewBusinessError(errors.BadRequest, stderrors.New("package version must not be empty — "+invalidURLMsg))
 	}
 
 	return &packageSlice{
-		Name:    slice[0],
-		Version: slice[1],
+		Name:    name,
+		Version: version,
 	}, nil
 }
 
 func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name string, version string) {
-	files, _ := ctrl.contentService.GetFiles(name, version)
+	files, _ := ctrl.contentService.GetFiles(c.Request.Context(), name, version)
 	if len(files) == 0 {
 		c.Status(http.StatusNotFound)
 		return
@@ -49,7 +60,6 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 		"packageName": pkg,
 		"files":       files,
 	})
-	return
 }
 
 func (ctrl *PackageController) createPackage(c *gin.Context) {
@@ -59,11 +69,16 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 
 	validationErr := archive_validator.ValidateFile(file)
 	if validationErr != nil {
-		c.JSON(validationErr.GetHTTPCode(), gin.H{"error": validationErr.String()})
+		c.JSON(validationErr.GetHTTPCode(), gin.H{"error": validationErr.Error()})
 		return
 	}
 
-	reader, _ := file.Open()
+	reader, openErr := file.Open()
+	if openErr != nil {
+		logrus.Errorf("[PackageController] createPackage - failed to open uploaded file: %v", openErr)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read uploaded file"})
+		return
+	}
 	defer func(reader multipart.File) {
 		err := reader.Close()
 		if err != nil {
@@ -71,15 +86,21 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		}
 	}(reader)
 
-	uploadErr := ctrl.contentService.CreatePackage(name, version, reader, file.Size)
+	uploadErr := ctrl.contentService.CreatePackage(c.Request.Context(), name, version, reader, file.Size)
 
 	if uploadErr != nil {
-		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.String()})
+		c.JSON(uploadErr.GetHTTPCode(), gin.H{"error": uploadErr.Error()})
 		return
 	}
 
 	c.Status(http.StatusCreated)
-	return
+}
+
+func cacheControlHeader(version string) string {
+	if content.IsPinnedVersion(version) {
+		return "public, max-age=31536000, immutable"
+	}
+	return "public, max-age=300"
 }
 
 func (ctrl *PackageController) getPackage(c *gin.Context) {
@@ -87,7 +108,7 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -96,9 +117,10 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
-	object, err := ctrl.contentService.GetFile(pkg.Name, pkg.Version, file)
+	object, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file)
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.Header("Cache-Control", "no-store")
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 	defer func(object *minio.Object) {
@@ -108,44 +130,45 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		}
 	}(object)
 
-	infos, _ := object.Stat()
-	if infos.Size == 0 {
-		c.Status(http.StatusNotFound)
+	infos, statErr := object.Stat()
+	if statErr != nil {
+		logrus.Errorf("getPackage - Fail to stat object: %v", statErr)
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
 		return
 	}
 
+	c.Header("Cache-Control", cacheControlHeader(pkg.Version))
 	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
 }
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 	ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
-	return
 }
 
 func (ctrl *PackageController) deletePackage(c *gin.Context) {
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 
-	err = ctrl.contentService.DeletePackage(pkg.Name, pkg.Version)
+	err = ctrl.contentService.DeletePackage(c.Request.Context(), pkg.Name, pkg.Version)
 	if err != nil {
-		c.JSON(err.GetHTTPCode(), gin.H{"error": err.String()})
+		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
 	}
 
 	c.Status(http.StatusNoContent)
-	return
 }
 
 // NewPackageController - Create controller
-func NewPackageController(router *gin.Engine, authManager auth.AuthManager, contentService content.ContentService) {
+func NewPackageController(router *gin.Engine, authManager *auth.AuthManager, contentService content.ContentService) {
 	controller := PackageController{
 		authManager,
 		contentService,

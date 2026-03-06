@@ -7,6 +7,6 @@ import (
 )
 
 func GetFileContentType(file *zip.File) string {
-	contentType := mime.TypeByExtension(filepath.Ext(file.FileHeader.Name))
+	contentType := mime.TypeByExtension(filepath.Ext(file.Name))
 	return contentType
 }

@@ -1,0 +1,15 @@
+# tokenStore.mode=redis but redis_url is absent — must fail validation
+admin:
+  user: test
+  password: test
+port: 8080
+secret: secret-for-testing-purposes-only
+s3:
+  url: test.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
+tokenStore:
+  mode: redis

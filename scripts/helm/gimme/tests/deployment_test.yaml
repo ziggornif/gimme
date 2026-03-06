@@ -1,0 +1,276 @@
+suite: deployment tests
+templates:
+  - templates/deployment.yaml
+  - templates/configmap.yaml
+  - templates/secret.yaml
+set:
+  s3.url: "http://fake:3900"
+  credentials.secret: "test-secret"
+  credentials.admin.user: "admin"
+  credentials.admin.password: "admin-pass"
+  credentials.s3.key: "s3key"
+  credentials.s3.secret: "s3secret"
+tests:
+  - it: should render a Deployment
+    asserts:
+      - isKind:
+          of: Deployment
+        template: templates/deployment.yaml
+
+  - it: should use default image tag from appVersion
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ziggornif/gimme:latest"
+        template: templates/deployment.yaml
+
+  - it: should use custom image tag when set
+    set:
+      image.tag: "v1.2.3"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ziggornif/gimme:v1.2.3"
+        template: templates/deployment.yaml
+
+  - it: should set imagePullPolicy
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: IfNotPresent
+        template: templates/deployment.yaml
+
+  - it: should set pod security context
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+        template: templates/deployment.yaml
+
+  - it: should set container security context
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+        template: templates/deployment.yaml
+
+  - it: should set resource requests and limits
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "100m"
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "128Mi"
+        template: templates/deployment.yaml
+
+  - it: should include podLabels
+    set:
+      podLabels:
+        custom-label: my-value
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels.custom-label
+          value: my-value
+        template: templates/deployment.yaml
+
+  - it: should include podAnnotations
+    set:
+      podAnnotations:
+        custom-annotation: my-annotation
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations.custom-annotation
+        template: templates/deployment.yaml
+
+  - it: should have config volume mount
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config-volume
+            mountPath: /config/
+            readOnly: true
+        template: templates/deployment.yaml
+
+  - it: should have tmp-volume when tokenStore.mode is file
+    set:
+      tokenStore.mode: file
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp-volume
+            mountPath: /tmp
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp-volume
+            emptyDir: {}
+        template: templates/deployment.yaml
+
+  - it: should not have tmp-volume when tokenStore.mode is redis
+    set:
+      tokenStore.mode: redis
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp-volume
+            mountPath: /tmp
+        template: templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp-volume
+            emptyDir: {}
+        template: templates/deployment.yaml
+
+  - it: should include OIDC env var when auth.mode is oidc
+    set:
+      auth.mode: oidc
+      auth.oidc.issuer: "https://idp.example.com"
+      auth.oidc.clientId: "gimme"
+      auth.oidc.redirectUrl: "https://gimme.example.com/callback"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_AUTH_OIDC_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-gimme-credentials
+                key: oidc-client-secret
+        template: templates/deployment.yaml
+
+  - it: should include postgres URL env var when tokenStore.mode is postgres
+    set:
+      tokenStore.mode: postgres
+      tokenStore.pgUrl: "postgres://gimme:pass@localhost:5432/gimme"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_TOKENSTORE_PG_URL
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-gimme-credentials
+                key: pg-url
+        template: templates/deployment.yaml
+
+  - it: should not include postgres URL env var when tokenStore.mode is file
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_TOKENSTORE_PG_URL
+          any: true
+        template: templates/deployment.yaml
+
+  - it: should not have tmp-volume when tokenStore.mode is postgres
+    set:
+      tokenStore.mode: postgres
+      tokenStore.pgUrl: "postgres://gimme:pass@localhost:5432/gimme"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp-volume
+            mountPath: /tmp
+        template: templates/deployment.yaml
+
+  - it: should not include OIDC env var when auth.mode is basic
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GIMME_AUTH_OIDC_CLIENT_SECRET
+          any: true
+        template: templates/deployment.yaml
+
+  - it: should configure liveness and readiness probes
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /readyz
+        template: templates/deployment.yaml
+
+  - it: should set nodeSelector when provided
+    set:
+      nodeSelector:
+        disktype: ssd
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector.disktype
+          value: ssd
+        template: templates/deployment.yaml
+
+  - it: should set tolerations when provided
+    set:
+      tolerations:
+        - key: "dedicated"
+          operator: "Equal"
+          value: "gimme"
+          effect: "NoSchedule"
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: "dedicated"
+            operator: "Equal"
+            value: "gimme"
+            effect: "NoSchedule"
+        template: templates/deployment.yaml
+
+  - it: should set affinity when provided
+    set:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+    asserts:
+      - exists:
+          path: spec.template.spec.affinity.nodeAffinity
+        template: templates/deployment.yaml
+
+  - it: should set imagePullSecrets when provided
+    set:
+      imagePullSecrets:
+        - name: my-registry-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: my-registry-secret
+        template: templates/deployment.yaml
+
+  - it: should have checksum annotation for configmap
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/config"]
+        template: templates/deployment.yaml
+
+  - it: should have checksum annotation for secret
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+        template: templates/deployment.yaml

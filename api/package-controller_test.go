@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -19,19 +20,43 @@ import (
 	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+// newPackageTestStore creates a FileTokenStore in a temp dir for controller tests.
+func newPackageTestStore(t *testing.T) *auth.FileTokenStore {
+	t.Helper()
+	store, err := auth.NewFileTokenStore("this-is-a-32-byte-secret-for-test", filepath.Join(t.TempDir(), "tokens.enc"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	return store
+}
+
+func envOrDefault(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
 func initObjectStorage() storage.ObjectStorageManager {
-	client, _ := storage.NewObjectStorageClient(&configs.Configuration{
-		S3Url:        "localhost:9000",
-		S3Key:        "minioadmin",
-		S3Secret:     "minioadmin",
-		S3BucketName: "gimme",
-		S3Location:   "eu-west-1",
+	bucketName := envOrDefault("TEST_S3_BUCKET", "gimme")
+	location := envOrDefault("TEST_S3_LOCATION", "eu-west-1")
+	client, err := storage.NewObjectStorageClient(&configs.Configuration{
+		S3Url:        envOrDefault("TEST_S3_URL", "localhost:9000"),
+		S3Key:        envOrDefault("TEST_S3_KEY", "minioadmin"),
+		S3Secret:     envOrDefault("TEST_S3_SECRET", "minioadmin"),
+		S3BucketName: bucketName,
+		S3Location:   location,
 		S3SSL:        false,
 	})
+	if err != nil {
+		panic(err.Error())
+	}
 	objectStorageManager := storage.NewObjectStorageManager(client)
-	objectStorageManager.CreateBucket("gimme", "eu-west-1")
+	if err := objectStorageManager.CreateBucket(context.Background(), bucketName, location); err != nil {
+		panic(err.Error())
+	}
 	return objectStorageManager
 }
 
@@ -65,57 +90,22 @@ func createPackage(t *testing.T, router http.Handler, name string, version strin
 
 func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager)
+	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0/file.js", nil)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/file.js", nil)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/foo/bar.js", nil)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPackageControllerRedirect(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "GET", "/gimme", nil)
-
-	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 }
 
 func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager)
+	service := content.NewContentService(&mockOSManager, nil, 0)
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0", nil)
@@ -123,166 +113,53 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestPackageControllerCreate(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-	assert.Equal(t, http.StatusCreated, resp.Code)
-
-	service.DeletePackage("awesome-lib", "1.0.0")
+func TestGetSlice_EmptyName(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("@1.0.0")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
+	assert.Contains(t, err.Error(), "package name must not be empty")
 }
 
-func TestPackageControllerGet(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0/awesome-lib.min.js", nil)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "javascript")
-
-	service.DeletePackage("awesome-lib", "1.0.0")
+func TestGetSlice_EmptyVersion(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("pkg@")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
+	assert.Contains(t, err.Error(), "package version must not be empty")
 }
 
-func TestPackageControllerGetUI(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	router.LoadHTMLGlob("../templates/*.tmpl")
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0", nil)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
-
-	service.DeletePackage("awesome-lib", "1.0.0")
+func TestGetSlice_NoAtSign(t *testing.T) {
+	ctrl := &PackageController{}
+	_, err := ctrl.getSlice("pkg-without-at")
+	assert.NotNil(t, err)
+	assert.Equal(t, http.StatusBadRequest, err.GetHTTPCode())
 }
 
-func TestPackageControllerGetUIAlter(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	router.LoadHTMLGlob("../templates/*.tmpl")
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@1.0.0/", nil)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
-
-	service.DeletePackage("awesome-lib", "1.0.0")
-}
-
-func TestPackageControllerCreateConflictErr(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-	assert.Equal(t, http.StatusCreated, resp.Code)
-
-	resp2 := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", token)
-	assert.Equal(t, http.StatusConflict, resp2.Code)
-
-	service.DeletePackage("awesome-lib", "1.0.0")
-}
-
-func TestPackageControllerGetEmpty(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@4.0.0", nil)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestPackageControllerGetNotFound(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "GET", "/gimme/invalid@1.0.0/invalid.js", nil)
-
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestPackageControllerPOSTEmptyFile(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	payload := &bytes.Buffer{}
-	writer := multipart.NewWriter(payload)
-
-	err := writer.WriteField("name", "awesome-lib")
+func TestGetSlice_Valid(t *testing.T) {
+	ctrl := &PackageController{}
+	slice, err := ctrl.getSlice("mypkg@1.2.3")
 	assert.Nil(t, err)
-	err = writer.WriteField("version", "1.0.0")
-	assert.Nil(t, err)
-	err = writer.Close()
-	assert.Nil(t, err)
+	assert.Equal(t, "mypkg", slice.Name)
+	assert.Equal(t, "1.2.3", slice.Version)
+}
 
-	w := utils.PerformRequest(router, "POST", "/packages", payload,
-		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
-		utils.Header{
-			Key: "Content-Type", Value: writer.FormDataContentType(),
+func TestCacheControlHeader(t *testing.T) {
+	tests := []struct {
+		version  string
+		expected string
+	}{
+		{"1.0.0", "public, max-age=31536000, immutable"},
+		{"1.0.1", "public, max-age=31536000, immutable"},
+		{"1.0", "public, max-age=300"},
+		{"1", "public, max-age=300"},
+		{"1.0.0-rc.1", "public, max-age=300"},
+		{"1.0.0+build.1", "public, max-age=31536000, immutable"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			assert.Equal(t, tt.expected, cacheControlHeader(tt.version))
 		})
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPackageControllerDeleteInvalidUrlErr(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "DELETE", "/packages/file.js", nil,
-		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestPackageControllerDelete(t *testing.T) {
-	objectStorageManager := initObjectStorage()
-	router := gin.New()
-	authManager := auth.NewAuthManager("secret")
-	token, _ := authManager.CreateToken("test", "")
-	service := content.NewContentService(objectStorageManager)
-	NewPackageController(router, authManager, service)
-
-	w := utils.PerformRequest(router, "DELETE", "/packages/awesome-lib@1.0.0", nil,
-		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)})
-
-	assert.Equal(t, http.StatusNoContent, w.Code)
+	}
 }

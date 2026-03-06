@@ -1,0 +1,21 @@
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+# CHANGE THIS in production: openssl rand -hex 32
+# Must be exactly 32 bytes of hex (64 hex characters).
+rpc_secret = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+
+[admin]
+api_bind_addr = "[::]:3903"
+# Token used by init-garage to provision keys and buckets via the Admin API.
+# Change this value in production (openssl rand -base64 32).
+admin_token = "gimme-init-token-change-me"

@@ -1,0 +1,48 @@
+# This is a sample config file
+admin:
+  user: gimmeadmin
+  password: gimmeadmin
+port: 8080
+secret: "CHANGE-ME-use-a-random-secret-of-at-least-32-chars"
+s3:
+  url: your.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
+
+# Redis connection URL — used by any Redis-backed component (token store, cache).
+# Required when tokenStore.mode is "redis" or cache.enabled is true.
+# redis_url: redis://localhost:6379
+
+# Optional internal cache (disabled by default)
+# cache:
+#   enabled: true
+#   type: redis        # "redis" supported ; "memory" reserved for future use
+#   ttl: 3600          # seconds
+
+# CORS allowed origins for cross-origin requests.
+# Leave empty (default) to deny all cross-origin requests.
+# For a public CDN use case, list the origins that should be allowed to load assets:
+# cors:
+#   allowed_origins:
+#     - "https://myapp.example.com"
+#     - "https://other.example.com"
+# To allow any origin (not recommended in production):
+#     - "*"
+
+# Token store backend: "file" (default), "redis", or "postgres"
+# tokenStore:
+#   mode: file              # "file" | "redis" | "postgres"
+#   pg_url: postgres://gimme:password@localhost:5432/gimme?sslmode=disable
+
+# Authentication mode for the admin interface (default: basic)
+# auth:
+#   mode: basic        # "basic" (HTTP Basic Auth) | "oidc" (external OIDC provider)
+#   oidc:              # required when mode is "oidc"
+#     issuer: https://keycloak.example.com/realms/gimme
+#     client_id: gimme
+#     client_secret: your-oidc-client-secret
+#     redirect_url: https://gimme.example.com/auth/callback
+#     secure_cookies: true   # set false only for local dev (HTTP)

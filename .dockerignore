@@ -8,3 +8,9 @@ docker-compose.yml
 gimme
 schema.png
 test
+dist
+*.md
+gimme.yml
+.air.toml
+docs/site
+docs/index.html

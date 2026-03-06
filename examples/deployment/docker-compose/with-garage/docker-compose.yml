@@ -1,0 +1,184 @@
+services:
+  garage:
+    image: dxflrs/garage:v1.3.1
+    ports:
+      - "3900:3900"
+      - "3903:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      # /garage status exits 0 once the daemon is up (no shell required in the image)
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  init-garage:
+    image: alpine:3.21
+    depends_on:
+      garage:
+        condition: service_healthy
+    volumes:
+      - ./init-garage.sh:/init-garage.sh:ro
+      - gimme-config:/gimme-config
+    environment:
+      GARAGE_HOST: garage
+      GARAGE_S3_PORT: "3900"
+      GARAGE_ADMIN_PORT: "3903"
+      # Must match admin_token in garage.toml — change in production
+      GARAGE_ADMIN_TOKEN: "gimme-init-token-change-me"
+      BUCKET_NAME: gimme
+      KEY_NAME: gimme-key
+      # Capacity in bytes assigned to the Garage node (default: 10 GiB)
+      GARAGE_CAPACITY_BYTES: "10737418240"
+      GARAGE_ZONE: dc1
+      GARAGE_REGION: garage
+      GIMME_CONFIG_PATH: /gimme-config/gimme.yml
+      # Gimme credentials — override in production
+      GIMME_ADMIN_USER: gimmeadmin
+      GIMME_ADMIN_PASSWORD: gimmeadmin
+      GIMME_SECRET: change_me_use_a_real_secret_32chars
+      # OIDC configuration — uncomment and set AUTH_MODE=oidc to enable.
+      # Requires the keycloak and keycloak-db services below to be uncommented first.
+      # Also add "127.0.0.1 keycloak" to your /etc/hosts so the browser reaches
+      # Keycloak on the same hostname used internally by the containers.
+      # AUTH_MODE: oidc
+      # AUTH_OIDC_ISSUER: http://keycloak:8180/realms/gimme
+      # AUTH_OIDC_CLIENT_ID: gimme
+      # AUTH_OIDC_CLIENT_SECRET: change_me_oidc_secret
+      # AUTH_OIDC_REDIRECT_URL: http://localhost:8080/auth/callback
+      # TOKEN_STORE_MODE: file, redis, or postgres
+      # GIMME_TOKENSTORE_PG_URL: postgres://gimme:gimme_password_change_me@gimme-db:5432/gimme?sslmode=disable
+    entrypoint: ["/bin/sh", "/init-garage.sh"]
+    restart: "no"
+
+  redis:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Optional: PostgreSQL for token store (tokenStore.mode: postgres)
+  # Uncomment and set TOKEN_STORE_MODE=postgres + GIMME_TOKENSTORE_POSTGRES_DSN
+  # in init-garage environment.
+  #
+  # gimme-db:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     POSTGRES_DB: gimme
+  #     POSTGRES_USER: gimme
+  #     POSTGRES_PASSWORD: gimme_password_change_me
+  #   volumes:
+  #     - gimme-db:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U gimme"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+
+  # Optional: Keycloak OIDC provider
+  # Uncomment the keycloak-db and keycloak services (and the keycloak-db volume at the
+  # bottom of this file) to enable OIDC authentication. Then also:
+  #   1. Set AUTH_MODE=oidc and the AUTH_OIDC_* variables on init-garage above.
+  #   2. Uncomment the keycloak dependency under gimme.depends_on below.
+  #
+  # keycloak-db:
+  #   image: postgres:17-alpine
+  #   environment:
+  #     POSTGRES_DB: keycloak
+  #     POSTGRES_USER: keycloak
+  #     POSTGRES_PASSWORD: keycloak_password_change_me
+  #   volumes:
+  #     - keycloak-db:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U keycloak"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+  #
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:26.2
+  #   command: start-dev --http-port=8180
+  #   environment:
+  #     KC_DB: postgres
+  #     KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+  #     KC_DB_USERNAME: keycloak
+  #     KC_DB_PASSWORD: keycloak_password_change_me
+  #     KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  #     KC_BOOTSTRAP_ADMIN_PASSWORD: admin_password_change_me
+  #     KC_HTTP_ENABLED: "true"
+  #     # KC_HOSTNAME_STRICT=false + no KC_HOSTNAME → Keycloak reflects the incoming
+  #     # Host header as the issuer. Both the browser and Gimme must use the same
+  #     # hostname. Add "127.0.0.1 keycloak" to your /etc/hosts so the browser can
+  #     # reach http://keycloak:8180 — same hostname the containers use internally.
+  #     KC_HOSTNAME_STRICT: "false"
+  #   ports:
+  #     - "8180:8180"
+  #   depends_on:
+  #     keycloak-db:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     # The Keycloak image ships neither curl nor wget. Use bash /dev/tcp to
+  #     # check that the HTTP port is accepting connections.
+  #     test:
+  #       [
+  #         "CMD-SHELL",
+  #         "exec 3<>/dev/tcp/localhost/8180 && echo -e 'GET / HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q 'HTTP/' <(cat <&3) && exec 3>&-",
+  #       ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 30s
+
+  gimme:
+    image: ziggornif/gimme:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - gimme-config:/config
+    depends_on:
+      init-garage:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      # Uncomment if AUTH_MODE=oidc is enabled:
+      # keycloak:
+      #   condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: on-failure
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ../shared/monitoring/:/etc/prometheus/
+    ports:
+      - "9090:9090"
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ../shared/monitoring/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ../shared/monitoring/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+
+volumes:
+  garage-meta:
+  garage-data:
+  gimme-config:
+  # gimme-db: # Uncomment if PostgreSQL token store is enabled
+  # keycloak-db: # Uncomment if Keycloak is enabled

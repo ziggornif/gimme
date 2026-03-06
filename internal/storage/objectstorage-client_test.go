@@ -31,5 +31,5 @@ func TestNewObjectStorageClient(t *testing.T) {
 
 func TestNewObjectStorageClientErr(t *testing.T) {
 	_, err := NewObjectStorageClient(&configs.Configuration{})
-	assert.Equal(t, "error while create object storage client", err.String())
+	assert.Equal(t, "error while create object storage client", err.Error())
 }

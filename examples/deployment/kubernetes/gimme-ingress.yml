@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gimme-ingress
+  namespace: gimme
+  annotations: {}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: gimme.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gimme-service
+                port:
+                  number: 80
