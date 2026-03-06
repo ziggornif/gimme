@@ -31,15 +31,7 @@ gimme/
 ├── pkg/
 │   └── file-utils/             # Utility: file content-type detection
 ├── templates/                  # HTML templates (Gin, .tmpl)
-├── docs/                       # Static docs (swagger.json) served at /docs
-└── examples/                   # Deployment examples (Docker Compose, K8s, monitoring)
-    ├── deployment/
-    │   ├── docker-compose/
-    │   │   ├── with-garage/        # Self-provisioning stack with Garage HQ
-    │   │   ├── with-managed-s3/    # External/managed S3 provider
-    │   │   └── shared/             # Shared monitoring config (Prometheus, Grafana)
-    │   ├── kubernetes/             # Namespace, Deployment, Service, Ingress
-    │   └── systemd/                # Linux systemd unit
+└── docs/                       # Static docs (swagger.json) served at /docs
 ```
 
 ### Key Data Flow
@@ -60,43 +52,11 @@ Semver partial versions are supported (e.g., `awesome-lib@1.0` resolves to the l
 ## Development Commands
 
 ```bash
-# Build (Linux amd64 binary + dist/)
-make build
-
-# Run tests with coverage
-make test
-
-# View coverage report (text) — requires make test first
-make coverage
-
-# Run tests and open HTML coverage report
-make test_coverage_html
-
-# Live reload (requires air)
-make watch
-
-# Security audit (requires gosec)
-make audit
-```
-
-### Running Locally
-
-Requires a running S3-compatible backend (Garage or managed S3) and a `gimme.yml` config file.
-
-```bash
-# Option 1 — Garage (recommended, auto-provisioned)
-cd examples/deployment/docker-compose/with-garage
-docker compose up -d
-# Gimme available at http://localhost:8080
-
-# Option 2 — Managed S3 (fill in gimme.yml with your S3 credentials)
-cd examples/deployment/docker-compose/with-managed-s3
-docker compose up -d
-
-# Or run from source with live reload
-cp gimme.example.yml gimme.yml
-# Edit gimme.yml then:
-make watch
+make build              # Build Linux amd64 binary + dist/
+make test               # Start Garage, run all tests (unit + integration), stop Garage
+make coverage           # View coverage report (requires make test first)
+make watch              # Live reload (requires air)
+make audit              # Security audit (requires gosec)
 ```
 
 ---
@@ -105,21 +65,21 @@ make watch
 
 Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper**. Environment variables override file values automatically.
 
-| Key               | Description                              | Default  |
-|-------------------|------------------------------------------|----------|
-| `secret`          | JWT signing secret                       | required |
-| `admin.user`      | Basic auth admin username                | required |
-| `admin.password`  | Basic auth admin password                | required |
-| `port`            | HTTP server port                         | `8080`   |
-| `s3.url`          | S3 / Garage endpoint URL                 | required |
-| `s3.key`          | S3 access key                            | required |
-| `s3.secret`       | S3 secret key                            | required |
-| `s3.bucketName`   | S3 bucket name                           | `gimme`  |
-| `s3.location`     | S3 region / Garage zone                  | required |
-| `s3.ssl`          | Enable TLS for S3 connection             | `true`   |
-| `metrics`         | Enable `/metrics` OpenMetrics endpoint   | `true`   |
-| `tokenStore.mode` | Token persistence backend (`file`, `redis`, `postgres`) | `file` |
-| `tokenStore.pg_url` | PostgreSQL URL (required when mode is `postgres`) | `""` |
+| Key                   | Description                                             | Default  |
+|-----------------------|---------------------------------------------------------|----------|
+| `secret`              | JWT signing secret                                      | required |
+| `admin.user`          | Basic auth admin username                               | required |
+| `admin.password`      | Basic auth admin password                               | required |
+| `port`                | HTTP server port                                        | `8080`   |
+| `s3.url`              | S3 / Garage endpoint URL                                | required |
+| `s3.key`              | S3 access key                                           | required |
+| `s3.secret`           | S3 secret key                                           | required |
+| `s3.bucketName`       | S3 bucket name                                          | `gimme`  |
+| `s3.location`         | S3 region / Garage zone                                 | required |
+| `s3.ssl`              | Enable TLS for S3 connection                            | `true`   |
+| `metrics`             | Enable `/metrics` OpenMetrics endpoint                  | `true`   |
+| `tokenStore.mode`     | Token persistence backend (`file`, `redis`, `postgres`) | `file`   |
+| `tokenStore.pg_url`   | PostgreSQL URL (required when mode is `postgres`)       | `""`     |
 
 ---
 
@@ -160,56 +120,30 @@ Custom error type `GimmeError` (`internal/errors/business-error.go`) implements 
 
 Tests use `github.com/stretchr/testify`. Each package has a `_test.go` file alongside the source.
 
-Unit tests run standalone. Integration tests (in `api/`, **not** tagged `//go:build integration` — they run unconditionally) require a live S3 backend. **`make test` will run them and they will fail without a running Garage or Minio instance.**
+Integration tests (in `api/`) run unconditionally and require a live S3 backend — `make test` handles starting/stopping Garage automatically.
 
-### Running the full test suite locally
-
-```bash
-# Start Garage, run all tests (unit + integration), stop Garage
-make test
-
-# Or step by step:
-make garage-start   # start + provision Garage in Docker
-make garage-stop    # stop and remove the Garage container
-```
-
-### Running unit tests only (no S3 required)
-
+Unit tests only (no S3 required):
 ```bash
 go test $(go list ./... | grep -v 'github.com/gimme-cdn/gimme/api') -coverprofile=coverage.out
 ```
-
-### CI
-
-See `.github/workflows/build.yml` — Garage is started as a service before the test step.
-
----
-
-## CI/CD
-
-- **`.github/workflows/build.yml`**: Runs on all branch pushes/PRs. Starts a Garage instance, runs tests, builds and pushes a Docker image tagged with the branch name (and `latest` for `main`).
-- **`.github/workflows/release.yml`**: Triggered on GitHub release. Builds binaries for Linux/Windows/macOS (amd64, arm64, 386) and publishes a tagged Docker image.
-
-Required GitHub secrets: `DOCKER_REPO`, `DOCKER_USER`, `DOCKER_PASS`.
 
 ---
 
 ## Key Dependencies
 
-| Package                         | Version   | Role                                      |
-|---------------------------------|-----------|-------------------------------------------|
-| `gin-gonic/gin`                 | v1.11.0   | HTTP framework                            |
-| `gin-contrib/cors`              | v1.7.6    | CORS middleware                           |
-| `golang-jwt/jwt/v4`             | v4.5.2    | JWT token creation and validation         |
-| `minio/minio-go/v7`             | v7.0.98   | S3-compatible object storage client       |
-| `spf13/viper`                   | v1.21.0   | Configuration management                  |
-| `sirupsen/logrus`               | v1.9.4    | Structured logging                        |
-| `prometheus/client_golang`      | v1.23.2   | OpenMetrics/Prometheus metrics            |
-| `stretchr/testify`              | v1.11.1   | Test assertions                           |
-| `golang.org/x/mod/semver`       | v0.33.0   | Semver parsing and sorting                |
-| `golang.org/x/sync/errgroup`    | v0.19.0   | Goroutine error propagation               |
-| `redis/go-redis/v9`             | v9.18.0   | Redis client (internal cache backend)     |
-| `jackc/pgx/v5`                  | v5.8.0    | PostgreSQL driver and connection pool     |
+| Package                         | Role                                      |
+|---------------------------------|-------------------------------------------|
+| `gin-gonic/gin`                 | HTTP framework                            |
+| `golang-jwt/jwt/v4`             | JWT token creation and validation         |
+| `minio/minio-go/v7`             | S3-compatible object storage client       |
+| `spf13/viper`                   | Configuration management                  |
+| `sirupsen/logrus`               | Structured logging                        |
+| `prometheus/client_golang`      | OpenMetrics/Prometheus metrics            |
+| `stretchr/testify`              | Test assertions                           |
+| `golang.org/x/mod/semver`       | Semver parsing and sorting                |
+| `golang.org/x/sync/errgroup`    | Goroutine error propagation               |
+| `redis/go-redis/v9`             | Redis client                              |
+| `jackc/pgx/v5`                  | PostgreSQL driver and connection pool     |
 
 ---
 
@@ -218,7 +152,6 @@ Required GitHub secrets: `DOCKER_REPO`, `DOCKER_USER`, `DOCKER_PASS`.
 - **Go package naming**: lowercase; use underscores only when necessary (e.g., `archive_validator`)
 - **File naming**: lowercase, hyphenated (e.g., `auth-manager.go`, `content-service.go`, `file-utils/`)
 - **Error handling**: always use `*errors.GimmeError` for domain errors; log with `logrus` before returning
-- **Error interface**: `GimmeError` implements `Error() string` (standard `error` interface)
 - **Interfaces**: defined in `internal/storage` (`ObjectStorageManager`, `ObjectStorageClient`) to allow mocking in tests
 - **Concurrency**: ZIP file extraction uses goroutines + `errgroup.Group` in `content.CreatePackage` — errors are propagated
 - **Context propagation**: HTTP context is passed down to all storage calls (no `context.Background()` in business logic)
@@ -239,17 +172,10 @@ When working on this project, **pick exactly one task from `TODO.md` and complet
 After implementing a task, the following checks **must all pass** before proposing a commit:
 
 ```bash
-# 1. Format
-gofmt -l .         # must output nothing (no unformatted files)
-
-# 2. Lint (requires golangci-lint)
-golangci-lint run ./...
-
-# 3. Tests (unit + integration — starts and stops Garage automatically)
-make test
-
-# 4. Build
-make build
+gofmt -l .              # must output nothing (no unformatted files)
+golangci-lint run ./... # lint
+make test               # unit + integration tests
+make build              # build
 ```
 
 If any check fails, fix the issues before proceeding.
