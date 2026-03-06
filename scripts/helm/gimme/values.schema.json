@@ -135,9 +135,13 @@
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["file", "redis"]
+          "enum": ["file", "redis", "pg_url"]
+        },
+        "pgUrl": {
+          "type": "string"
         }
       },
+      "required": ["mode"],
       "additionalProperties": false
     },
     "service": {
