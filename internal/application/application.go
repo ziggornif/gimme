@@ -22,12 +22,11 @@ import (
 	"github.com/gimme-cdn/gimme/internal/content"
 	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gimme-cdn/gimme/internal/metrics"
+	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,8 +38,8 @@ type Application struct {
 	storageManager storage.ObjectStorageManager
 	cacheManager   cache.CacheManager
 	tokenStore     auth.TokenStore
-	redisClient    *redis.Client
-	pgPool         *pgxpool.Pool
+	redisClient    *persistence.RedisClient
+	pgClient       *persistence.PGClient
 }
 
 // NewApplication create an application instance
@@ -57,39 +56,21 @@ func (app *Application) loadConfig() {
 	}
 }
 
-// loadModules load app modules
-func (app *Application) loadModules() {
-	var err *gimmeerr.GimmeError
-
-	// Build a single shared Redis client if a Redis URL is configured.
-	// It is used by any component that needs Redis (token store, cache).
-	// validateConfig ensures redis_url is set whenever a Redis-backed
-	// component is enabled, so no extra check is needed here.
-	if app.config.RedisURL != "" {
-		redisClient, redisErr := newRedisClient(app.config.RedisURL)
-		if redisErr != nil {
-			log.Fatalf("failed to connect to Redis: %v", redisErr)
-		}
-		app.redisClient = redisClient
-	}
-
-	// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
+// configureTokenStore
+// Token store: file, redis or postgres, driven by tokenStore.mode (default: "file").
+func (app *Application) configureTokenStore() {
 	switch app.config.TokenStore.Mode {
 	case "redis":
-		app.tokenStore = auth.NewRedisTokenStoreWithClient(app.redisClient)
+		app.tokenStore = auth.NewRedisTokenStore(app.redisClient)
 		logrus.Info("[Application] loadModules - token store: Redis")
 	case "postgres":
-		pgCtx, pgCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer pgCancel()
-		pool, pgErr := pgxpool.New(pgCtx, app.config.TokenStore.PostgresURL)
-		if pgErr != nil {
-			log.Fatalf("failed to create PostgreSQL pool: %v", pgErr)
+		pgClient, pgClientErr := persistence.NewPGClient(app.config.TokenStore.PostgresURL)
+		if pgClientErr != nil {
+			log.Fatalf("failed to connect to Postgres: %v", pgClientErr)
 		}
-		if pgErr = pool.Ping(pgCtx); pgErr != nil {
-			log.Fatalf("failed to reach PostgreSQL: %v", pgErr)
-		}
-		app.pgPool = pool
-		pgStore, pgStoreErr := auth.NewPGTokenStoreWithPool(pool)
+		app.pgClient = pgClient
+
+		pgStore, pgStoreErr := auth.NewPGTokenStore(app.pgClient.GetPool())
 		if pgStoreErr != nil {
 			log.Fatalf("failed to initialise PGTokenStore: %v", pgStoreErr)
 		}
@@ -103,9 +84,11 @@ func (app *Application) loadModules() {
 		app.tokenStore = fileStore
 		logrus.Infof("[Application] loadModules - token store: file (%s)", app.config.TokenFile)
 	}
+}
 
-	app.authManager = auth.NewAuthManager(app.tokenStore)
-
+// configureAuthProvider
+// Auth mode is oidc or basic by default
+func (app *Application) configureAuthProvider() {
 	switch app.config.Auth.Mode {
 	case "oidc":
 		oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -130,6 +113,27 @@ func (app *Application) loadModules() {
 	default: // "basic"
 		app.authProvider = auth.NewBasicAuthProvider(app.config.AdminUser, app.config.AdminPassword)
 	}
+}
+
+// loadModules load app modules
+func (app *Application) loadModules() {
+	var err *gimmeerr.GimmeError
+
+	// Build a single shared Redis client if a Redis URL is configured.
+	// It is used by any component that needs Redis (token store, cache).
+	// validateConfig ensures redis_url is set whenever a Redis-backed
+	// component is enabled, so no extra check is needed here.
+	if app.config.RedisURL != "" {
+		redisClient, redisErr := persistence.NewRedisClient(app.config.RedisURL)
+		if redisErr != nil {
+			log.Fatalf("failed to connect to Redis: %v", redisErr)
+		}
+		app.redisClient = redisClient
+	}
+
+	app.configureTokenStore()
+	app.authManager = auth.NewAuthManager(app.tokenStore)
+	app.configureAuthProvider()
 
 	osmClient, err := storage.NewObjectStorageClient(app.config)
 	if err != nil {
@@ -140,7 +144,7 @@ func (app *Application) loadModules() {
 	cacheTTL := time.Duration(app.config.Cache.TTL) * time.Second
 	if app.config.Cache.Enabled {
 		// cache.enabled=true implies cache.redis_url is set (validated in config).
-		app.cacheManager = cache.NewRedisCacheWithClient(app.redisClient)
+		app.cacheManager = cache.NewRedisCache(app.redisClient)
 	}
 
 	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL)
@@ -213,6 +217,16 @@ func corsConfig(allowedOrigins []string) cors.Config {
 	return cfg
 }
 
+// deriveSecret produces a domain-separated key from a master secret and a label
+// using HMAC-SHA256. This ensures that keys used for different purposes (e.g.
+// API token signing vs. OIDC session cookies) are cryptographically independent
+// even when they share the same master secret.
+func deriveSecret(masterSecret, label string) string {
+	mac := hmac.New(sha256.New, []byte(masterSecret))
+	mac.Write([]byte(label))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 // loadHttpServer load http (go gin) server
 func (app *Application) setupServer() {
 	router := gin.Default()
@@ -273,14 +287,12 @@ func (app *Application) setupServer() {
 	// Close the shared Redis client. It is the single owner of the connection;
 	// no other component calls Close() on it.
 	if app.redisClient != nil {
-		if closeErr := app.redisClient.Close(); closeErr != nil {
-			logrus.Warnf("Error closing Redis connection: %v", closeErr)
-		}
+		app.redisClient.CloseConnection()
 	}
 
 	// Close the PostgreSQL connection pool.
-	if app.pgPool != nil {
-		app.pgPool.Close()
+	if app.pgClient != nil {
+		app.pgClient.CloseConnection()
 	}
 
 	logrus.Info("Server exiting.")
@@ -291,35 +303,4 @@ func (app *Application) Run() {
 	app.loadConfig()
 	app.loadModules()
 	app.setupServer()
-}
-
-// deriveSecret produces a domain-separated key from a master secret and a label
-// using HMAC-SHA256. This ensures that keys used for different purposes (e.g.
-// API token signing vs. OIDC session cookies) are cryptographically independent
-// even when they share the same master secret.
-func deriveSecret(masterSecret, label string) string {
-	mac := hmac.New(sha256.New, []byte(masterSecret))
-	mac.Write([]byte(label))
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
-// newRedisClient parses redisURL, creates a *redis.Client, pings it and returns it.
-// Used to build a single shared client that is passed to both the token store and the cache.
-func newRedisClient(redisURL string) (*redis.Client, error) {
-	opt, err := redis.ParseURL(redisURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Redis URL: %w", err)
-	}
-
-	client := redis.NewClient(opt)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("cannot reach Redis at %q: %w", opt.Addr, err)
-	}
-
-	logrus.Infof("[Application] newRedisClient - connected to Redis at %s", opt.Addr)
-	return client, nil
 }

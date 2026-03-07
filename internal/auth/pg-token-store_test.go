@@ -23,7 +23,7 @@ func newTestPGStore(t *testing.T) (*PGTokenStore, pgxmock.PgxPoolIface) {
 	mock.ExpectExec("CREATE TABLE IF NOT EXISTS gimme_tokens").
 		WillReturnResult(pgxmock.NewResult("CREATE TABLE", 0))
 
-	store, storeErr := NewPGTokenStoreWithPool(mock)
+	store, storeErr := NewPGTokenStore(mock)
 	require.NoError(t, storeErr)
 	t.Cleanup(store.Close)
 
