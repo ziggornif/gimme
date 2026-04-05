@@ -19,7 +19,7 @@ data:
       enabled: true
       type: {{ .Values.cache.type | quote }}
       ttl: {{ .Values.cache.ttl }}
-      redis_url: {{ .Values.cache.redisUrl | quote }}
+    redis_url: {{ .Values.cache.redisUrl | quote }}
     {{- end }}
     {{- if ne .Values.tokenStore.mode "file" }}
     tokenStore:
