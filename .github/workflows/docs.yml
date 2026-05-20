@@ -40,7 +40,7 @@ jobs:
         run: cp -r assets/ docs/site/assets/
 
       - name: Upload docs/ as Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/site/
 
