@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Garage
         run: |
@@ -90,7 +90,7 @@ jobs:
   helm-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Helm
         uses: azure/setup-helm@v4
       - name: Install helm-unittest plugin
@@ -107,7 +107,7 @@ jobs:
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compute Docker tag
         id: docker-tag

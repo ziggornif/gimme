@@ -17,7 +17,7 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Prepare example config
       run: cp gimme.example.yml gimme.yml
     - uses: wangyoucao577/go-release-action@v1.55
@@ -33,7 +33,7 @@ jobs:
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Docker login
         run: echo "${{ secrets.DOCKER_PASS }}" | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
       - name: Build the Docker image
@@ -51,7 +51,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
