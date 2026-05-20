@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
       - name: Install helm-unittest plugin
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
       - name: Helm lint
