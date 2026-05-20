@@ -102,6 +102,7 @@ jobs:
 
   build:
     needs: [test, helm-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
