@@ -1,0 +1,201 @@
+# TODO — Work Plan
+
+Source of truth for scheduled work on gimme. `CLAUDE.md` points agents here.
+
+Every task maps to a GitHub issue that holds the full detail: cause, evidence, proposed fix, tests. **This file carries the order, the groupings and the gates — read the issue before starting a task.**
+
+---
+
+## Workflow
+
+Planning and implementation are split across two agents:
+
+| Role | Who | Output |
+|---|---|---|
+| Plan | Claude | This file, the issues, the sequencing |
+| Code | Codex | The implementation, from the issue + this file |
+
+Codex does not have the planning conversation. If an issue is ambiguous, that is a planning defect — raise it rather than guessing.
+
+## Rules
+
+1. **One task at a time.** Pick a single task, finish it fully, stop. Do not batch.
+2. **Respect the order.** Phases are sequenced for a reason; the rationale is stated per phase.
+3. **Grouped tasks ship together.** Where two issues are marked as a pair, they share a function and a test table — splitting them means writing the tests twice.
+4. **Every bug is proven by a failing test before it is fixed.** Mandatory, no exceptions in Phase 3:
+   1. Write a test that reproduces the buggy behaviour.
+   2. **Run it and watch it fail.** Paste the failure output into the PR or commit message.
+   3. Apply the fix.
+   4. Run it again and watch it pass.
+
+   Writing the fix first and the test after is not the same thing: a test written against already-corrected code proves the code does what it does, not that the bug is gone. The red step is the only evidence the test actually exercises the defect.
+
+   This is not theoretical here — see #45. Twenty-five green tests cover `content-service.go` today and none of them catches the version-resolution bug, because the mock fixture cannot express it. A test that passes before the fix is a test that tests nothing.
+
+   The test artifact is not always a Go test — see each task for its form.
+5. **Quality gate before proposing any commit** — all four must pass:
+   ```bash
+   gofmt -l .              # must output nothing
+   golangci-lint run ./...
+   make test               # unit + integration (starts/stops Garage)
+   make build
+   ```
+6. **Code review after implementation.** Invoke the `code-reviewer` sub-agent and address its findings before proposing a commit.
+7. **Never commit automatically.** Propose the message; the decision to commit is the maintainer's.
+8. **No release until Phase 5.** Everything ships in a single release at the end.
+
+## Status legend
+
+`[ ]` not started `[~]` in progress `[x]` done
+
+---
+
+## Phase 1 — Immediate
+
+One-line fixes, no dependencies, no behaviour change.
+
+- [ ] **#58 — `.gitignore` malformed pattern**
+  `gimme.yml.worktrees/` is two patterns collapsed into one; neither `gimme.yml` nor `.worktrees/` is actually ignored. Real S3 credentials can be committed.
+  *Files:* `.gitignore`
+  *Prove it:* not unit-testable — this is the one Phase 1/3 exception to rule 4. Record the shell output instead: `git check-ignore -v gimme.yml` returns nothing before the fix, matches after.
+  *Done when:* `git check-ignore gimme.yml` and `git check-ignore .worktrees/` both match.
+
+> **Optional pull-forward:** the version badge in #63 says `v1` while the latest release is v2.0.9 — publicly wrong right now, one line in `docs/site/index.html`. Fix it here if convenient; the rest of #63 stays in Phase 4.
+
+---
+
+## Phase 2 — CI
+
+Before touching application code, so the lint inventory is known in advance.
+
+- [ ] **#52 — `golangci-lint` + `gosec` in CI** *(two steps)*
+  **Step A (now):** create `.golangci.yml` (none exists) and add the job with `continue-on-error: true`. The goal is the inventory of existing findings, not a gate.
+  **Step B (after Phase 3):** remove `continue-on-error`, make it a blocking gate.
+  *Files:* `.golangci.yml`, `.github/workflows/build.yml`
+  *Note:* `gosec` will most likely flag the upload and file-handling paths touched in Phase 3. Expect overlap; do not fix those findings here.
+
+- [ ] **#53 — Multi-arch Docker image**
+  Binaries are already built for 7 platforms and the Dockerfile already honours `TARGETOS`/`TARGETARCH`. Only the two `docker build` steps need buildx.
+  *Files:* `.github/workflows/build.yml`, `.github/workflows/release.yml`
+  *Watch:* `make release` runs `upx --fast`; UPX on arm64 is the likely failure point. `make release-fast` skips compression if needed.
+
+---
+
+## Phase 3 — Bugs
+
+**Do these while there is no known production usage.** Four of them change behaviour in ways that would need a deprecation path once real deployments exist.
+
+- [ ] **#44 — `errgroup` has no concurrency limit**
+  One line: `eg.SetLimit(...)`. Land it first — it clears the upload path before the larger changes.
+  *Files:* `internal/content/content-service.go`
+  *Prove it:* the hardest one to red-test. Instrument the mock's `AddObject` with an atomic counter tracking peak concurrency, upload an archive with many entries, assert the peak stays at or below the limit. Before the fix the peak equals the entry count; after, it is capped.
+
+- [ ] **#42 + #43 — ZIP entry handling** ⚠️ *ship together*
+  Same function, same validation. #42: archives without a root folder upload but are unreachable. #43: entry names not starting with `[a-zA-Z0-9-_]` escape the package namespace entirely.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`
+  *Prove it:* Go tests. Build fixture archives in-test — one with a root folder, one with files at the root, one with several top-level folders, one with entries named `../x`, `/x`, `.hidden/x`. Assert the resulting object keys. Before the fix, `app.js` yields `awesome-lib@1.0.0.js` and `../../evil.js` passes through untouched.
+  *Approach:* stop inferring structure from a regex. Detect a common root, strip it if present, then assert every resulting key starts with `<pkg>@<version>/` and reject the whole archive otherwise.
+
+- [ ] **#45 + #46 — Version and filename resolution** ⚠️ *ship together*
+  Same function, same test table. `pkg@1` currently resolves to `10.0.0`; `/app.js` also matches `app.js.map`.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, **`test/mocks/objectstorage-manager.go`**
+  ⚠️ **The mock fixture must change or the tests stay green and prove nothing.** It holds only `1.0.0`/`1.1.0`/`1.1.1` — no two-digit components, one major — and filters with `Contains` instead of prefix matching, reproducing the bug it should catch.
+  *Prove it:* **fixture first.** Add `1.9.9`, `10.0.0`, `1.10.0` and switch the mock to prefix filtering, then run the existing suite — `TestContentService_GetMajorFile` should now fail, which is the red step. Only then write the component-wise comparison. If the suite still passes after the fixture change, the fixture change was wrong.
+
+> **Placeholder policy — applies to #59 and #60.** Demonstration stacks must start; a real installation must not run with a published secret.
+>
+> | Config | Role | Secret placeholder |
+> |---|---|---|
+> | `with-garage` | demo, runs as-is | passes — no change |
+> | `with-managed-s3` | demo, user supplies S3 only | passes (#60) |
+> | `gimme.example.yml` | real install (release + from source) | **must fail** (#59) |
+>
+> No application code either way. The existing 32-byte check does the work — the placeholder value decides the outcome.
+
+- [ ] **#59 — `gimme.example.yml` placeholder secret passes validation**
+  The placeholder says "at least 32 chars" and is 50 characters long, so it satisfies its own instruction and forces nothing. A user who edits only the S3 block runs with a secret published in this repo — which derives the token-file AES key and the OIDC session signing key.
+  *Files:* `gimme.example.yml` — **no application code**
+  *Fix:* short failing value, guidance moved to a comment: `# Required. Generate one with: openssl rand -hex 32` / `secret: "CHANGEME"`. Consider the same for `admin.user`/`admin.password`.
+  *Prove it:* Go test — `NewConfig()` on `gimme.example.yml` must be **rejected**. It is accepted today; that is the red step.
+  *Not breaking:* changes a shipped template, not the behaviour of a running instance.
+
+- [ ] **#60 — Compose example `with-managed-s3` cannot start**
+  `secret: secret` (6 chars) fails the 32-byte minimum, so the stack dies on a field the example never asks the user to fill. Align to the sibling `with-garage` value, which passes.
+  *Files:* `examples/deployment/docker-compose/with-managed-s3/gimme.yml`
+  *Prove it:* Go test — `NewConfig()` on the example file must be **accepted** as far as the secret goes. Red output today: `secret must be at least 32 bytes long (got 6)`.
+  *Independent of #59* — opposite directions, no ordering constraint.
+
+**→ Then complete #52 Step B: make the lint job blocking.**
+
+---
+
+## Phase 4 — Features
+
+- [ ] **#64 — `validateConfig` reports all invalid fields at once**
+  Today it returns on the first, so first-run setup is a chain of restart-and-discover cycles. Gets worse once #59 makes the secret the first error every new user hits. Do this early in the phase — it is what makes the tightened placeholder policy pleasant instead of tedious.
+  *Files:* `configs/config.go`, `configs/config_test.go`
+
+- [ ] **#61 — Environment-only configuration**
+  A missing config file is currently fatal even when every value is set via `GIMME_*`. Pairs naturally with #64 — same file, same first-run concern.
+
+- [ ] **#62 — Upload limits** (size, entry count, decompressed size)
+  Needs a new `PayloadTooLarge` kind in `internal/errors/business-error.go`.
+
+- [ ] **#48 — ETag / `If-None-Match` → 304**
+  Do before #47: smaller and self-contained, and #47 then extends it per encoding variant.
+
+- [ ] **#47 — Serve brotli/gzip**
+  Pre-compress at upload, negotiate on `Accept-Encoding`. Touches `CreatePackage`, so it must come after #42/#43.
+
+- [ ] **#50 — SRI integrity hashes**
+  Same upload hashing pass as #47 — do it right after, or together.
+
+- [ ] **#49 — Browse: `GET /packages` and version listing**
+  Independent of everything else. Good candidate if a visible win is wanted early.
+
+- [ ] **#51 — `@latest`**
+  Depends on #45: it shares the resolution path.
+
+- [ ] **#55 — GitHub Action + upload CLI**
+  Depends on #42: the archive layout must be settled first. The tool building the ZIP is what structurally prevents #42 from recurring.
+
+- [ ] **#57 — Helm chart README**
+  The chart itself is correct — templates, `values.yaml` and the `emptyDir` are all right. Only the README is wrong: it claims horizontal scaling is safe without qualifying that a shared token store is required, its HPA example leaves `mode: file`, its options table has drifted from `values.yaml` (missing `postgres` and `pgUrl`), and file-mode ephemerality is stated nowhere.
+  *Files:* `scripts/helm/gimme/README.md` — **documentation only, no template change**
+  *Note:* the token store is the *only* thing blocking horizontal scaling. OIDC sessions already scale — the signing key is derived deterministically from the shared `GIMME_SECRET`, so any pod validates any pod's cookie.
+
+- [ ] **#65 — Helm: guard against `file` + multiple replicas** *(after #57)*
+  `fail` in the chart when `mode: file` meets `replicaCount > 1` or `hpa.enabled`, so the unworkable combination cannot be rendered. Land after #57 so the guard message and the README agree.
+  *Files:* `scripts/helm/gimme/templates/_helpers.tpl`, helm-unittest tests
+
+- [ ] **#56 + #63 — README and docs site narrative** ⚠️ *one pass*
+  Both share an angle: lead with the use case, not the definition. #63 also carries the `v1` badge fix and the missing ZIP layout instruction.
+
+> **Reference sections drift as features land.** Update the relevant docs-site section **in the PR of the feature itself**, not in a separate documentation pass. Affected: Semver resolution (#45, #51), Caching (#47, #48), API Reference (#49), Quickstart (#55).
+
+---
+
+## Phase 5 — Release
+
+Single release covering everything above.
+
+**Target: v3.0.0.**
+
+Two items change behaviour in breaking ways:
+
+| Issue | Breaks on upgrade |
+|---|---|
+| #43 | Archives that previously uploaded are now rejected (entries starting with `.`) |
+| #45 | `pkg@1` serves different content than before |
+
+Not breaking, despite touching sensitive ground: #59 and #60 change shipped template files rather than the behaviour of a running instance; #57 is documentation. #65 makes an unworkable Helm configuration fail to render, which only affects deployments that were already misbehaving.
+
+A major bump is consistent with this project's own precedent: v2 was the major for replacing JWT tokens with opaque tokens — the same kind of breaking change.
+
+Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand-written preamble for this one** listing the three breaking changes and their upgrade actions — PR titles alone will not tell an operator that their `helm upgrade` will fail, that an archive their pipeline has always uploaded is now rejected, or that a `@1` URL now serves different content.
+
+---
+
+## Open decisions
+
+- **Project identity.** The Go module declares `github.com/gimme-cdn/gimme`, README badges point at `ziggornif/gimme`, and the repository currently resolves to `drouian-m/gimme`. It works through redirects but is confusing for `go install`. Worth settling before the release. *Related:* #63.
