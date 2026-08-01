@@ -193,8 +193,22 @@ Before touching application code, so the lint inventory is known in advance.
 - [ ] **#50 — SRI integrity hashes**
   Same upload hashing pass as #47 — do it right after, or together.
 
+- [ ] **#84 — Paginate the package listing (UI + API)** ⚠️ *settle before or with #49*
+  `GET /gimme/<pkg>@<version>` returns every object under the prefix in one response. Measured on `@mui/icons-material@5.15.21` (31 843 files): **39.7 MB of HTML** for an 18.7 MB package, 1.3 s server-side, and a browser that visibly struggles. A design-system icon package is the primary use case for a CDN, not an exotic input.
+  *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`, `internal/storage/objectstorage-manager.go`
+  *Start at the storage layer:* `ObjectStorageManager.ListObjects` hardcodes `Recursive: true` and drains the channel into a full slice, which makes pagination impossible for every caller above it. S3 `ListObjectsV2` is natively paginated (`MaxKeys` + continuation token); minio-go already exposes it.
+  *Order:* #49 has no listing contract yet — agreeing this one first means #49 adopts it instead of inventing a second.
+  *Also:* `GetFiles` uses the raw prefix with no version resolution, so `pkg@5` lists every version's files mixed together with no indication of which version each belongs to.
+
+- [ ] **#85 — Partial-version requests pay a full recursive listing** *(after #45 + #46)*
+  `getLatestPackagePath` calls `ListObjects` on every partial-version file request, so serving one 489 B file drains all 31 843 objects. Measured: **0.023 s pinned vs 0.810 s partial — 35x**, cache disabled. Cost scales with the file count of the package, not the size of the file served. This is the asset-serving hot path, not the browse UI.
+  *Files:* `internal/content/content-service.go`, `internal/storage/objectstorage-manager.go`
+  *Approach:* resolve from the version list, not the object list — a delimited (non-recursive) list on the `pkg@` prefix returns one common prefix per version instead of one entry per file, then build the path directly as the pinned branch already does.
+  *Order:* same function as #45 + #46, which rewrite the resolution. Land after them or fold in — doing it first means writing the resolution tests twice.
+  *Note:* the cache mitigates repeat hits but is optional and does nothing for the cold path, so it does not close this.
+
 - [ ] **#49 — Browse: `GET /packages` and version listing**
-  Independent of everything else. Good candidate if a visible win is wanted early.
+  Independent of everything else. Good candidate if a visible win is wanted early. See #84 — the pagination contract should be settled first, or in the same pass.
 
 - [ ] **#51 — `@latest`**
   Depends on #45: it shares the resolution path.
