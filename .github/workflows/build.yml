@@ -1,15 +1,10 @@
 name: Docker Image CI
 
 on:
-  # Only main on push: the build job publishes :latest from there. Branches are
-  # covered by pull_request — listening to both on every branch ran two full
-  # pipelines per commit, on the same SHA.
   push:
     branches: [ main ]
   pull_request:
 
-# A new push supersedes the run in flight for the same ref; nobody reads the
-# result of a run for a commit that is no longer the tip.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,15 +28,12 @@ jobs:
               - 'go.sum'
               - 'Makefile'
               - '.golangci.yml'
-              # Fixtures the suite loads by path: test/test.zip, test/config/.
-              - 'test/**'
-              # Templates rendered by the api/ tests.
-              - 'templates/**'
+              - 'test/**'          # fixtures loaded by path
+              - 'templates/**'     # rendered by the api/ tests
               - '.github/workflows/**'
             helm:
-              - 'scripts/helm/**'
-              # A README cannot break a template — it belongs to the docs filter.
-              - '!scripts/helm/**/*.md'
+              # One extglob, not a '!' entry: patterns here are OR-ed.
+              - 'scripts/helm/**/!(*.md)'
               - '.github/workflows/**'
             docs:
               - '**/*.md'
@@ -168,16 +160,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Lint Markdown
-        # No globs here: .markdownlint-cli2.jsonc carries them, and command-line
-        # arguments would override it — CI and local runs must lint the same set.
+        # No globs: .markdownlint-cli2.jsonc carries them, args would override it.
         run: npx --yes markdownlint-cli2
 
   build:
     needs: [changes, test, helm-test, lint]
-    # always() is required so a skipped dependency does not skip the build, but
-    # it also defeats the implicit "all needs succeeded" guard — hence the
-    # explicit checks. `changes` must have succeeded: if it fails, every other
-    # job is skipped, and without this the image would publish untested.
+    # always() tolerates skipped needs, but also defeats the implicit
+    # "all succeeded" guard — hence the explicit result checks.
     if: >-
       always() &&
       needs.changes.result == 'success' &&
