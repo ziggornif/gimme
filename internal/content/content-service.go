@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"regexp"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -31,8 +31,6 @@ type File struct {
 	Size   int64
 	Folder bool
 }
-
-var re = regexp.MustCompile(`^[a-zA-Z0-9-_]+`)
 
 // NewContentService create a new content service instance.
 // cacheManager may be nil to disable caching.
@@ -97,6 +95,81 @@ func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string,
 	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
 }
 
+type archiveObject struct {
+	key  string
+	file *zip.File
+}
+
+type archiveFile struct {
+	name     string
+	original string
+	file     *zip.File
+}
+
+// archiveKeys validates archive entry names and maps files into the package namespace.
+func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors.GimmeError) {
+	normalized := make([]archiveFile, 0, len(files))
+	for _, file := range files {
+		original := file.Name
+		if file.FileInfo().IsDir() || strings.HasSuffix(original, "/") {
+			continue
+		}
+		if original == "" {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains an empty entry name"))
+		}
+		if strings.HasPrefix(original, "/") {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q is an absolute path", original))
+		}
+
+		cleaned := path.Clean(original)
+		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
+		}
+		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
+	}
+
+	if len(normalized) == 0 {
+		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
+	}
+
+	commonRoot := ""
+	stripRoot := true
+	for i, file := range normalized {
+		root, _, found := strings.Cut(file.name, "/")
+		if !found {
+			stripRoot = false
+			break
+		}
+		if i == 0 {
+			commonRoot = root
+		} else if root != commonRoot {
+			stripRoot = false
+			break
+		}
+	}
+
+	prefix := folderName + "/"
+	objects := make([]archiveObject, 0, len(normalized))
+	originalByKey := make(map[string]string, len(normalized))
+	for _, file := range normalized {
+		relativePath := file.name
+		if stripRoot {
+			_, relativePath, _ = strings.Cut(relativePath, "/")
+		}
+		key := prefix + relativePath
+		if !strings.HasPrefix(key, prefix) {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", file.original))
+		}
+		if previous, exists := originalByKey[key]; exists {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entries %q and %q map to duplicate key %q", previous, file.original, key))
+		}
+		originalByKey[key] = file.original
+		objects = append(objects, archiveObject{key: key, file: file.file})
+	}
+
+	return objects, nil
+}
+
 // CreatePackage create package
 func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
 	archive, err := zip.NewReader(file, fileSize)
@@ -111,16 +184,23 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 		return errors.NewBusinessError(errors.Conflict, fmt.Errorf("the package %v already exists", folderName))
 	}
 
+	objects, validationErr := archiveKeys(archive.File, folderName)
+	if validationErr != nil {
+		logrus.Errorf("[ContentService] CreatePackage - Invalid archive: %v", validationErr)
+		return validationErr
+	}
+
 	var eg errgroup.Group
 	// Bound concurrency so resource use does not grow unbounded with archive entry count.
 	eg.SetLimit(runtime.NumCPU() * 4)
 
-	for _, currentFile := range archive.File {
+	for _, object := range objects {
+		objectKey := object.key
+		currentFile := object.file
 		eg.Go(func() error {
 			logrus.Debug("[ContentService] CreatePackage - Unzipping file ", currentFile.Name)
-			fileName := re.ReplaceAllString(currentFile.Name, folderName)
-			if err := svc.objectStorageManager.AddObject(ctx, fileName, currentFile); err != nil {
-				logrus.Errorf("[ContentService] CreatePackage - Error while processing file %s", fileName)
+			if err := svc.objectStorageManager.AddObject(ctx, objectKey, currentFile); err != nil {
+				logrus.Errorf("[ContentService] CreatePackage - Error while processing file %s", objectKey)
 				return err.Err
 			}
 			return nil

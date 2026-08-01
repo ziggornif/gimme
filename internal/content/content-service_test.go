@@ -5,8 +5,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"runtime"
+	"sort"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -342,4 +346,165 @@ func TestContentService_CreatePackage_LimitsConcurrency(t *testing.T) {
 
 	assert.Equal(t, int64(entries), manager.calls.Load(), "every archive entry must be uploaded")
 	assert.LessOrEqual(t, manager.peak.Load(), int64(limit), "concurrent uploads must stay at or below the limit")
+}
+
+// --- ZIP entry key layout tests (#42, #43) ---
+
+// recordingOSManager records every object key handed to AddObject.
+type recordingOSManager struct {
+	*mocks.MockOSManager
+	mu   sync.Mutex
+	keys []string
+}
+
+func (osc *recordingOSManager) AddObject(_ context.Context, objectName string, _ *zip.File) *errors.GimmeError {
+	osc.mu.Lock()
+	defer osc.mu.Unlock()
+	osc.keys = append(osc.keys, objectName)
+	return nil
+}
+
+func (osc *recordingOSManager) sortedKeys() []string {
+	osc.mu.Lock()
+	defer osc.mu.Unlock()
+	out := append([]string(nil), osc.keys...)
+	sort.Strings(out)
+	return out
+}
+
+// buildArchiveFrom builds an in-memory zip archive holding the given entry names.
+// A name ending with "/" is written as a directory entry.
+func buildArchiveFrom(t *testing.T, names ...string) (*bytes.Reader, int64) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for _, name := range names {
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		if strings.HasSuffix(name, "/") {
+			header.SetMode(fs.ModeDir | 0o755)
+		}
+		entry, err := writer.CreateHeader(header)
+		require.NoError(t, err)
+		if !strings.HasSuffix(name, "/") {
+			_, err = entry.Write([]byte("content of " + name))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, writer.Close())
+
+	return bytes.NewReader(buf.Bytes()), int64(buf.Len())
+}
+
+func TestContentService_CreatePackage_KeyLayout(t *testing.T) {
+	tests := []struct {
+		name     string
+		entries  []string
+		expected []string
+	}{
+		{
+			name:     "single root folder is stripped",
+			entries:  []string{"awesome-lib/", "awesome-lib/app.js", "awesome-lib/style.css", "awesome-lib/img/logo.svg"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg", "pkg@1.0.0/style.css"},
+		},
+		{
+			name:     "files at the archive root keep their own names",
+			entries:  []string{"app.js", "style.css", "img/logo.svg"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg", "pkg@1.0.0/style.css"},
+		},
+		{
+			name:     "several top level folders keep their internal paths",
+			entries:  []string{"js/app.js", "vendor/app.js", "css/style.css"},
+			expected: []string{"pkg@1.0.0/css/style.css", "pkg@1.0.0/js/app.js", "pkg@1.0.0/vendor/app.js"},
+		},
+		{
+			name:     "nested folders under a single root",
+			entries:  []string{"dist/js/app.js", "dist/js/vendor.js", "dist/css/style.css"},
+			expected: []string{"pkg@1.0.0/css/style.css", "pkg@1.0.0/js/app.js", "pkg@1.0.0/js/vendor.js"},
+		},
+		{
+			name:     "dot slash prefixes are normalised",
+			entries:  []string{"./app.js", "./img/logo.svg"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg"},
+		},
+		{
+			name:     "dot directories stay inside the package namespace",
+			entries:  []string{".well-known/probe.txt", "app.js"},
+			expected: []string{"pkg@1.0.0/.well-known/probe.txt", "pkg@1.0.0/app.js"},
+		},
+		{
+			name:     "single file at the archive root",
+			entries:  []string{"app.js"},
+			expected: []string{"pkg@1.0.0/app.js"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0)
+
+			reader, size := buildArchiveFrom(t, tt.entries...)
+			err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+			require.Nil(t, err)
+			assert.Equal(t, tt.expected, manager.sortedKeys())
+
+			// Same archive uploaded again must produce byte-identical keys.
+			second := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			secondService := NewContentService(second, nil, 0)
+			reader2, size2 := buildArchiveFrom(t, tt.entries...)
+			err = secondService.CreatePackage(context.Background(), "pkg", "1.0.0", reader2, size2)
+			require.Nil(t, err)
+			assert.Equal(t, manager.sortedKeys(), second.sortedKeys())
+		})
+	}
+}
+
+func TestContentService_CreatePackage_RejectsEscapingEntries(t *testing.T) {
+	tests := []string{
+		"../x.js",
+		"../../evil.js",
+		"/abs.js",
+		"a/../../b.js",
+		"./../x.js",
+		"",
+	}
+
+	for _, entry := range tests {
+		t.Run(fmt.Sprintf("entry %q", entry), func(t *testing.T) {
+			manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0)
+
+			reader, size := buildArchiveFrom(t, "app.js", entry)
+			err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+			require.NotNil(t, err, "archive must be rejected")
+			assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+			assert.Empty(t, manager.sortedKeys(), "nothing must be uploaded when the archive is rejected")
+		})
+	}
+}
+
+func TestContentService_CreatePackage_RejectsDuplicateKeys(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0)
+
+	reader, size := buildArchiveFrom(t, "js/app.js", "./js/app.js")
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "colliding entries must be rejected, never silently merged")
+	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+	assert.Contains(t, err.Error(), "js/app.js")
+	assert.Empty(t, manager.sortedKeys(), "nothing must be uploaded when the archive is rejected")
+}
+
+func TestContentService_CreatePackage_RejectsEmptyArchive(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0)
+
+	reader, size := buildArchiveFrom(t)
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "an archive with no file must be rejected")
+	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
 }

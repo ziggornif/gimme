@@ -128,7 +128,7 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `internal/content/content-service.go`
   *Prove it:* the hardest one to red-test. Instrument the mock's `AddObject` with an atomic counter tracking peak concurrency, upload an archive with many entries, assert the peak stays at or below the limit. Before the fix the peak equals the entry count; after, it is capped.
 
-- [ ] **#42 + #43 — ZIP entry handling** ⚠️ *ship together*
+- [x] **#42 + #43 — ZIP entry handling** ⚠️ *ship together*
   Same function, same validation. The rewrite regex replaces the **first path segment, whatever it is**, which is correct only for archives shaped exactly `<one-root-folder>/...`.
   **This is the most severe defect in the backlog** — reproduced end-to-end against `ziggornif/gimme:latest`, see the issue. Four symptoms, worst last:
   1. root-level files escape the package namespace and become permanent orphans `DeletePackage` cannot reach
@@ -140,6 +140,7 @@ Before touching application code, so the lint inventory is known in advance.
   *Prove it:* Go tests. Build fixture archives in-test — one with a root folder, one with files at the root, one with several top-level folders, one with the same filename in two folders, one with entries named `../x`, `/x`, `.hidden/x`. Assert the resulting object keys. Before the fix, `app.js` yields `awesome-lib@1.0.0.js`, `img/logo.svg` yields `<pkg>@<version>/logo.svg`, and `../../evil.js` passes through untouched.
   *Approach:* detect a common root and strip only that; otherwise **preserve the full internal path**. Assert every resulting key starts with `<pkg>@<version>/` and reject the archive otherwise. Detect duplicate target keys **before uploading anything** and reject, naming the colliding entries — never overwrite silently.
   *Note:* symptom 4 most likely comes from the unbounded `errgroup` in #44, which lands first. Fixing #44 makes the collision deterministic; only this task makes it impossible.
+  *Settled while implementing:* dot-prefixed segments (`.well-known/probe.txt`, `.hidden/x.js`) are **accepted and namespaced**, not rejected — they are legitimate asset paths, and the whitelist rule (key must start with `<pkg>@<version>/`) already contains them. Rejection is reserved for empty names, absolute paths, `..` escapes and duplicate target keys, and it applies to the **whole archive** — never a silently skipped entry.
 
 - [ ] **#45 + #46 — Version and filename resolution** ⚠️ *ship together*
   Same function, same test table. `pkg@1` currently resolves to `10.0.0`; `/app.js` also matches `app.js.map`.
@@ -242,7 +243,7 @@ Two items change behaviour in breaking ways:
 
 | Issue | Breaks on upgrade |
 |---|---|
-| #43 | Archives that previously uploaded are now rejected (entries starting with `.`) |
+| #42 + #43 | Archives that previously uploaded are now rejected: `..` escapes, absolute paths, empty entry names, and any archive whose entries collide on the same target key. Archives with no root folder, or with several top-level folders, now upload correctly instead of being flattened — so the object keys they produce **change**, and URLs written against the old flattened layout break. |
 | #45 | `pkg@1` serves different content than before |
 
 Not breaking, despite touching sensitive ground: #59 and #60 change shipped template files rather than the behaviour of a running instance; #57 is documentation. #65 makes an unworkable Helm configuration fail to render, which only affects deployments that were already misbehaving.
