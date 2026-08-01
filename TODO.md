@@ -82,7 +82,7 @@ One-line fixes, no dependencies, no behaviour change.
   *Files:* `go.mod`, Go imports, coverage filters, `CONTRIBUTING.md`, `CLAUDE.md`
   *Watch:* the coverage filters in `Makefile` and `.github/workflows/build.yml` match the module path as a literal string. Miss one and it silently stops excluding `test/mocks` — nothing turns red.
 
-- [ ] **#73 — `make garage-start`: `grep -oP` is not portable, `NODE_ID` is empty on macOS**
+- [x] **#73 — `make garage-start`: `grep -oP` is not portable, `NODE_ID` is empty on macOS**
   `Makefile:102` uses `grep -oP`, a GNU extension that BSD grep rejects. `NODE_ID` ends up empty and `garage layout assign` silently matches the only node by empty prefix. Replace it with `-oE` and add a non-empty guard.
   *Files:* `Makefile`
   *Independent of everything else.*

@@ -99,7 +99,12 @@ garage-start:
 		echo "  attempt $$i/15..."; \
 		sleep 2; \
 	done
-	@NODE_ID=$$(docker exec $(GARAGE_CONTAINER) /garage status | grep -oP '[0-9a-f]{16}' | head -1) && \
+	@NODE_ID=$$(docker exec $(GARAGE_CONTAINER) /garage status | grep -oE '[0-9a-f]{16}' | head -1) && \
+		if [ -z "$$NODE_ID" ]; then \
+			echo "ERROR: could not read the Garage node ID"; \
+			docker logs $(GARAGE_CONTAINER); \
+			exit 1; \
+		fi && \
 		docker exec $(GARAGE_CONTAINER) /garage layout assign -z dc1 -c 1G "$$NODE_ID" && \
 		docker exec $(GARAGE_CONTAINER) /garage layout apply --version 1 && \
 		docker exec $(GARAGE_CONTAINER) /garage key create gimme-key && \
