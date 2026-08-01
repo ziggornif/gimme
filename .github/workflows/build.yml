@@ -7,7 +7,39 @@ on:
     branches: [ "**" ]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      helm: ${{ steps.filter.outputs.helm }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - '.golangci.yml'
+              # Fixtures the suite loads by path: test/test.zip, test/config/.
+              - 'test/**'
+              # Templates rendered by the api/ tests.
+              - 'templates/**'
+              - '.github/workflows/**'
+            helm:
+              - 'scripts/helm/**'
+              - '.github/workflows/**'
+            docs:
+              - '**/*.md'
+              - '.markdownlint-cli2.jsonc'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,6 +120,8 @@ jobs:
         run: go tool cover -func coverage.out
 
   helm-test:
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -100,9 +134,48 @@ jobs:
       - name: Helm unit tests
         run: make helm-test
 
+  lint:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '^1.26'
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+  markdown:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint Markdown
+        # No globs here: .markdownlint-cli2.jsonc carries them, and command-line
+        # arguments would override it — CI and local runs must lint the same set.
+        run: npx --yes markdownlint-cli2
+
   build:
-    needs: [test, helm-test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [changes, test, helm-test, lint]
+    # always() is required so a skipped dependency does not skip the build, but
+    # it also defeats the implicit "all needs succeeded" guard — hence the
+    # explicit checks. `changes` must have succeeded: if it fails, every other
+    # job is skipped, and without this the image would publish untested.
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.test.result != 'failure' &&
+      needs.helm-test.result != 'failure' &&
+      needs.lint.result != 'failure' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       REPO: ${{ secrets.DOCKER_REPO }}
