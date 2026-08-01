@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gimme-cdn/gimme/test/utils"
+	"github.com/ziggornif/gimme/test/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

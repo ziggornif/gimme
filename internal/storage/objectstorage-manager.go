@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/metrics"
+	"github.com/ziggornif/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/metrics"
 
-	fileutils "github.com/gimme-cdn/gimme/pkg/file-utils"
+	fileutils "github.com/ziggornif/gimme/pkg/file-utils"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"

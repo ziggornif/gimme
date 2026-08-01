@@ -43,7 +43,7 @@ test: garage-start
 	 TEST_S3_BUCKET=gimme TEST_S3_LOCATION=garage \
 	 go test ./... -coverprofile=coverage.out; \
 	 TEST_EXIT=$$?; \
-	 grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out; \
+	 grep -v "github.com/ziggornif/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out; \
 	 $(MAKE) garage-stop; \
 	 exit $$TEST_EXIT
 

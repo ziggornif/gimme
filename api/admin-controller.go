@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/internal/errors"
 )
 
 // AdminController handles the admin UI and token management API.

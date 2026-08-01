@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/cache"
+	"github.com/ziggornif/gimme/internal/cache"
 )
 
 // MockCacheManager is an in-memory CacheManager for unit tests.

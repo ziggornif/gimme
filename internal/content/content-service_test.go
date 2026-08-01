@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/cache"
-	"github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/metrics"
-	"github.com/gimme-cdn/gimme/test/mocks"
 	"github.com/minio/minio-go/v7"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziggornif/gimme/internal/cache"
+	"github.com/ziggornif/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/metrics"
+	"github.com/ziggornif/gimme/test/mocks"
 )
 
 func TestContentService_CreatePackage(t *testing.T) {

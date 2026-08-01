@@ -1,4 +1,4 @@
-module github.com/gimme-cdn/gimme
+module github.com/ziggornif/gimme
 
 go 1.26
 

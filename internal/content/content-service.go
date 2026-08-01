@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/cache"
-	"github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/metrics"
-	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/internal/cache"
+	"github.com/ziggornif/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/metrics"
+	"github.com/ziggornif/gimme/internal/storage"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
 )

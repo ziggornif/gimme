@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziggornif/gimme/internal/persistence"
 )
 
 // newTestRedisCache spins up an in-process miniredis server and returns a

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/errors"
 
 	"github.com/minio/minio-go/v7"
 )

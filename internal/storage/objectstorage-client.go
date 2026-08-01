@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/errors"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/gimme-cdn/gimme/configs"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/ziggornif/gimme/configs"
 
 	"github.com/minio/minio-go/v7"
 )

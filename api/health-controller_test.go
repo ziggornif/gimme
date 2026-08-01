@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/test/mocks"
-	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/ziggornif/gimme/test/mocks"
+	"github.com/ziggornif/gimme/test/utils"
 )
 
 func TestHealthControllerLiveness(t *testing.T) {
