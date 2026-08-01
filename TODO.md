@@ -200,7 +200,7 @@ Before touching application code, so the lint inventory is known in advance.
 - [ ] **#55 — GitHub Action + upload CLI**
   Depends on #42: the archive layout must be settled first. The tool building the ZIP is what structurally prevents #42 from recurring.
 
-- [ ] **#57 — Helm chart README**
+- [x] **#57 — Helm chart README**
   The chart itself is correct — templates, `values.yaml` and the `emptyDir` are all right. Only the README is wrong: it claims horizontal scaling is safe without qualifying that a shared token store is required, its HPA example leaves `mode: file`, its options table has drifted from `values.yaml` (missing `postgres` and `pgUrl`), and file-mode ephemerality is stated nowhere.
   *Files:* `scripts/helm/gimme/README.md` — **documentation only, no template change**
   *Note:* the token store is the *only* thing blocking horizontal scaling. OIDC sessions already scale — the signing key is derived deterministically from the shared `GIMME_SECRET`, so any pod validates any pod's cookie.
