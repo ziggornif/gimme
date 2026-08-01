@@ -67,7 +67,7 @@ Codex does not have the planning conversation. If an issue is ambiguous, that is
 
 One-line fixes, no dependencies, no behaviour change.
 
-- [ ] **#58 — `.gitignore` malformed pattern**
+- [x] **#58 — `.gitignore` malformed pattern**
   `gimme.yml.worktrees/` is two patterns collapsed into one; neither `gimme.yml` nor `.worktrees/` is actually ignored. Real S3 credentials can be committed.
   *Files:* `.gitignore`
   *Prove it:* not unit-testable — this is the one Phase 1/3 exception to rule 4. Record the shell output instead: `git check-ignore -v gimme.yml` returns nothing before the fix, matches after.

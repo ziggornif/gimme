@@ -18,4 +18,5 @@
 .DS_Store
 dist
 /gimme
-gimme.yml.worktrees/
+/gimme.yml
+/.worktrees/
