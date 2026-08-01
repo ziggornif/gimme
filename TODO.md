@@ -105,6 +105,11 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `.github/workflows/build.yml`, `.markdownlint-cli2.jsonc`, Markdown files
   *Prove it:* the CI run itself — none of this is observable locally. A branch touching only a `.md` file must show `test` and `helm-test` as **Skipped** and stay mergeable; that is where the required-check deadlock would appear.
 
+- [x] **#77 — CI plumbing: duplicate pipelines, no concurrency, `helm-test` on Markdown**
+  Three defects that together doubled the CI bill. `push` and `pull_request` both listened on `**`, so every commit on a branch with an open pull request ran two complete pipelines on the same SHA. No `concurrency` group, so successive pushes ran in parallel instead of superseding each other. And the `helm` path filter matched `scripts/helm/**/*.md`, firing `helm-test` on documentation-only changes.
+  *Files:* `.github/workflows/build.yml`
+  *Prove it:* CI behaviour, not observable locally. One run per push; a second push cancels the first; a pull request touching only `scripts/helm/**/*.md` shows `helm-test` as **Skipped** while one touching a template still runs it.
+
 - [ ] **#53 — Multi-arch Docker image**
   Binaries are already built for 7 platforms and the Dockerfile already honours `TARGETOS`/`TARGETARCH`. Only the two `docker build` steps need buildx.
   *Files:* `.github/workflows/build.yml`, `.github/workflows/release.yml`

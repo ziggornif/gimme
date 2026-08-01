@@ -1,10 +1,18 @@
 name: Docker Image CI
 
 on:
+  # Only main on push: the build job publishes :latest from there. Branches are
+  # covered by pull_request — listening to both on every branch ran two full
+  # pipelines per commit, on the same SHA.
   push:
-    branches: [ "**" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "**" ]
+
+# A new push supersedes the run in flight for the same ref; nobody reads the
+# result of a run for a commit that is no longer the tip.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
@@ -32,6 +40,8 @@ jobs:
               - '.github/workflows/**'
             helm:
               - 'scripts/helm/**'
+              # A README cannot break a template — it belongs to the docs filter.
+              - '!scripts/helm/**/*.md'
               - '.github/workflows/**'
             docs:
               - '**/*.md'
