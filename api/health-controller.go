@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-gonic/gin"
+	"github.com/ziggornif/gimme/internal/storage"
 )
 
 type HealthController struct {

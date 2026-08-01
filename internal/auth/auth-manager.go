@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/internal/errors"
 )
 
 // tokenPrefix is prepended to every opaque token so that it is immediately

@@ -16,7 +16,7 @@ Thank you for your interest in contributing! This guide covers everything you ne
 
 ```bash
 # Clone the repository
-git clone https://github.com/gimme-cdn/gimme.git
+git clone https://github.com/ziggornif/gimme.git
 cd gimme
 
 # Copy the example config
@@ -27,7 +27,7 @@ cp gimme.example.yml gimme.yml
 go mod download
 
 # Run unit tests (no S3 required)
-go test $(go list ./... | grep -v 'github.com/gimme-cdn/gimme/api') -coverprofile=coverage.out
+go test $(go list ./... | grep -v 'github.com/ziggornif/gimme/api') -coverprofile=coverage.out
 
 # Run all tests including integration (starts Garage via Docker automatically)
 make test
@@ -124,7 +124,7 @@ make helm-test   # run unit tests
 
 ## Reporting Issues
 
-Please open an issue on [GitHub](https://github.com/gimme-cdn/gimme/issues) with:
+Please open an issue on [GitHub](https://github.com/ziggornif/gimme/issues) with:
 - A clear description of the problem
 - Steps to reproduce
 - Expected vs actual behaviour

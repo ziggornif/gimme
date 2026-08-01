@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
-	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/internal/content"
+	"github.com/ziggornif/gimme/test/utils"
 )
 
 func newTestAuthManager(t *testing.T) *auth.AuthManager {

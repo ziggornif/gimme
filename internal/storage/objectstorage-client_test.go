@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gimme-cdn/gimme/configs"
+	"github.com/ziggornif/gimme/configs"
 )
 
 func TestNewObjectStorageClient(t *testing.T) {

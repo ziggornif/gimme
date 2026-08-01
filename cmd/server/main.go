@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/gimme-cdn/gimme/internal/application"
+	"github.com/ziggornif/gimme/internal/application"
 )
 
 func main() {

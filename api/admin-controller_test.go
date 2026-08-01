@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/test/utils"
 )
 
 const adminAuthHeader = "Basic dGVzdDp0ZXN0" // test:test

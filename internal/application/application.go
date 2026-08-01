@@ -15,19 +15,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gimme-cdn/gimme/api"
-	"github.com/gimme-cdn/gimme/configs"
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/cache"
-	"github.com/gimme-cdn/gimme/internal/content"
-	gimmeerr "github.com/gimme-cdn/gimme/internal/errors"
-	"github.com/gimme-cdn/gimme/internal/metrics"
-	"github.com/gimme-cdn/gimme/internal/persistence"
-	"github.com/gimme-cdn/gimme/internal/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/api"
+	"github.com/ziggornif/gimme/configs"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/internal/cache"
+	"github.com/ziggornif/gimme/internal/content"
+	gimmeerr "github.com/ziggornif/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/metrics"
+	"github.com/ziggornif/gimme/internal/persistence"
+	"github.com/ziggornif/gimme/internal/storage"
 )
 
 type Application struct {

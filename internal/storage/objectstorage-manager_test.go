@@ -7,7 +7,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"github.com/gimme-cdn/gimme/test/mocks"
+	"github.com/ziggornif/gimme/test/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

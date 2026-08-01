@@ -12,15 +12,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/configs"
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
-	"github.com/gimme-cdn/gimme/internal/storage"
-	"github.com/gimme-cdn/gimme/test/mocks"
-	"github.com/gimme-cdn/gimme/test/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziggornif/gimme/configs"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/internal/content"
+	"github.com/ziggornif/gimme/internal/storage"
+	"github.com/ziggornif/gimme/test/mocks"
+	"github.com/ziggornif/gimme/test/utils"
 )
 
 // newPackageTestStore creates a FileTokenStore in a temp dir for controller tests.

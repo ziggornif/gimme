@@ -6,8 +6,8 @@ import (
 	"mime/multipart"
 	"slices"
 
-	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/internal/errors"
 )
 
 var validTypes = []string{"application/octet-stream", "application/zip"}

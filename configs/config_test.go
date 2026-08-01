@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gimme-cdn/gimme/test/utils"
+	"github.com/ziggornif/gimme/test/utils"
 
 	"github.com/stretchr/testify/assert"
 )

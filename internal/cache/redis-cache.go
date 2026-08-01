@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gimme-cdn/gimme/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/internal/persistence"
 )
 
 type redisCache struct {

@@ -82,7 +82,7 @@ jobs:
           TEST_S3_LOCATION: garage
         run: |
           go test ./... -coverprofile=coverage.out
-          grep -v "github.com/gimme-cdn/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out
+          grep -v "github.com/ziggornif/gimme/test/" coverage.out > coverage.tmp && mv coverage.tmp coverage.out
 
       - name: Coverage
         run: go tool cover -func coverage.out

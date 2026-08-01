@@ -73,6 +73,11 @@ One-line fixes, no dependencies, no behaviour change.
   *Prove it:* not unit-testable — this is the one Phase 1/3 exception to rule 4. Record the shell output instead: `git check-ignore -v gimme.yml` returns nothing before the fix, matches after.
   *Done when:* `git check-ignore gimme.yml` and `git check-ignore .worktrees/` both match.
 
+- [x] **#70 — Canonical Go module path**
+  Rename the module and its internal imports to `github.com/ziggornif/gimme`, matching the repository's canonical identity. Keep the path unversioned — **no `/v3` suffix**, even though Phase 5 tags a major: gimme is a server, nothing imports it, and releases ship as binaries and Docker images, so the module path is an internal identifier no proxy ever resolves.
+  *Files:* `go.mod`, Go imports, coverage filters, `CONTRIBUTING.md`, `CLAUDE.md`
+  *Watch:* the coverage filters in `Makefile` and `.github/workflows/build.yml` match the module path as a literal string. Miss one and it silently stops excluding `test/mocks` — nothing turns red.
+
 > **Optional pull-forward:** the version badge in #63 says `v1` while the latest release is v2.0.9 — publicly wrong right now, one line in `docs/site/index.html`. Fix it here if convenient; the rest of #63 stays in Phase 4.
 
 ---
@@ -219,4 +224,6 @@ Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand
 
 ## Open decisions
 
-- **Project identity.** The Go module declares `github.com/gimme-cdn/gimme`, README badges point at `ziggornif/gimme`, and the repository currently resolves to `drouian-m/gimme`. It works through redirects but is confusing for `go install`. Worth settling before the release. *Related:* #63.
+_None open._
+
+Project identity was settled in #70: repository, Go module and Docker image are all `ziggornif/gimme`, and the module path deliberately carries no major-version suffix.

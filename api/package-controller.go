@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gimme-cdn/gimme/internal/archive_validator"
-	"github.com/gimme-cdn/gimme/internal/auth"
-	"github.com/gimme-cdn/gimme/internal/content"
-	"github.com/gimme-cdn/gimme/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"github.com/sirupsen/logrus"
+	"github.com/ziggornif/gimme/internal/archive_validator"
+	"github.com/ziggornif/gimme/internal/auth"
+	"github.com/ziggornif/gimme/internal/content"
+	"github.com/ziggornif/gimme/internal/errors"
 )
 
 type PackageController struct {

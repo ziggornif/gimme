@@ -4,7 +4,7 @@
 
 **Gimme** is a self-hosted CDN (Content Delivery Network) solution written in Go. It allows uploading packages (ZIP archives) and serving static assets (JS, CSS, images, etc.) via a REST API, backed by any S3-compatible object storage — primarily [Garage HQ](https://garagehq.deuxfleurs.fr/) or [Minio](https://min.io/) via the Minio Go SDK.
 
-- **Module**: `github.com/gimme-cdn/gimme`
+- **Module**: `github.com/ziggornif/gimme`
 - **Go version**: 1.26+
 - **Docker image**: `ziggornif/gimme`
 
@@ -124,7 +124,7 @@ Integration tests (in `api/`) run unconditionally and require a live S3 backend 
 
 Unit tests only (no S3 required):
 ```bash
-go test $(go list ./... | grep -v 'github.com/gimme-cdn/gimme/api') -coverprofile=coverage.out
+go test $(go list ./... | grep -v 'github.com/ziggornif/gimme/api') -coverprofile=coverage.out
 ```
 
 ---
