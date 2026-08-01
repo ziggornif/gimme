@@ -123,7 +123,7 @@ Before touching application code, so the lint inventory is known in advance.
 
 **Do these while there is no known production usage.** Four of them change behaviour in ways that would need a deprecation path once real deployments exist.
 
-- [ ] **#44 — `errgroup` has no concurrency limit**
+- [x] **#44 — `errgroup` has no concurrency limit**
   One line: `eg.SetLimit(...)`. Land it first — it clears the upload path before the larger changes.
   *Files:* `internal/content/content-service.go`
   *Prove it:* the hardest one to red-test. Instrument the mock's `AddObject` with an atomic counter tracking peak concurrency, upload an archive with many entries, assert the peak stays at or below the limit. Before the fix the peak equals the entry count; after, it is capped.
