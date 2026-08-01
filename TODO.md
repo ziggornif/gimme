@@ -42,7 +42,18 @@ Codex does not have the planning conversation. If an issue is ambiguous, that is
    ```
 6. **Code review after implementation.** Invoke the `code-reviewer` sub-agent and address its findings before proposing a commit.
 7. **Never commit automatically.** Propose the message; the decision to commit is the maintainer's.
-8. **No release until Phase 5.** Everything ships in a single release at the end.
+8. **Every change goes through a branch and a pull request.** `main` is protected: it requires a pull request and one approving review. Admin accounts can bypass that check — **do not**. The bypass exists for emergencies, not for routine work.
+
+   One branch per task, named after the issue it closes:
+   ```
+   fix/58-gitignore
+   ci/52-lint-gosec
+   fix/42-43-zip-entries
+   ```
+   Paired tasks share a branch — they ship together, so they review together.
+
+   Tick the task's box in this file **in the same pull request** as the change, so the plan and the code never drift.
+9. **No release until Phase 5.** Everything merges to `main` as it lands; nothing is tagged until the end. Merging is not releasing — the `v3.0.0` tag is what makes the release, so there is no need for a long-lived integration branch.
 
 ## Status legend
 
