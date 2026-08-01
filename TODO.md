@@ -42,7 +42,9 @@ Codex does not have the planning conversation. If an issue is ambiguous, that is
    ```
 6. **Code review after implementation.** Invoke the `code-reviewer` sub-agent and address its findings before proposing a commit.
 7. **Never commit automatically.** Propose the message; the decision to commit is the maintainer's.
-8. **Every change goes through a branch and a pull request.** `main` is protected: it requires a pull request and one approving review. Admin accounts can bypass that check — **do not**. The bypass exists for emergencies, not for routine work.
+8. **Every change goes through a branch and a pull request.** `main` is protected — direct pushes are refused, and a pull request cannot merge until the `test` and `helm-test` checks are green. Branches must also be up to date with `main` before merging; if dependabot has landed a bump since you branched, update the branch.
+
+   Admin accounts can bypass the checks. **Do not** — bypassing here means merging with a red CI, which is exactly what the gate exists to prevent.
 
    One branch per task, named after the issue it closes:
    ```
@@ -81,8 +83,9 @@ Before touching application code, so the lint inventory is known in advance.
 
 - [ ] **#52 — `golangci-lint` + `gosec` in CI** *(two steps)*
   **Step A (now):** create `.golangci.yml` (none exists) and add the job with `continue-on-error: true`. The goal is the inventory of existing findings, not a gate.
-  **Step B (after Phase 3):** remove `continue-on-error`, make it a blocking gate.
+  **Step B (after Phase 3):** remove `continue-on-error`, make it a blocking gate. ⚠️ **Also add `lint` to the required status checks** on the `main` branch protection — otherwise the job runs and blocks nothing. Only at step B, never at step A.
   *Files:* `.golangci.yml`, `.github/workflows/build.yml`
+  *Careful:* required check names are coupled to job names in the workflow. Renaming a job without updating the branch protection leaves every pull request waiting on a check that will never report.
   *Note:* `gosec` will most likely flag the upload and file-handling paths touched in Phase 3. Expect overlap; do not fix those findings here.
 
 - [ ] **#53 — Multi-arch Docker image**
