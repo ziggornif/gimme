@@ -86,7 +86,8 @@ s3:
 | `auth.oidc.redirectUrl` | OIDC redirect URI (required when `auth.mode=oidc`) | `""` |
 | `auth.oidc.secureCookies` | Enable secure cookies (set to `false` for local HTTP dev) | `true` |
 | `credentials.oidcClientSecret` | OIDC client secret (required when `auth.mode=oidc`) | `""` |
-| `tokenStore.mode` | Token store backend: `file` (standalone) or `redis` | `file` |
+| `tokenStore.mode` | Token store backend: `file`, `redis` or `postgres` | `file` |
+| `tokenStore.pgUrl` | PostgreSQL URL (required when `tokenStore.mode=postgres`) | `""` |
 | `service.type` | Kubernetes Service type | `ClusterIP` |
 | `service.port` | Service port | `80` |
 | `ingress.enabled` | Enable Ingress | `false` |
@@ -147,10 +148,22 @@ cache:
 
 ### With HPA (auto-scaling)
 
-Gimme is stateless (all state lives in S3), so horizontal scaling is safe.
+Horizontal scaling requires a shared token store. Everything else in gimme already
+scales — but in the default `file` mode, tokens live in a per-pod volume, so a token
+issued by one pod is unknown to the others.
+
+Set `tokenStore.mode` to `redis` or `postgres` before adding replicas:
 
 ```yaml
 replicaCount: 2
+
+tokenStore:
+  mode: redis
+
+cache:
+  enabled: true
+  type: redis
+  redisUrl: redis://my-redis-service:6379
 
 hpa:
   enabled: true
@@ -158,6 +171,48 @@ hpa:
   maxReplicas: 10
   targetCPUUtilizationPercentage: 70
 ```
+
+`redis` is the natural choice: if you also enable the version-resolution cache, one
+dependency serves both.
+
+#### What scales, and what does not
+
+| State | Shared across pods? |
+|---|---|
+| Token store, `file` mode | **no** — one file per pod |
+| Token store, `redis` / `postgres` | yes |
+| S3 objects | yes, by definition |
+| Version-resolution cache | yes (Redis). With the cache off, each pod resolves independently — slower, still correct |
+| OIDC sessions | yes |
+| OIDC state / nonce | validated against browser cookies, no server-side state |
+
+OIDC scales without extra configuration because the session signing key is derived
+from the shared secret. Every pod reads the same `GIMME_SECRET` from the same
+Kubernetes Secret, derives the same key, and can therefore validate a cookie issued
+by any other pod.
+
+The token store is the only thing standing between this chart and horizontal scaling.
+
+### Token durability in `file` mode
+
+`file` mode is the zero-dependency option: no Redis, no PostgreSQL. The chart mounts
+an `emptyDir` at `/tmp` for it, which is required — `readOnlyRootFilesystem: true`
+would otherwise leave the token store nowhere to write.
+
+An `emptyDir` lives and dies with the **pod**, not the container:
+
+| Event | Tokens survive? |
+|---|---|
+| Container crash and restart in the same pod | **yes** |
+| Liveness probe kill | **yes** |
+| Container OOM kill | **yes** |
+| Pod replaced — `helm upgrade`, image update, node drain, eviction, scale down | **no** |
+
+The last row is the one that matters in practice: **`helm upgrade` replaces pods, so
+upgrading gimme discards every issued API token.** Clients must be re-issued tokens
+after an upgrade.
+
+Use `redis` or `postgres` if tokens need to outlive a pod.
 
 ## Upgrade
 
