@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -111,6 +112,8 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	}
 
 	var eg errgroup.Group
+	// Bound concurrency so resource use does not grow unbounded with archive entry count.
+	eg.SetLimit(runtime.NumCPU() * 4)
 
 	for _, currentFile := range archive.File {
 		eg.Go(func() error {

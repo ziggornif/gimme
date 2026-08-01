@@ -1,8 +1,13 @@
 package content
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"fmt"
 	"os"
+	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -279,4 +284,62 @@ func TestIsPinnedVersion(t *testing.T) {
 			assert.Equal(t, tt.expected, IsPinnedVersion(tt.version))
 		})
 	}
+}
+
+// --- Upload concurrency tests ---
+
+// concurrencyTrackingOSManager records the peak number of AddObject calls in
+// flight at any moment, plus the total number of calls.
+type concurrencyTrackingOSManager struct {
+	*mocks.MockOSManager
+	inFlight atomic.Int64
+	peak     atomic.Int64
+	calls    atomic.Int64
+}
+
+func (osc *concurrencyTrackingOSManager) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
+	osc.calls.Add(1)
+	current := osc.inFlight.Add(1)
+	for {
+		peak := osc.peak.Load()
+		if current <= peak || osc.peak.CompareAndSwap(peak, current) {
+			break
+		}
+	}
+	// Hold the slot long enough for every concurrent upload to overlap.
+	time.Sleep(10 * time.Millisecond)
+	osc.inFlight.Add(-1)
+	return nil
+}
+
+// buildArchive builds an in-memory zip archive holding entries files.
+func buildArchive(t *testing.T, entries int) (*bytes.Reader, int64) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for i := range entries {
+		entry, err := writer.Create(fmt.Sprintf("root/file-%d.js", i))
+		require.NoError(t, err)
+		_, err = entry.Write([]byte("content"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	return bytes.NewReader(buf.Bytes()), int64(buf.Len())
+}
+
+func TestContentService_CreatePackage_LimitsConcurrency(t *testing.T) {
+	limit := runtime.NumCPU() * 4
+	entries := limit + 50
+
+	manager := &concurrencyTrackingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0)
+
+	reader, size := buildArchive(t, entries)
+	err := service.CreatePackage(context.Background(), "test", "1.0.0", reader, size)
+	require.Nil(t, err)
+
+	assert.Equal(t, int64(entries), manager.calls.Load(), "every archive entry must be uploaded")
+	assert.LessOrEqual(t, manager.peak.Load(), int64(limit), "concurrent uploads must stay at or below the limit")
 }
