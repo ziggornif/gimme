@@ -13,6 +13,7 @@ docker compose up -d
 ```
 
 That's it. The `init-garage` service automatically:
+
 1. Waits for Garage to be healthy
 2. Creates the cluster layout (single-node, 10 GiB)
 3. Creates the S3 bucket and key
@@ -41,13 +42,14 @@ All parameters are passed as environment variables on the `init-garage` service 
 | `CACHE_TTL` | `3600` | Cache TTL in seconds |
 
 **For production**, change all secrets before deploying:
+
 - `admin_token` in `garage.toml` (generate with `openssl rand -base64 32`)
 - `GARAGE_ADMIN_TOKEN` in `docker-compose.yml` (must match the above)
 - `GIMME_ADMIN_PASSWORD` and `GIMME_SECRET` in `docker-compose.yml`
 
 ## Architecture
 
-```
+```text
                  ┌─────────────────────────────────────────┐
                  │           gimme-config volume           │
                  │           (generated gimme.yml)         │

@@ -59,7 +59,7 @@ Ask Codex to review its own work before returning: a first pass on its own diff 
 
 **Do not ask it for the test suite.** The sandbox denies `bind`, so any test opening a listener panics before it does anything useful:
 
-```
+```text
 panic: httptest: failed to listen on a port:
        listen tcp6 [::1]:0: bind: operation not permitted
 ```

@@ -12,7 +12,7 @@
 
 ## Architecture
 
-```
+```text
 gimme/
 ├── cmd/server/main.go          # Entrypoint
 ├── api/                        # HTTP controllers (Gin)
@@ -123,6 +123,7 @@ Tests use `github.com/stretchr/testify`. Each package has a `_test.go` file alon
 Integration tests (in `api/`) run unconditionally and require a live S3 backend — `make test` handles starting/stopping Garage automatically.
 
 Unit tests only (no S3 required):
+
 ```bash
 go test $(go list ./... | grep -v 'github.com/ziggornif/gimme/api') -coverprofile=coverage.out
 ```
