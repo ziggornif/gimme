@@ -105,10 +105,17 @@ Before touching application code, so the lint inventory is known in advance.
   *Prove it:* the hardest one to red-test. Instrument the mock's `AddObject` with an atomic counter tracking peak concurrency, upload an archive with many entries, assert the peak stays at or below the limit. Before the fix the peak equals the entry count; after, it is capped.
 
 - [ ] **#42 + #43 — ZIP entry handling** ⚠️ *ship together*
-  Same function, same validation. #42: archives without a root folder upload but are unreachable. #43: entry names not starting with `[a-zA-Z0-9-_]` escape the package namespace entirely.
+  Same function, same validation. The rewrite regex replaces the **first path segment, whatever it is**, which is correct only for archives shaped exactly `<one-root-folder>/...`.
+  **This is the most severe defect in the backlog** — reproduced end-to-end against `ziggornif/gimme:latest`, see the issue. Four symptoms, worst last:
+  1. root-level files escape the package namespace and become permanent orphans `DeletePackage` cannot reach
+  2. subdirectories are flattened — the file exists, but not at the URL anyone wrote
+  3. two top-level folders holding the same filename collapse onto one key: **silent data loss**, not a 404
+  4. which of the two wins **varies between uploads of the same archive**
+  #43 is the same code path: entry names not starting with `[a-zA-Z0-9-_]` are not rewritten at all and escape the namespace.
   *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`
-  *Prove it:* Go tests. Build fixture archives in-test — one with a root folder, one with files at the root, one with several top-level folders, one with entries named `../x`, `/x`, `.hidden/x`. Assert the resulting object keys. Before the fix, `app.js` yields `awesome-lib@1.0.0.js` and `../../evil.js` passes through untouched.
-  *Approach:* stop inferring structure from a regex. Detect a common root, strip it if present, then assert every resulting key starts with `<pkg>@<version>/` and reject the whole archive otherwise.
+  *Prove it:* Go tests. Build fixture archives in-test — one with a root folder, one with files at the root, one with several top-level folders, one with the same filename in two folders, one with entries named `../x`, `/x`, `.hidden/x`. Assert the resulting object keys. Before the fix, `app.js` yields `awesome-lib@1.0.0.js`, `img/logo.svg` yields `<pkg>@<version>/logo.svg`, and `../../evil.js` passes through untouched.
+  *Approach:* detect a common root and strip only that; otherwise **preserve the full internal path**. Assert every resulting key starts with `<pkg>@<version>/` and reject the archive otherwise. Detect duplicate target keys **before uploading anything** and reject, naming the colliding entries — never overwrite silently.
+  *Note:* symptom 4 most likely comes from the unbounded `errgroup` in #44, which lands first. Fixing #44 makes the collision deterministic; only this task makes it impossible.
 
 - [ ] **#45 + #46 — Version and filename resolution** ⚠️ *ship together*
   Same function, same test table. `pkg@1` currently resolves to `10.0.0`; `/app.js` also matches `app.js.map`.
