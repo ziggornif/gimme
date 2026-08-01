@@ -110,10 +110,12 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `.github/workflows/build.yml`
   *Prove it:* CI behaviour, not observable locally. One run per push; a second push cancels the first; a pull request touching only `scripts/helm/**/*.md` shows `helm-test` as **Skipped** while one touching a template still runs it.
 
-- [ ] **#53 — Multi-arch Docker image**
-  Binaries are already built for 7 platforms and the Dockerfile already honours `TARGETOS`/`TARGETARCH`. Only the two `docker build` steps need buildx.
-  *Files:* `.github/workflows/build.yml`, `.github/workflows/release.yml`
-  *Watch:* `make release` runs `upx --fast`; UPX on arm64 is the likely failure point. `make release-fast` skips compression if needed.
+- [x] **#81 — Drop UPX from the Docker build**
+  `upx --fast` made the pull heavier and doubled container startup. Measured: compressed image 18.9 MB → 17.1 MB, startup 740 ms → 372 ms. A registry transfers layers gzipped, and an uncompressed Go binary gzips far better than an already-packed one — so UPX only won on uncompressed local size, which nobody pays for. Published binaries were never affected: `go-release-action` compiles them itself.
+  *Files:* `Dockerfile`, `Makefile`
+  *Prove it:* shell output — binary size inside the image, `docker save | gzip | wc -c`, and startup timing.
+
+> **#53 — Multi-arch Docker image: closed, not scheduled.** No one has asked for an arm64 image, and the `linux/arm64` binary already covers the rare case. The published image is `linux/amd64` only — verified: the registry serves a plain `manifest.v2`, not a manifest list. Reopen if someone actually deploys on ARM; the `Dockerfile` already honours `TARGETOS`/`TARGETARCH`, so it is two `docker build` steps away.
 
 ---
 

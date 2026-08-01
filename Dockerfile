@@ -1,13 +1,12 @@
 FROM golang:1.26-alpine AS builder
-ARG MAKE_TARGET=release
 ARG TARGETARCH=amd64
 ARG TARGETOS=linux
-RUN apk add --no-cache make git upx
+RUN apk add --no-cache make git
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make ${MAKE_TARGET}
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make release
 
 FROM alpine:3.22
 RUN apk add --no-cache wget && adduser -D gimme
