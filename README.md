@@ -38,7 +38,7 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 
 ## Documentation
 
-The Gimme documentation is available at https://ziggornif.github.io/gimme/.
+The Gimme documentation is available at <https://ziggornif.github.io/gimme/>.
 
 ## Architecture
 
@@ -221,6 +221,7 @@ auth:
 ```
 
 **How it works:**
+
 - Unauthenticated requests to `/admin`, `POST /tokens`, `DELETE /tokens/:id` are redirected to `GET /auth/login`.
 - `GET /auth/login` starts the OAuth2 authorization code flow (CSRF-protected with a state cookie).
 - `GET /auth/callback` validates the OIDC ID token, then issues a signed session cookie (HS256 JWT, 8 h TTL).
@@ -259,6 +260,7 @@ curl -s -X POST http://localhost:8080/tokens \
 In `oidc` mode, authenticate via the admin UI at `/admin` and use the token management interface.
 
  Response: `201 Created`
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -270,7 +272,7 @@ In `oidc` mode, authenticate via the admin UI at `/admin` and use the token mana
 ```
 
 > The raw token (`gim_<hex>`, 68 chars) is returned **once** — store it securely. Only its SHA-256 hash is persisted.
-
+>
 > If `expirationDate` is omitted, the token expires in **90 days**.
 
 ### 2. Upload a package
@@ -291,7 +293,7 @@ Response: `201 Created`
 
 Once uploaded, files are served at:
 
-```
+```http
 GET /gimme/<package>@<version>/<file>
 ```
 
@@ -312,7 +314,7 @@ Use it directly in HTML:
 
 ### 4. Browse package contents
 
-```
+```http
 GET /gimme/<package>@<version>
 ```
 
@@ -377,7 +379,7 @@ docker run -p 8080:8080 \
 
 Gimme implements two independent, composable caching levels:
 
-```
+```text
 Browser → [Level 1: external proxy / CDN] → [gimme + Level 2: internal Redis cache] → [S3]
 ```
 
@@ -423,7 +425,7 @@ Gimme includes an optional internal cache backed by **Redis / Valkey**. When ena
 
 Pinned versions (`pkg@1.0.0`) are **not** stored in Redis — their path is deterministic and requires no resolution.
 
-#### Configuration
+#### Redis cache configuration
 
 ```yaml
 redis_url: redis://localhost:6379
@@ -491,5 +493,6 @@ In addition to the standard Go runtime and process metrics (goroutines, memory, 
 A pre-configured Prometheus + Grafana stack is bundled in both Docker Compose examples (`with-garage/` and `with-managed-s3/`). Each stack includes its own `monitoring/` directory with the Prometheus config and Grafana dashboard.
 
 Once a stack is running:
+
 - Prometheus: <http://localhost:9090>
 - Grafana: <http://localhost:3000> (anonymous access enabled)

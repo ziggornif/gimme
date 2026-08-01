@@ -34,12 +34,14 @@ Codex does not have the planning conversation. If an issue is ambiguous, that is
 
    The test artifact is not always a Go test — see each task for its form.
 5. **Quality gate before proposing any commit** — all four must pass:
+
    ```bash
    gofmt -l .              # must output nothing
    golangci-lint run ./...
    make test               # unit + integration (starts/stops Garage)
    make build
    ```
+
 6. **Code review after implementation.** Invoke the `code-reviewer` sub-agent and address its findings before proposing a commit.
 7. **Never commit automatically.** Propose the message; the decision to commit is the maintainer's.
 8. **Every change goes through a branch and a pull request.** `main` is protected — direct pushes are refused, and a pull request cannot merge until the `test` and `helm-test` checks are green. Branches must also be up to date with `main` before merging; if dependabot has landed a bump since you branched, update the branch.
@@ -47,11 +49,13 @@ Codex does not have the planning conversation. If an issue is ambiguous, that is
    Admin accounts can bypass the checks. **Do not** — bypassing here means merging with a red CI, which is exactly what the gate exists to prevent.
 
    One branch per task, named after the issue it closes:
-   ```
+
+   ```text
    fix/58-gitignore
    ci/52-lint-gosec
    fix/42-43-zip-entries
    ```
+
    Paired tasks share a branch — they ship together, so they review together.
 
    Tick the task's box in this file **in the same pull request** as the change, so the plan and the code never drift.
@@ -78,6 +82,11 @@ One-line fixes, no dependencies, no behaviour change.
   *Files:* `go.mod`, Go imports, coverage filters, `CONTRIBUTING.md`, `CLAUDE.md`
   *Watch:* the coverage filters in `Makefile` and `.github/workflows/build.yml` match the module path as a literal string. Miss one and it silently stops excluding `test/mocks` — nothing turns red.
 
+- [ ] **#73 — `make garage-start`: `grep -oP` is not portable, `NODE_ID` is empty on macOS**
+  `Makefile:102` uses `grep -oP`, a GNU extension that BSD grep rejects. `NODE_ID` ends up empty and `garage layout assign` silently matches the only node by empty prefix. Replace it with `-oE` and add a non-empty guard.
+  *Files:* `Makefile`
+  *Independent of everything else.*
+
 > **Optional pull-forward:** the version badge in #63 says `v1` while the latest release is v2.0.9 — publicly wrong right now, one line in `docs/site/index.html`. Fix it here if convenient; the rest of #63 stays in Phase 4.
 
 ---
@@ -86,12 +95,15 @@ One-line fixes, no dependencies, no behaviour change.
 
 Before touching application code, so the lint inventory is known in advance.
 
-- [ ] **#52 — `golangci-lint` + `gosec` in CI** *(two steps)*
-  **Step A (now):** create `.golangci.yml` (none exists) and add the job with `continue-on-error: true`. The goal is the inventory of existing findings, not a gate.
-  **Step B (after Phase 3):** remove `continue-on-error`, make it a blocking gate. ⚠️ **Also add `lint` to the required status checks** on the `main` branch protection — otherwise the job runs and blocks nothing. Only at step B, never at step A.
+- [x] **#52 — `golangci-lint` + `gosec` in CI** ⚠️ *ship together with #74*
+  Create `.golangci.yml` (none exists) and add a blocking lint job. The inventory is clean: the prediction that `gosec` would flag the upload and file-handling paths touched in Phase 3 was measured and is false — there is no `gosec` finding in `content-service.go` or anywhere on the upload path. ⚠️ **Also add `lint` to the required status checks** on the `main` branch protection — otherwise the job runs and blocks nothing.
   *Files:* `.golangci.yml`, `.github/workflows/build.yml`
   *Careful:* required check names are coupled to job names in the workflow. Renaming a job without updating the branch protection leaves every pull request waiting on a check that will never report.
-  *Note:* `gosec` will most likely flag the upload and file-handling paths touched in Phase 3. Expect overlap; do not fix those findings here.
+
+- [x] **#74 — CI path filtering + Markdown lint** ⚠️ *ship together with #52*
+  Run each CI job only when the file types it covers change, and lint Markdown when documentation changes. Keep the workflow triggers unchanged and gate jobs from a path-filtering job: a required job that never reports leaves pull requests waiting forever, so `paths-ignore` must not be used.
+  *Files:* `.github/workflows/build.yml`, `.markdownlint-cli2.jsonc`, Markdown files
+  *Prove it:* the CI run itself — none of this is observable locally. A branch touching only a `.md` file must show `test` and `helm-test` as **Skipped** and stay mergeable; that is where the required-check deadlock would appear.
 
 - [ ] **#53 — Multi-arch Docker image**
   Binaries are already built for 7 platforms and the Dockerfile already honours `TARGETOS`/`TARGETARCH`. Only the two `docker build` steps need buildx.
@@ -150,8 +162,6 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `examples/deployment/docker-compose/with-managed-s3/gimme.yml`
   *Prove it:* Go test — `NewConfig()` on the example file must be **accepted** as far as the secret goes. Red output today: `secret must be at least 32 bytes long (got 6)`.
   *Independent of #59* — opposite directions, no ordering constraint.
-
-**→ Then complete #52 Step B: make the lint job blocking.**
 
 ---
 
@@ -224,6 +234,6 @@ Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand
 
 ## Open decisions
 
-_None open._
+*None open.*
 
 Project identity was settled in #70: repository, Go module and Docker image are all `ziggornif/gimme`, and the module path deliberately carries no major-version suffix.

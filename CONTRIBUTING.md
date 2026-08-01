@@ -41,7 +41,7 @@ make watch
 
 ## Project Layout
 
-```
+```text
 gimme/
 ├── cmd/server/main.go          # Entrypoint
 ├── api/                        # HTTP controllers (Gin) + integration tests
@@ -63,6 +63,7 @@ gimme/
 ## Development Workflow
 
 1. **Fork** the repository and create a branch from `main`:
+
    ```bash
    git checkout -b feat/my-feature
    # or
@@ -72,6 +73,7 @@ gimme/
 2. **Make your changes**, following the [code conventions](#code-conventions) below.
 
 3. **Run the quality gate** before pushing — all checks must pass:
+
    ```bash
    gofmt -l .              # must output nothing
    make fmt                # auto-format
@@ -97,7 +99,7 @@ gimme/
 
 Follow the [Conventional Commits](https://www.conventionalcommits.org/) format:
 
-```
+```text
 feat: add Redis cache support
 fix: handle missing bucket gracefully
 chore: update dependencies
@@ -125,6 +127,7 @@ make helm-test   # run unit tests
 ## Reporting Issues
 
 Please open an issue on [GitHub](https://github.com/ziggornif/gimme/issues) with:
+
 - A clear description of the problem
 - Steps to reproduce
 - Expected vs actual behaviour

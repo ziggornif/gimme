@@ -1,0 +1,23 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+  exclusions:
+    rules:
+      # tokenIndexKey is a Redis key name, not a credential.
+      - path: ^internal/auth/redis-token-store\.go$
+        text: "G101: Potential hardcoded credentials"
+        linters:
+          - gosec
+      - path: _test\.go
+        linters:
+          - gosec
+      - path: ^test/
+        linters:
+          - gosec

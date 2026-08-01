@@ -1,0 +1,22 @@
+{
+  "config": {
+    // Long lines are deliberate here: tables and prose are written to be read
+    // in a wide editor, not wrapped at 80 columns.
+    "MD013": false,
+
+    // Compact tables (`|a|b|`) are used throughout the docs and the work plan.
+    "MD060": false,
+
+    // The README centres its logo with <p align="center"><img>. Markdown has
+    // no equivalent, and GitHub renders the HTML.
+    "MD033": false,
+
+    // Skills number their steps in bold (`**1. Locate the task**`). Turning
+    // those into headings would put every step in the document outline.
+    "MD036": false
+  },
+  "globs": [
+    "**/*.md",
+    "!node_modules"
+  ]
+}
