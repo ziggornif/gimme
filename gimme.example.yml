@@ -3,7 +3,8 @@ admin:
   user: gimmeadmin
   password: gimmeadmin
 port: 8080
-secret: "CHANGE-ME-use-a-random-secret-of-at-least-32-chars"
+# Required. Generate one with: openssl rand -hex 32
+secret: "CHANGEME"
 s3:
   url: your.s3.url.cloud
   key: s3key

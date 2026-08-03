@@ -8,6 +8,7 @@ import (
 	"github.com/ziggornif/gimme/test/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func remove(src string) error {
@@ -261,4 +262,35 @@ func TestNewConfigOIDCValid(t *testing.T) {
 	assert.Equal(t, "https://keycloak.example.com/realms/gimme", confObj.Auth.OIDC.Issuer)
 	assert.Equal(t, "gimme", confObj.Auth.OIDC.ClientID)
 	assert.Equal(t, "https://gimme.example.com/auth/callback", confObj.Auth.OIDC.RedirectURL)
+}
+
+// TestNewConfigShippedExampleIsRejected asserts that the installation template
+// shipped in every release archive refuses to start as-is, so that no instance
+// runs with the placeholder secret published here.
+func TestNewConfigShippedExampleIsRejected(t *testing.T) {
+	utils.CopyFile("../gimme.example.yml", "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	// The wording is not asserted: #64 will change it.
+	require.NotNil(t, err, "the shipped example must not be a runnable configuration")
+	assert.Contains(t, err.Error(), "secret")
+}
+
+// TestNewConfigManagedS3ExampleIsAccepted asserts the opposite for a
+// demonstration stack: it must start as shipped, since the user is asked to
+// supply storage credentials and nothing else.
+func TestNewConfigManagedS3ExampleIsAccepted(t *testing.T) {
+	utils.CopyFile("../examples/deployment/docker-compose/with-managed-s3/gimme.yml", "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	confObj, err := NewConfig()
+
+	require.Nil(t, err, "the demonstration stack must start as shipped")
+	assert.GreaterOrEqual(t, len(confObj.Secret), 32)
 }

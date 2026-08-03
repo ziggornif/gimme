@@ -159,14 +159,14 @@ Before touching application code, so the lint inventory is known in advance.
 >
 > No application code either way. The existing 32-byte check does the work — the placeholder value decides the outcome.
 
-- [ ] **#59 — `gimme.example.yml` placeholder secret passes validation**
+- [x] **#59 — `gimme.example.yml` placeholder secret passes validation**
   The placeholder says "at least 32 chars" and is 50 characters long, so it satisfies its own instruction and forces nothing. A user who edits only the S3 block runs with a secret published in this repo — which derives the token-file AES key and the OIDC session signing key.
   *Files:* `gimme.example.yml` — **no application code**
   *Fix:* short failing value, guidance moved to a comment: `# Required. Generate one with: openssl rand -hex 32` / `secret: "CHANGEME"`. Consider the same for `admin.user`/`admin.password`.
   *Prove it:* Go test — `NewConfig()` on `gimme.example.yml` must be **rejected**. It is accepted today; that is the red step.
   *Not breaking:* changes a shipped template, not the behaviour of a running instance.
 
-- [ ] **#60 — Compose example `with-managed-s3` cannot start**
+- [x] **#60 — Compose example `with-managed-s3` cannot start**
   `secret: secret` (6 chars) fails the 32-byte minimum, so the stack dies on a field the example never asks the user to fill. Align to the sibling `with-garage` value, which passes.
   *Files:* `examples/deployment/docker-compose/with-managed-s3/gimme.yml`
   *Prove it:* Go test — `NewConfig()` on the example file must be **accepted** as far as the secret goes. Red output today: `secret must be at least 32 bytes long (got 6)`.
