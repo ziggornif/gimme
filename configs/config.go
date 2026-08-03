@@ -164,9 +164,6 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	}
 
 	if err := validateConfig(&config); err != nil {
-		// Not logged here: logrus quotes the message, which escapes the newlines
-		// of a multi-problem report into a single unreadable line. The caller
-		// (application.loadConfig) already prints it verbatim before exiting.
 		return nil, errors.NewBusinessError(errors.InternalError, err)
 	}
 
