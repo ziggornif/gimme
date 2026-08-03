@@ -264,6 +264,44 @@ func TestNewConfigOIDCValid(t *testing.T) {
 	assert.Equal(t, "https://gimme.example.com/auth/callback", confObj.Auth.OIDC.RedirectURL)
 }
 
+// TestNewConfigValidationReportsEveryInvalidField asserts that a configuration
+// with several problems names all of them in a single error, so first-run setup
+// is one pass instead of one restart per missing field.
+func TestNewConfigValidationReportsEveryInvalidField(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "multiple-invalid.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	require.NotNil(t, err)
+	assert.Equal(t, "configuration is not valid:\n"+
+		"  - secret must be at least 32 bytes long (got 8)\n"+
+		"  - s3.url is not set\n"+
+		"  - s3.key is not set\n"+
+		"  - s3.secret is not set", err.Error())
+}
+
+// TestNewConfigValidationSkipsFieldsThatDoNotApply asserts the mode-dependent
+// checks still hold when several problems are reported: in oidc mode the
+// missing admin credentials are not part of the list.
+func TestNewConfigValidationSkipsFieldsThatDoNotApply(t *testing.T) {
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "oidc-multiple-invalid.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	require.NotNil(t, err)
+	assert.Equal(t, "configuration is not valid:\n"+
+		"  - auth.oidc.issuer is required when auth.mode is \"oidc\"\n"+
+		"  - auth.oidc.client_id is required when auth.mode is \"oidc\"\n"+
+		"  - auth.oidc.redirect_url is required when auth.mode is \"oidc\"", err.Error())
+	assert.NotContains(t, err.Error(), "admin.")
+}
+
 // TestNewConfigShippedExampleIsRejected asserts that the installation template
 // shipped in every release archive refuses to start as-is, so that no instance
 // runs with the placeholder secret published here.

@@ -1,0 +1,10 @@
+# Several invalid fields at once: short secret and three missing s3 fields
+admin:
+  user: test
+  password: test
+port: 8080
+secret: tooshort
+s3:
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
