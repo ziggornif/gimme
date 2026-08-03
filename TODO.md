@@ -185,6 +185,16 @@ Before touching application code, so the lint inventory is known in advance.
 - [ ] **#62 — Upload limits** (size, entry count, decompressed size)
   Needs a new `PayloadTooLarge` kind in `internal/errors/business-error.go`.
 
+- [ ] **#88 — Archive shapes that produce surprising object keys without erroring** *(after #42 + #43)*
+  Follow-up to #42/#43, all of it measured against `archiveKeys()`, none of it a regression — these are the archives the new code accepts while still producing keys the user did not mean.
+  1. **the common-root heuristic is disarmed by a single root-level file.** `dist/app.js` + `dist/css/style.css` strips to `pkg@1.0.0/app.js`; add a `README.md` at the root and the same archive yields `pkg@1.0.0/dist/app.js` — one added file moves **every** asset URL. A Finder-made zip on macOS is therefore *never* stripped: the root-level `.DS_Store` and the `__MACOSX/` top-level segment both defeat the detection, and the junk is published inside the package.
+  2. **a content folder is indistinguishable from a wrapper folder** — `img/logo.svg` + `img/icon.svg` strips `img/`. Undecidable without a convention; accepted deliberately in #42, restated here because any fix for 1 must settle it too.
+  3. **Unicode NFC vs NFD yields two objects, one unreachable.** `café.js` in NFC (8 bytes) and NFD (9 bytes) produce two distinct keys and no rejection. macOS stores NFD, browsers send NFC. Duplicate detection itself is byte-exact and works — the gap is normalisation.
+  4. minor: `dir\app.js` keeps its literal backslash (not a separator per the ZIP spec), `App.js`/`app.js` coexist (S3 is case-sensitive), a file `dist` and a folder `dist/` coexist.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`
+  *Splits cleanly in two:* **A** make root detection predictable (ignore known junk / key off a single top-level directory / make it explicit at upload time) — this is the one carrying a product decision; **B** normalise entry names to NFC before computing the key and reject post-normalisation duplicates, which is small and self-contained.
+  *Note:* #55 removes several of these at the source by building the archive itself, but does nothing for a hand-made zip.
+
 - [ ] **#48 — ETag / `If-None-Match` → 304**
   Do before #47: smaller and self-contained, and #47 then extends it per encoding variant.
 
