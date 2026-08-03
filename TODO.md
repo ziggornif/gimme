@@ -142,7 +142,7 @@ Before touching application code, so the lint inventory is known in advance.
   *Note:* symptom 4 most likely comes from the unbounded `errgroup` in #44, which lands first. Fixing #44 makes the collision deterministic; only this task makes it impossible.
   *Settled while implementing:* dot-prefixed segments (`.well-known/probe.txt`, `.hidden/x.js`) are **accepted and namespaced**, not rejected — they are legitimate asset paths, and the whitelist rule (key must start with `<pkg>@<version>/`) already contains them. Rejection is reserved for empty names, absolute paths, `..` escapes and duplicate target keys, and it applies to the **whole archive** — never a silently skipped entry.
 
-- [ ] **#45 + #46 — Version and filename resolution** ⚠️ *ship together*
+- [x] **#45 + #46 — Version and filename resolution** ⚠️ *ship together*
   Same function, same test table. `pkg@1` currently resolves to `10.0.0`; `/app.js` also matches `app.js.map`.
   *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, **`test/mocks/objectstorage-manager.go`**
   ⚠️ **The mock fixture must change or the tests stay green and prove nothing.** It holds only `1.0.0`/`1.1.0`/`1.1.1` — no two-digit components, one major — and filters with `Contains` instead of prefix matching, reproducing the bug it should catch.
