@@ -263,6 +263,13 @@ A major bump is consistent with this project's own precedent: v2 was the major f
 
 Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand-written preamble for this one** listing the three breaking changes and their upgrade actions — PR titles alone will not tell an operator that their `helm upgrade` will fail, that an archive their pipeline has always uploaded is now rejected, or that a `@1` URL now serves different content.
 
+**The preamble opens with the upgrade actions, in bold, above everything else** — not at the bottom, where nobody reads them. First line: this release fixes bugs in version resolution and in how archive entries become object keys, and **it does not repair content already stored**. The fixes apply at upload and at resolution time only.
+
+There is no index to rebuild — gimme keeps none. `ListObjects` is called against S3 on every request (`internal/content/content-service.go`), so S3 is the only source of truth. The two actions are therefore:
+
+- **Re-upload the affected packages.** #42 + #43 change the object keys produced *at upload*; they rewrite nothing already in the bucket. A package uploaded from an archive without a single root folder stays flattened where it is (`img/logo.svg` stored as `pkg@1.0.0/logo.svg`), and root-level files stay orphaned outside the `<pkg>@<version>/` namespace — `DeletePackage` lists on that prefix and cannot reach them, so they survive a package deletion and need an S3 client to remove. Already-published URLs keep resolving; what stays wrong is the layout, until the package is uploaded again.
+- **Flush the Redis cache if it is enabled** (off by default). `GetFile` caches the resolution of partial versions — key `pkg@1/app.js` → resolved object path. Entries written before the upgrade encode the #45 bug (`@1` → `10.0.0`) and keep serving it until the TTL expires (3600 s by default). Pinned versions never go through the cache, so they are unaffected.
+
 ---
 
 ## Open decisions
