@@ -146,7 +146,8 @@ Before touching application code, so the lint inventory is known in advance.
   Same function, same test table. `pkg@1` currently resolves to `10.0.0`; `/app.js` also matches `app.js.map`.
   *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, **`test/mocks/objectstorage-manager.go`**
   ⚠️ **The mock fixture must change or the tests stay green and prove nothing.** It holds only `1.0.0`/`1.1.0`/`1.1.1` — no two-digit components, one major — and filters with `Contains` instead of prefix matching, reproducing the bug it should catch.
-  *Prove it:* **fixture first.** Add `1.9.9`, `10.0.0`, `1.10.0` and switch the mock to prefix filtering, then run the existing suite — `TestContentService_GetMajorFile` should now fail, which is the red step. Only then write the component-wise comparison. If the suite still passes after the fixture change, the fixture change was wrong.
+  *Prove it:* **fixture first.** Add `1.9.9`, `10.0.0`, `1.10.0` and switch the mock to prefix filtering, then run the existing suite. Only then write the component-wise comparison.
+  ⚠️ *Correction, measured 2026-08-03 — the fixture change alone does **not** turn the suite red.* It was tried (added `1.9.9`, `1.10.0`, `1.11.0`, `10.0.0`, swapped `Contains` for `HasPrefix`) and everything stayed green. `TestContentService_GetMajorFile` asserts only `NotNil(file)` / `Nil(err)`, and `MockOSManager.GetObject` returns a `&minio.Object{}` for **any** path — so `@1` resolving to `10.0.0` raises nothing. The red step therefore needs a **third change**: a mock that records the resolved key, plus assertions on that key (`@1` → `test@1.11.0/test.js`, not `test@10.0.0/test.js`; `test.js` must not match `test.js.map`). Fixture + prefix filtering are necessary, not sufficient.
 
 > **Placeholder policy — applies to #59 and #60.** Demonstration stacks must start; a real installation must not run with a published secret.
 >
