@@ -2,6 +2,7 @@ package configs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ziggornif/gimme/internal/errors"
 
@@ -163,85 +164,91 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	}
 
 	if err := validateConfig(&config); err != nil {
-		logrus.Errorf("NewConfig - Configuration is not valid: %s", err)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("configuration is not valid: %s", err))
+		return nil, errors.NewBusinessError(errors.InternalError, err)
 	}
 
 	return &config, nil
 }
 
 func validateConfig(config *Configuration) error {
+	var problems []string
+
 	// Admin credentials are only required in "basic" mode.
 	// In "oidc" mode, authentication is fully delegated to the OIDC provider
 	// and admin credentials are not used.
 	if config.Auth.Mode == "basic" {
 		if config.AdminUser == "" {
-			return fmt.Errorf("admin.user is not set")
+			problems = append(problems, "admin.user is not set")
 		}
 		if config.AdminPassword == "" {
-			return fmt.Errorf("admin.password is not set")
+			problems = append(problems, "admin.password is not set")
 		}
 	}
 	if config.Secret == "" {
-		return fmt.Errorf("secret is not set")
-	}
-	if len(config.Secret) < 32 {
+		problems = append(problems, "secret is not set")
+	} else if len(config.Secret) < 32 {
 		// len() counts bytes, not Unicode code points — acceptable here because
 		// secrets are expected to be ASCII (hex, base64, etc.).
-		return fmt.Errorf("secret must be at least 32 bytes long (got %d)", len(config.Secret))
+		problems = append(problems, fmt.Sprintf("secret must be at least 32 bytes long (got %d)", len(config.Secret)))
 	}
 	if config.S3Url == "" {
-		return fmt.Errorf("s3.url is not set")
+		problems = append(problems, "s3.url is not set")
 	}
 	if config.S3Key == "" {
-		return fmt.Errorf("s3.key is not set")
+		problems = append(problems, "s3.key is not set")
 	}
 	if config.S3Secret == "" {
-		return fmt.Errorf("s3.secret is not set")
+		problems = append(problems, "s3.secret is not set")
 	}
 	if config.S3Location == "" {
-		return fmt.Errorf("s3.location is not set")
+		problems = append(problems, "s3.location is not set")
 	}
 	// redis_url is optional: when absent Gimme falls back to FileTokenStore.
 	// When present, a single shared Redis client is built and injected into any
 	// Redis-backed component (token store, cache).
 	if config.Cache.Enabled {
 		if config.Cache.Type != "redis" {
-			return fmt.Errorf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type)
+			problems = append(problems, fmt.Sprintf("cache.type %q is not supported (supported: \"redis\")", config.Cache.Type))
 		}
 		if config.RedisURL == "" {
-			return fmt.Errorf("redis_url is required when cache.enabled is true")
+			problems = append(problems, "redis_url is required when cache.enabled is true")
 		}
 	}
 	// Validate tokenStore.mode: check it is a known value first, then check
 	// mode-specific constraints.
 	if config.TokenStore.Mode != "file" && config.TokenStore.Mode != "redis" && config.TokenStore.Mode != "postgres" {
-		return fmt.Errorf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\", \"postgres\")", config.TokenStore.Mode)
+		problems = append(problems, fmt.Sprintf("tokenStore.mode %q is not supported (supported: \"file\", \"redis\", \"postgres\")", config.TokenStore.Mode))
 	}
 	if config.TokenStore.Mode == "redis" && config.RedisURL == "" {
-		return fmt.Errorf("redis_url is required when tokenStore.mode is \"redis\"")
+		problems = append(problems, "redis_url is required when tokenStore.mode is \"redis\"")
 	}
 	if config.TokenStore.Mode == "postgres" && config.TokenStore.PostgresURL == "" {
-		return fmt.Errorf("tokenStore.pg_url is required when tokenStore.mode is \"postgres\"")
+		problems = append(problems, "tokenStore.pg_url is required when tokenStore.mode is \"postgres\"")
 	}
 	switch config.Auth.Mode {
 	case "basic":
 		// no additional fields required
 	case "oidc":
 		if config.Auth.OIDC.Issuer == "" {
-			return fmt.Errorf("auth.oidc.issuer is required when auth.mode is \"oidc\"")
+			problems = append(problems, "auth.oidc.issuer is required when auth.mode is \"oidc\"")
 		}
 		if config.Auth.OIDC.ClientID == "" {
-			return fmt.Errorf("auth.oidc.client_id is required when auth.mode is \"oidc\"")
+			problems = append(problems, "auth.oidc.client_id is required when auth.mode is \"oidc\"")
 		}
 		if config.Auth.OIDC.RedirectURL == "" {
-			return fmt.Errorf("auth.oidc.redirect_url is required when auth.mode is \"oidc\"")
+			problems = append(problems, "auth.oidc.redirect_url is required when auth.mode is \"oidc\"")
 		}
 		if config.Auth.OIDC.ClientSecret == "" {
 			logrus.Warn("auth.oidc.client_secret is empty — token exchange may fail with confidential clients")
 		}
 	default:
-		return fmt.Errorf("auth.mode %q is not supported (supported: \"basic\", \"oidc\")", config.Auth.Mode)
+		problems = append(problems, fmt.Sprintf("auth.mode %q is not supported (supported: \"basic\", \"oidc\")", config.Auth.Mode))
+	}
+	if len(problems) == 1 {
+		return fmt.Errorf("configuration is not valid: %s", problems[0])
+	}
+	if len(problems) > 1 {
+		return fmt.Errorf("configuration is not valid:\n  - %s", strings.Join(problems, "\n  - "))
 	}
 	return nil
 }

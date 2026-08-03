@@ -1,0 +1,15 @@
+# OIDC mode with several missing OIDC fields and no admin credentials:
+# admin.* must not be reported, it is unused in oidc mode
+port: 8080
+secret: secret-for-testing-purposes-only
+s3:
+  url: test.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  bucketName: gimme
+  location: eu-west-1
+  ssl: true
+auth:
+  mode: oidc
+  oidc:
+    client_secret: oidc-client-secret
