@@ -264,15 +264,9 @@ func TestNewConfigOIDCValid(t *testing.T) {
 	assert.Equal(t, "https://gimme.example.com/auth/callback", confObj.Auth.OIDC.RedirectURL)
 }
 
-// TestNewConfigShippedExampleIsRejected asserts that the shipped installation
-// template refuses to start as-is. gimme.example.yml is copied to gimme.yml by
-// release.yml and by the "build from source" README instructions, so a user who
-// edits only the S3 block must not end up running with the placeholder secret
-// published in this repository — it derives the token-file AES key and the OIDC
-// session signing key.
-//
-// The real file is read on purpose: a fixture copy would not prove anything
-// about what ships.
+// TestNewConfigShippedExampleIsRejected asserts that the installation template
+// shipped in every release archive refuses to start as-is, so that no instance
+// runs with the placeholder secret published here.
 func TestNewConfigShippedExampleIsRejected(t *testing.T) {
 	utils.CopyFile("../gimme.example.yml", "./gimme.yml")
 	defer func() {
@@ -281,17 +275,14 @@ func TestNewConfigShippedExampleIsRejected(t *testing.T) {
 	}()
 	_, err := NewConfig()
 
-	// Only the rejection is asserted, not the wording: the message is expected to
-	// change (#64 reports every invalid field at once).
+	// The wording is not asserted: #64 will change it.
 	require.NotNil(t, err, "the shipped example must not be a runnable configuration")
 	assert.Contains(t, err.Error(), "secret")
 }
 
-// TestNewConfigManagedS3ExampleIsAccepted asserts the opposite of the test
-// above, for the opposite kind of file. The Compose examples are demonstration
-// stacks: the user is asked to supply their own storage credentials and nothing
-// else, so the stack must not die on a field the example never told them to
-// fill. The real shipped file is read here too.
+// TestNewConfigManagedS3ExampleIsAccepted asserts the opposite for a
+// demonstration stack: it must start as shipped, since the user is asked to
+// supply storage credentials and nothing else.
 func TestNewConfigManagedS3ExampleIsAccepted(t *testing.T) {
 	utils.CopyFile("../examples/deployment/docker-compose/with-managed-s3/gimme.yml", "./gimme.yml")
 	defer func() {
