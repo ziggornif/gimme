@@ -494,7 +494,11 @@ func TestContentService_CreatePackage_RejectsDuplicateKeys(t *testing.T) {
 
 	require.NotNil(t, err, "colliding entries must be rejected, never silently merged")
 	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
-	assert.Contains(t, err.Error(), "js/app.js")
+	// Quote the names so neither assertion is satisfied by the other entry:
+	// "js/app.js" is a substring of "./js/app.js" without the quotes.
+	assert.Contains(t, err.Error(), `"js/app.js"`, "the error must name the first colliding entry")
+	assert.Contains(t, err.Error(), `"./js/app.js"`, "the error must name the second colliding entry")
+	assert.Contains(t, err.Error(), `"pkg@1.0.0/app.js"`, "the error must name the key they collide on")
 	assert.Empty(t, manager.sortedKeys(), "nothing must be uploaded when the archive is rejected")
 }
 
