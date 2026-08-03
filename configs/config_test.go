@@ -286,3 +286,20 @@ func TestNewConfigShippedExampleIsRejected(t *testing.T) {
 	require.NotNil(t, err, "the shipped example must not be a runnable configuration")
 	assert.Contains(t, err.Error(), "secret")
 }
+
+// TestNewConfigManagedS3ExampleIsAccepted asserts the opposite of the test
+// above, for the opposite kind of file. The Compose examples are demonstration
+// stacks: the user is asked to supply their own storage credentials and nothing
+// else, so the stack must not die on a field the example never told them to
+// fill. The real shipped file is read here too.
+func TestNewConfigManagedS3ExampleIsAccepted(t *testing.T) {
+	utils.CopyFile("../examples/deployment/docker-compose/with-managed-s3/gimme.yml", "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	confObj, err := NewConfig()
+
+	require.Nil(t, err, "the demonstration stack must start as shipped")
+	assert.GreaterOrEqual(t, len(confObj.Secret), 32)
+}
