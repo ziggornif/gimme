@@ -8,6 +8,7 @@ import (
 	"github.com/ziggornif/gimme/test/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func remove(src string) error {
@@ -261,4 +262,27 @@ func TestNewConfigOIDCValid(t *testing.T) {
 	assert.Equal(t, "https://keycloak.example.com/realms/gimme", confObj.Auth.OIDC.Issuer)
 	assert.Equal(t, "gimme", confObj.Auth.OIDC.ClientID)
 	assert.Equal(t, "https://gimme.example.com/auth/callback", confObj.Auth.OIDC.RedirectURL)
+}
+
+// TestNewConfigShippedExampleIsRejected asserts that the shipped installation
+// template refuses to start as-is. gimme.example.yml is copied to gimme.yml by
+// release.yml and by the "build from source" README instructions, so a user who
+// edits only the S3 block must not end up running with the placeholder secret
+// published in this repository — it derives the token-file AES key and the OIDC
+// session signing key.
+//
+// The real file is read on purpose: a fixture copy would not prove anything
+// about what ships.
+func TestNewConfigShippedExampleIsRejected(t *testing.T) {
+	utils.CopyFile("../gimme.example.yml", "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	_, err := NewConfig()
+
+	// Only the rejection is asserted, not the wording: the message is expected to
+	// change (#64 reports every invalid field at once).
+	require.NotNil(t, err, "the shipped example must not be a runnable configuration")
+	assert.Contains(t, err.Error(), "secret")
 }

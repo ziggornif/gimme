@@ -159,7 +159,7 @@ Before touching application code, so the lint inventory is known in advance.
 >
 > No application code either way. The existing 32-byte check does the work — the placeholder value decides the outcome.
 
-- [ ] **#59 — `gimme.example.yml` placeholder secret passes validation**
+- [x] **#59 — `gimme.example.yml` placeholder secret passes validation**
   The placeholder says "at least 32 chars" and is 50 characters long, so it satisfies its own instruction and forces nothing. A user who edits only the S3 block runs with a secret published in this repo — which derives the token-file AES key and the OIDC session signing key.
   *Files:* `gimme.example.yml` — **no application code**
   *Fix:* short failing value, guidance moved to a comment: `# Required. Generate one with: openssl rand -hex 32` / `secret: "CHANGEME"`. Consider the same for `admin.user`/`admin.password`.
