@@ -43,10 +43,37 @@ func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheM
 }
 
 // filterArray filter objects array
-func (svc *ContentService) filterArray(arr []minio.ObjectInfo, fileName string, version string) []minio.ObjectInfo {
+func (svc *ContentService) filterArray(arr []minio.ObjectInfo, pkg string, fileName string, version string) []minio.ObjectInfo {
 	var filtered []minio.ObjectInfo
+	packagePrefix := fmt.Sprintf("%s@", pkg)
+	partialVersion := len(strings.Split(version, ".")) < 3
+
 	for _, item := range arr {
-		if strings.Contains(item.Key, fileName) && strings.Contains(item.Key, version) {
+		keyWithoutPackage, found := strings.CutPrefix(item.Key, packagePrefix)
+		if !found {
+			continue
+		}
+
+		candidateVersion, candidateFile, found := strings.Cut(keyWithoutPackage, "/")
+		if !found || "/"+candidateFile != fileName {
+			continue
+		}
+
+		candidateSemver := "v" + candidateVersion
+		if !semver.IsValid(candidateSemver) {
+			continue
+		}
+
+		matchesVersion := candidateVersion == version
+		if partialVersion && semver.Prerelease(candidateSemver) == "" {
+			switch len(strings.Split(version, ".")) {
+			case 1:
+				matchesVersion = semver.Major(candidateSemver) == "v"+version
+			case 2:
+				matchesVersion = semver.MajorMinor(candidateSemver) == "v"+version
+			}
+		}
+		if matchesVersion {
 			filtered = append(filtered, item)
 		}
 	}
@@ -73,19 +100,20 @@ func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
 		if v == "" {
 			continue // skip malformed entries
 		}
-		versions = append(versions, v)
+		versions = append(versions, "v"+v)
 	}
 	if len(versions) == 0 {
 		return ""
 	}
 	semver.Sort(versions)
-	return versions[len(versions)-1]
+	return strings.TrimPrefix(versions[len(versions)-1], "v")
 }
 
 // getLatestPackagePath get latest package path
 func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string, version string, fileName string) string {
+	fileName = "/" + strings.TrimLeft(fileName, "/")
 	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
-	filtred := svc.filterArray(objs, fileName, version)
+	filtred := svc.filterArray(objs, pkg, fileName, version)
 
 	if len(filtred) == 0 {
 		return fmt.Sprintf("%s@%s%s", pkg, version, fileName)

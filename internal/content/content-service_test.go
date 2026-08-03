@@ -75,24 +75,63 @@ func TestContentService_GetFileSemverErr(t *testing.T) {
 }
 
 func TestContentService_GetFile(t *testing.T) {
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
-	file, err := service.GetFile(context.Background(), "test", "1.1.1", "test.js")
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0)
+	file, err := service.GetFile(context.Background(), "test", "1.1.1", "/test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
+	assert.Equal(t, "test@1.1.1/test.js", osm.LastGetObjectPath())
 }
 
+// Partial versions must be compared component-wise: 1.10.0 is newer than 1.9.9,
+// and 10.0.0 is a different major that pkg@1 must never resolve to.
 func TestContentService_GetMajorFile(t *testing.T) {
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
-	file, err := service.GetFile(context.Background(), "test", "1", "test.js")
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0)
+	file, err := service.GetFile(context.Background(), "test", "1", "/test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
+	assert.Equal(t, "test@1.10.0/test.js", osm.LastGetObjectPath())
 }
 
 func TestContentService_GetMinorFile(t *testing.T) {
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0)
-	file, err := service.GetFile(context.Background(), "test", "1.1", "test.js")
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0)
+	file, err := service.GetFile(context.Background(), "test", "1.1", "/test.js")
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
+	// 1.1 must not swallow 1.10.0 or 1.11.0.
+	assert.Equal(t, "test@1.1.1/test.js", osm.LastGetObjectPath())
+}
+
+// A partial version must resolve to a stable release only: 2.0.0-rc.1 is not
+// what pkg@2 promises.
+func TestContentService_GetFile_PartialVersionSkipsPrerelease(t *testing.T) {
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0)
+	_, err := service.GetFile(context.Background(), "test", "2", "/test.js")
+	assert.Nil(t, err)
+	assert.Equal(t, "test@2/test.js", osm.LastGetObjectPath())
+}
+
+// A file name must match a whole path segment: test.js must not be satisfied by
+// test.js.map, and asking for the map must reach the version that holds it.
+func TestContentService_GetFile_FileNameIsNotASubstringMatch(t *testing.T) {
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0)
+
+	file, err := service.GetFile(context.Background(), "test", "1.11", "/test.js.map")
+	assert.NotNil(t, file)
+	assert.Nil(t, err)
+	assert.Equal(t, "test@1.11.0/test.js.map", osm.LastGetObjectPath())
+
+	// 1.11.0 holds no test.js, only test.js.map: nothing resolves, so the
+	// unresolved partial version is queried and the storage answers 404.
+	osm = &mocks.MockOSManager{}
+	service = NewContentService(osm, nil, 0)
+	_, err = service.GetFile(context.Background(), "test", "1.11", "/test.js")
+	assert.Nil(t, err)
+	assert.Equal(t, "test@1.11/test.js", osm.LastGetObjectPath())
 }
 
 func TestContentService_GetFiles(t *testing.T) {
