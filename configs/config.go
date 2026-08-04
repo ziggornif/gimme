@@ -4,7 +4,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/ziggornif/gimme/internal/errors"
 
@@ -176,14 +175,15 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	return &config, nil
 }
 
-// splitOrigins accepts commas and whitespace alike as separators, and never
-// returns nil.
+// splitOrigins splits on commas, trims each origin, and never returns nil.
 func splitOrigins(raw []string) []string {
 	origins := make([]string, 0, len(raw))
 	for _, item := range raw {
-		origins = append(origins, strings.FieldsFunc(item, func(r rune) bool {
-			return r == ',' || unicode.IsSpace(r)
-		})...)
+		for _, origin := range strings.Split(item, ",") {
+			if trimmed := strings.TrimSpace(origin); trimmed != "" {
+				origins = append(origins, trimmed)
+			}
+		}
 	}
 	return origins
 }

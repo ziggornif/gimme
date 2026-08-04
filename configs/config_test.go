@@ -403,7 +403,7 @@ func TestNewConfigCORSOriginsFromEnv(t *testing.T) {
 	}{
 		{"comma", "https://a.example.com,https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
 		{"comma and space", "https://a.example.com, https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
-		{"space only", "https://a.example.com https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
+		{"space separated is split upstream by viper", "https://a.example.com https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
 		{"single", "https://a.example.com", []string{"https://a.example.com"}},
 		{"trailing and doubled separators", "https://a.example.com,,https://b.example.com,", []string{"https://a.example.com", "https://b.example.com"}},
 		{"wildcard", "*", []string{"*"}},

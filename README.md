@@ -255,7 +255,7 @@ A missing file is fine; a file that exists but cannot be parsed is still a start
 
 > **The port variable is `GIMME_APP_PORT`, not `GIMME_PORT`.** For every Service in a namespace, Kubernetes injects a `<SVCNAME>_PORT` variable into every pod, holding a URL such as `tcp://10.96.0.1:8080`. The Helm chart names its Service after the release, so `helm install gimme` produces exactly `GIMME_PORT`. Gimme therefore binds each variable explicitly instead of mapping the whole `GIMME_` prefix — otherwise the cluster would overwrite the configured port with a URL and the instance would fail to bind.
 
-`cors.allowed_origins` is a list: separate the origins with commas, or with spaces if you prefer. Neither character is legal inside an origin, so both work and surrounding spaces are ignored.
+`cors.allowed_origins` is a list: separate the origins with commas. Spaces around a comma are ignored.
 
 ```bash
 GIMME_CORS_ALLOWED_ORIGINS="https://app.example.com,https://admin.example.com"
