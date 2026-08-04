@@ -176,13 +176,8 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	return &config, nil
 }
 
-// splitOrigins normalises the allowed origins whatever they came from. Read
-// from an environment variable, viper hands over the whole value as one item
-// and would only ever split it on whitespace, so the comma every operator
-// writes produces a single malformed origin that never matches and never
-// complains. Neither a comma nor a space is legal inside an origin, so both are
-// accepted as separators. The result is empty, never nil: corsConfig tells an
-// empty list (allow all) apart from a configured one.
+// splitOrigins accepts commas and whitespace alike as separators, and never
+// returns nil.
 func splitOrigins(raw []string) []string {
 	origins := make([]string, 0, len(raw))
 	for _, item := range raw {
