@@ -83,8 +83,54 @@ func TestNewConfig(t *testing.T) {
 		TokenStore: TokenStoreConfig{
 			Mode: "file",
 		},
+		Upload: UploadConfig{
+			MaxSize:             104857600,
+			MaxEntries:          10000,
+			MaxUncompressedSize: 524288000,
+		},
 	}, confObj)
 	assert.Nil(t, err)
+}
+
+func TestNewConfigUploadDefaults(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+
+	config, err := NewConfig()
+	require.Nil(t, err)
+	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
+}
+
+func TestNewConfigUploadLimitsInvalid(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "upload-invalid.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+
+	_, err := NewConfig()
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "\n  - upload.max_size must be greater than 0")
+	assert.Contains(t, err.Error(), "\n  - upload.max_entries must be greater than 0")
+	assert.Contains(t, err.Error(), "\n  - upload.max_uncompressed_size must be greater than 0")
+}
+
+func TestNewConfigUploadLimits(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "upload-valid.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+
+	config, err := NewConfig()
+	require.Nil(t, err)
+	assert.Equal(t, UploadConfig{MaxSize: 123456, MaxEntries: 321, MaxUncompressedSize: 654321}, config.Upload)
 }
 
 func TestNewConfigValidationErrAdmUsr(t *testing.T) {

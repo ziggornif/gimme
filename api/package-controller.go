@@ -2,6 +2,7 @@ package api
 
 import (
 	stderrors "errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -63,7 +64,19 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 }
 
 func (ctrl *PackageController) createPackage(c *gin.Context) {
-	file, _ := c.FormFile("file")
+	maxSize := ctrl.contentService.UploadLimits().MaxSize
+	if maxSize > 0 {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxSize)
+	}
+
+	file, formErr := c.FormFile("file")
+	if formErr != nil {
+		var maxBytesErr *http.MaxBytesError
+		if stderrors.As(formErr, &maxBytesErr) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": fmt.Sprintf("upload exceeds the maximum request size of %d bytes (upload.max_size)", maxSize)})
+			return
+		}
+	}
 	name := c.PostForm("name")
 	version := c.PostForm("version")
 

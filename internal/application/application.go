@@ -147,7 +147,11 @@ func (app *Application) loadModules() {
 		app.cacheManager = cache.NewRedisCache(app.redisClient)
 	}
 
-	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL)
+	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL, content.UploadLimits{
+		MaxSize:             app.config.Upload.MaxSize,
+		MaxEntries:          app.config.Upload.MaxEntries,
+		MaxUncompressedSize: app.config.Upload.MaxUncompressedSize,
+	})
 
 	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {

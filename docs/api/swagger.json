@@ -196,6 +196,14 @@
               }
             }
           },
+          "413": {
+            "description": "Upload exceeds a configured limit (size, entry count or decompressed size)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {

@@ -194,8 +194,15 @@ Before touching application code, so the lint inventory is known in advance.
   *Deliberately left out:* validating that each entry looks like an origin. It would catch more typos, but it turns a previously-starting file configuration into a startup failure — its own change, not this one.
   *Files:* `configs/config.go`, `configs/config_test.go`, `test/config/cors-origins.yml`, `README.md`
 
-- [ ] **#62 — Upload limits** (size, entry count, decompressed size)
+- [x] **#62 — Upload limits** (size, entry count, decompressed size)
   Needs a new `PayloadTooLarge` kind in `internal/errors/business-error.go`.
+  *Measured before the change:* a 3 409 409-byte archive holding 20 001 entries that expand to 629 285 600 bytes is accepted and all 20 001 objects are pushed to storage — a 185:1 expansion, no rejection anywhere.
+  *Settled while implementing:* three keys, `upload.max_size` (100 MB), `upload.max_entries` (10 000), `upload.max_uncompressed_size` (500 MB), as plain byte integers — no `"100MB"` parsing, since viper has no size type and the alternative was a new dependency for one field. `validateConfig` rejects any of the three when `<= 0`: **no "0 means unlimited"** escape hatch, an operator who wants no limit sets a large number. Inside `internal/content` a non-positive field disables its own check, which is what lets the forty existing `NewContentService` call sites pass `UploadLimits{}` and keep their current behaviour.
+  *Where the defaults live:* `configs` only. `internal/content` gets no `DefaultUploadLimits()` helper — `configs` cannot import it (`internal/content` → `internal/storage` → `configs`), so the values would have been duplicated across two packages that cannot share them.
+  *Wiring:* `NewContentService` gains a fourth parameter; `NewPackageController` does **not**. The controller reads `MaxSize` through `ContentService.UploadLimits()`, which keeps one source of truth and leaves the ~30 controller call sites in `api/package-controller_integration_test.go` untouched.
+  *Measured:* `errors.As(err, &*http.MaxBytesError)` does match through `c.FormFile` — probed before trusting it — so the string fallback on `"request body too large"` was dropped. If a future Go release stops propagating the typed error, the 413 controller test turns red rather than the limit silently answering 400.
+  *Counts are exact:* the entry/size loop runs over the whole central directory instead of stopping at the first entry past the limit — the directory is already parsed and in memory, so early exit bought nothing and made the message report a partial total ("holds 10 001 entries" for an archive of 50 000).
+  *Deliberately out of scope:* `UncompressedSize64` is declared by the archive, not measured. An archive that lies passes the check; enforcing the real size needs a limited reader around every entry during the copy in `internal/storage`. Also left out: exposing the three keys as Helm chart values.
 
 - [ ] **#88 — Archive shapes that produce surprising object keys without erroring** *(after #42 + #43)*
   Follow-up to #42/#43, all of it measured against `archiveKeys()`, none of it a regression — these are the archives the new code accepts while still producing keys the user did not mean.

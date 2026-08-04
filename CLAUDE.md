@@ -80,6 +80,9 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 | `metrics`             | Enable `/metrics` OpenMetrics endpoint                  | `true`   |
 | `tokenStore.mode`     | Token persistence backend (`file`, `redis`, `postgres`) | `file`   |
 | `tokenStore.pg_url`   | PostgreSQL URL (required when mode is `postgres`)       | `""`     |
+| `upload.max_size` | Maximum upload request size in bytes | `104857600` |
+| `upload.max_entries` | Maximum ZIP file-entry count | `10000` |
+| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size in bytes | `524288000` |
 
 ---
 
@@ -111,6 +114,7 @@ Custom error type `GimmeError` (`internal/errors/business-error.go`) implements 
 | `BadRequest`    | 400       |
 | `Unauthorized`  | 401       |
 | `Conflict`      | 409       |
+| `PayloadTooLarge` | 413     |
 | `InternalError` | 500       |
 | `NotImplemented`| 501       |
 

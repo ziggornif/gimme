@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"runtime"
 	"strings"
@@ -24,6 +25,14 @@ type ContentService struct {
 	objectStorageManager storage.ObjectStorageManager
 	cacheManager         cache.CacheManager // nil = cache disabled
 	cacheTTL             time.Duration
+	uploadLimits         UploadLimits
+}
+
+// UploadLimits controls upload checks; a non-positive field disables that check.
+type UploadLimits struct {
+	MaxSize             int64
+	MaxEntries          int
+	MaxUncompressedSize int64
 }
 
 type File struct {
@@ -34,12 +43,19 @@ type File struct {
 
 // NewContentService create a new content service instance.
 // cacheManager may be nil to disable caching.
-func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheManager cache.CacheManager, cacheTTL time.Duration) ContentService {
+func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheManager cache.CacheManager, cacheTTL time.Duration, limits UploadLimits) ContentService {
 	return ContentService{
 		objectStorageManager: objectStorageManager,
 		cacheManager:         cacheManager,
 		cacheTTL:             cacheTTL,
+		uploadLimits:         limits,
 	}
+}
+
+// UploadLimits returns the limits the service enforces, so the HTTP layer can
+// cap the request body with the same value.
+func (svc *ContentService) UploadLimits() UploadLimits {
+	return svc.uploadLimits
 }
 
 // filterArray filter objects array
@@ -198,12 +214,47 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	return objects, nil
 }
 
+// checkArchiveLimits counts the file entries of an archive and sums their declared
+// uncompressed size, then rejects the archive when either limit is exceeded.
+// Directory entries are skipped: they produce no object.
+func (svc *ContentService) checkArchiveLimits(archive *zip.Reader) *errors.GimmeError {
+	var entryCount int
+	var uncompressedSize uint64
+	for _, archiveFile := range archive.File {
+		if archiveFile.FileInfo().IsDir() || strings.HasSuffix(archiveFile.Name, "/") {
+			continue
+		}
+		entryCount++
+		if math.MaxUint64-uncompressedSize < archiveFile.UncompressedSize64 {
+			uncompressedSize = math.MaxUint64
+		} else {
+			uncompressedSize += archiveFile.UncompressedSize64
+		}
+	}
+
+	if svc.uploadLimits.MaxEntries > 0 && entryCount > svc.uploadLimits.MaxEntries {
+		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive holds %d entries, over the limit of %d (upload.max_entries)", entryCount, svc.uploadLimits.MaxEntries))
+	}
+	if svc.uploadLimits.MaxUncompressedSize > 0 && uncompressedSize > uint64(svc.uploadLimits.MaxUncompressedSize) {
+		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive expands to %d bytes, over the limit of %d (upload.max_uncompressed_size)", uncompressedSize, svc.uploadLimits.MaxUncompressedSize))
+	}
+	return nil
+}
+
 // CreatePackage create package
 func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
+	if svc.uploadLimits.MaxSize > 0 && fileSize > svc.uploadLimits.MaxSize {
+		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("upload exceeds the maximum request size of %d bytes (upload.max_size)", svc.uploadLimits.MaxSize))
+	}
+
 	archive, err := zip.NewReader(file, fileSize)
 	if err != nil {
 		logrus.Error("[ContentService] CreatePackage - Error while reading zip file", err)
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while reading zip file"))
+	}
+
+	if limitErr := svc.checkArchiveLimits(archive); limitErr != nil {
+		return limitErr
 	}
 
 	folderName := fmt.Sprintf("%s@%s", name, version)

@@ -1,0 +1,13 @@
+admin:
+  user: test
+  password: test
+secret: secret-for-testing-purposes-only
+s3:
+  url: test.s3.url.cloud
+  key: s3key
+  secret: s3secret
+  location: eu-west-1
+upload:
+  max_size: 0
+  max_entries: 0
+  max_uncompressed_size: -1

@@ -18,6 +18,12 @@ type CacheConfig struct {
 	TTL     int    // seconds
 }
 
+type UploadConfig struct {
+	MaxSize             int64
+	MaxEntries          int
+	MaxUncompressedSize int64
+}
+
 // OIDCConfig holds the configuration for the OIDC provider.
 // Only used when AuthConfig.Mode is "oidc".
 type OIDCConfig struct {
@@ -66,6 +72,7 @@ type Configuration struct {
 	Cache      CacheConfig
 	Auth       AuthConfig
 	TokenStore TokenStoreConfig
+	Upload     UploadConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -107,6 +114,9 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("auth.oidc.secure_cookies", "GIMME_AUTH_OIDC_SECURE_COOKIES")
 	_ = viper.BindEnv("tokenStore.mode", "GIMME_TOKENSTORE_MODE")
 	_ = viper.BindEnv("tokenStore.pg_url", "GIMME_TOKENSTORE_PG_URL")
+	_ = viper.BindEnv("upload.max_size", "GIMME_UPLOAD_MAX_SIZE")
+	_ = viper.BindEnv("upload.max_entries", "GIMME_UPLOAD_MAX_ENTRIES")
+	_ = viper.BindEnv("upload.max_uncompressed_size", "GIMME_UPLOAD_MAX_UNCOMPRESSED_SIZE")
 
 	viper.SetDefault("port", "8080")
 	viper.SetDefault("s3.bucketName", "gimme")
@@ -121,6 +131,9 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
+	viper.SetDefault("upload.max_size", 104857600)
+	viper.SetDefault("upload.max_entries", 10000)
+	viper.SetDefault("upload.max_uncompressed_size", 524288000)
 
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
@@ -166,6 +179,11 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.TokenStore = TokenStoreConfig{
 		Mode:        viper.GetString("tokenStore.mode"),
 		PostgresURL: viper.GetString("tokenStore.pg_url"),
+	}
+	config.Upload = UploadConfig{
+		MaxSize:             viper.GetInt64("upload.max_size"),
+		MaxEntries:          viper.GetInt("upload.max_entries"),
+		MaxUncompressedSize: viper.GetInt64("upload.max_uncompressed_size"),
 	}
 
 	if err := validateConfig(&config); err != nil {
@@ -220,6 +238,15 @@ func validateConfig(config *Configuration) error {
 	}
 	if config.S3Location == "" {
 		problems = append(problems, "s3.location is not set")
+	}
+	if config.Upload.MaxSize <= 0 {
+		problems = append(problems, fmt.Sprintf("upload.max_size must be greater than 0 (got %d)", config.Upload.MaxSize))
+	}
+	if config.Upload.MaxEntries <= 0 {
+		problems = append(problems, fmt.Sprintf("upload.max_entries must be greater than 0 (got %d)", config.Upload.MaxEntries))
+	}
+	if config.Upload.MaxUncompressedSize <= 0 {
+		problems = append(problems, fmt.Sprintf("upload.max_uncompressed_size must be greater than 0 (got %d)", config.Upload.MaxUncompressedSize))
 	}
 	// redis_url is optional: when absent Gimme falls back to FileTokenStore.
 	// When present, a single shared Redis client is built and injected into any

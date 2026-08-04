@@ -175,6 +175,11 @@ s3:
 #   type: redis
 #   ttl: 3600
 #   file_path: /tmp/gimme-tokens.enc  # used only when tokenStore.mode is "file"
+
+# upload:
+#   max_size: 104857600               # request body, in bytes (100 MB)
+#   max_entries: 10000                # ZIP file entries
+#   max_uncompressed_size: 524288000  # decompressed total, in bytes (500 MB)
 ```
 
 | Key               | Description                              | Default  |
@@ -204,6 +209,9 @@ s3:
 | `auth.oidc.client_secret`| OIDC client secret              | optional |
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
+| `upload.max_size` | Maximum upload request body size in bytes | `104857600` |
+| `upload.max_entries` | Maximum number of file entries in a ZIP archive | `10000` |
+| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size in bytes | `524288000` |
 
 > **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances. Set `tokenStore.mode: postgres` and provide `tokenStore.pg_url` for deployments that already have a PostgreSQL database.
 
@@ -252,6 +260,9 @@ A missing file is fine; a file that exists but cannot be parsed is still a start
 | `auth.oidc.secure_cookies` | `GIMME_AUTH_OIDC_SECURE_COOKIES` |
 | `tokenStore.mode` | `GIMME_TOKENSTORE_MODE` |
 | `tokenStore.pg_url` | `GIMME_TOKENSTORE_PG_URL` |
+| `upload.max_size` | `GIMME_UPLOAD_MAX_SIZE` |
+| `upload.max_entries` | `GIMME_UPLOAD_MAX_ENTRIES` |
+| `upload.max_uncompressed_size` | `GIMME_UPLOAD_MAX_UNCOMPRESSED_SIZE` |
 
 > **The port variable is `GIMME_APP_PORT`, not `GIMME_PORT`.** For every Service in a namespace, Kubernetes injects a `<SVCNAME>_PORT` variable into every pod, holding a URL such as `tcp://10.96.0.1:8080`. The Helm chart names its Service after the release, so `helm install gimme` produces exactly `GIMME_PORT`. Gimme therefore binds each variable explicitly instead of mapping the whole `GIMME_` prefix — otherwise the cluster would overwrite the configured port with a URL and the instance would fail to bind.
 
@@ -344,6 +355,8 @@ curl -s -X POST http://localhost:8080/packages \
 ```
 
 Response: `201 Created`
+
+Uploads are limited by request size, ZIP file-entry count, and cumulative declared decompressed size. Exceeding any configured limit returns `413 Payload Too Large` with an error naming the limit that was exceeded.
 
 ### 3. Serve a file
 

@@ -7,19 +7,21 @@ import (
 type ErrorKindEnum string
 
 const (
-	Unauthorized   ErrorKindEnum = "Unauthorized"
-	InternalError  ErrorKindEnum = "InternalError"
-	BadRequest     ErrorKindEnum = "BadRequest"
-	Conflict       ErrorKindEnum = "Conflict"
-	NotImplemented ErrorKindEnum = "NotImplemented"
+	Unauthorized    ErrorKindEnum = "Unauthorized"
+	InternalError   ErrorKindEnum = "InternalError"
+	BadRequest      ErrorKindEnum = "BadRequest"
+	Conflict        ErrorKindEnum = "Conflict"
+	PayloadTooLarge ErrorKindEnum = "PayloadTooLarge"
+	NotImplemented  ErrorKindEnum = "NotImplemented"
 )
 
 var httpCodes = map[ErrorKindEnum]int{
-	BadRequest:     http.StatusBadRequest,
-	Conflict:       http.StatusConflict,
-	InternalError:  http.StatusInternalServerError,
-	Unauthorized:   http.StatusUnauthorized,
-	NotImplemented: http.StatusNotImplemented,
+	BadRequest:      http.StatusBadRequest,
+	Conflict:        http.StatusConflict,
+	PayloadTooLarge: http.StatusRequestEntityTooLarge,
+	InternalError:   http.StatusInternalServerError,
+	Unauthorized:    http.StatusUnauthorized,
+	NotImplemented:  http.StatusNotImplemented,
 }
 
 type GimmeError struct {
