@@ -4,6 +4,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/ziggornif/gimme/internal/errors"
 
@@ -91,6 +92,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("s3.bucketName", "GIMME_S3_BUCKETNAME")
 	_ = viper.BindEnv("s3.location", "GIMME_S3_LOCATION")
 	_ = viper.BindEnv("s3.ssl", "GIMME_S3_SSL")
+	_ = viper.BindEnv("cors.allowed_origins", "GIMME_CORS_ALLOWED_ORIGINS")
 	_ = viper.BindEnv("port", "GIMME_APP_PORT")
 	_ = viper.BindEnv("metrics", "GIMME_METRICS")
 	_ = viper.BindEnv("redis_url", "GIMME_REDIS_URL")
@@ -142,7 +144,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
-	config.CORSAllowedOrigins = viper.GetStringSlice("cors.allowed_origins")
+	config.CORSAllowedOrigins = splitOrigins(viper.GetStringSlice("cors.allowed_origins"))
 	config.RedisURL = viper.GetString("redis_url")
 	config.TokenFile = viper.GetString("token_file")
 	config.Cache = CacheConfig{
@@ -172,6 +174,23 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	}
 
 	return &config, nil
+}
+
+// splitOrigins normalises the allowed origins whatever they came from. Read
+// from an environment variable, viper hands over the whole value as one item
+// and would only ever split it on whitespace, so the comma every operator
+// writes produces a single malformed origin that never matches and never
+// complains. Neither a comma nor a space is legal inside an origin, so both are
+// accepted as separators. The result is empty, never nil: corsConfig tells an
+// empty list (allow all) apart from a configured one.
+func splitOrigins(raw []string) []string {
+	origins := make([]string, 0, len(raw))
+	for _, item := range raw {
+		origins = append(origins, strings.FieldsFunc(item, func(r rune) bool {
+			return r == ',' || unicode.IsSpace(r)
+		})...)
+	}
+	return origins
 }
 
 func validateConfig(config *Configuration) error {

@@ -407,6 +407,73 @@ func TestNewConfigMalformedFileErr(t *testing.T) {
 	assert.Equal(t, "unable to read the config file", err.Error())
 }
 
+// TestNewConfigCORSOriginsFromEnv covers the separator: a comma is what
+// operators reach for, and viper's own slice handling would turn it into a
+// single malformed origin that never matches and never complains.
+func TestNewConfigCORSOriginsFromEnv(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{"comma", "https://a.example.com,https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
+		{"comma and space", "https://a.example.com, https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
+		{"space only", "https://a.example.com https://b.example.com", []string{"https://a.example.com", "https://b.example.com"}},
+		{"single", "https://a.example.com", []string{"https://a.example.com"}},
+		{"trailing and doubled separators", "https://a.example.com,,https://b.example.com,", []string{"https://a.example.com", "https://b.example.com"}},
+		{"wildcard", "*", []string{"*"}},
+		{"empty", "", []string{}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			viper.Reset()
+			setRequiredEnv(t)
+			t.Setenv("GIMME_CORS_ALLOWED_ORIGINS", tc.raw)
+
+			confObj, err := NewConfig()
+
+			require.Nil(t, err)
+			assert.Equal(t, tc.want, confObj.CORSAllowedOrigins)
+			// corsConfig distinguishes an empty list (allow all) from a
+			// configured one, so the empty case must not become nil.
+			assert.NotNil(t, confObj.CORSAllowedOrigins)
+		})
+	}
+}
+
+// TestNewConfigCORSOriginsFromFile asserts a YAML list keeps working untouched.
+func TestNewConfigCORSOriginsFromFile(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "cors-origins.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+
+	confObj, err := NewConfig()
+
+	require.Nil(t, err)
+	assert.Equal(t, []string{"https://app.example.com", "https://admin.example.com"}, confObj.CORSAllowedOrigins)
+}
+
+// TestNewConfigCORSOriginsEnvOverridesFile asserts the key follows the same
+// precedence as every other one.
+func TestNewConfigCORSOriginsEnvOverridesFile(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "cors-origins.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	t.Setenv("GIMME_CORS_ALLOWED_ORIGINS", "https://only.example.com")
+
+	confObj, err := NewConfig()
+
+	require.Nil(t, err)
+	assert.Equal(t, []string{"https://only.example.com"}, confObj.CORSAllowedOrigins)
+}
+
 // TestNewConfigEnvOverridesFile guards the existing precedence: when both are
 // present, the environment wins.
 func TestNewConfigEnvOverridesFile(t *testing.T) {

@@ -209,7 +209,7 @@ s3:
 
 ### Environment variables
 
-Every key above except `cors.allowed_origins` has a `GIMME_*` equivalent. An environment variable always wins over the same key in the file, and a deployment that sets all the required ones needs no `gimme.yml` at all:
+Every key above has a `GIMME_*` equivalent. An environment variable always wins over the same key in the file, and a deployment that sets all the required ones needs no `gimme.yml` at all:
 
 ```bash
 docker run -p 8080:8080 \
@@ -237,6 +237,7 @@ A missing file is fine; a file that exists but cannot be parsed is still a start
 | `s3.bucketName` | `GIMME_S3_BUCKETNAME` |
 | `s3.location` | `GIMME_S3_LOCATION` |
 | `s3.ssl` | `GIMME_S3_SSL` |
+| `cors.allowed_origins` | `GIMME_CORS_ALLOWED_ORIGINS` |
 | `metrics` | `GIMME_METRICS` |
 | `redis_url` | `GIMME_REDIS_URL` |
 | `token_file` | `GIMME_TOKEN_FILE` |
@@ -252,9 +253,13 @@ A missing file is fine; a file that exists but cannot be parsed is still a start
 | `tokenStore.mode` | `GIMME_TOKENSTORE_MODE` |
 | `tokenStore.pg_url` | `GIMME_TOKENSTORE_PG_URL` |
 
-> **The port variable is `GIMME_APP_PORT`, not `GIMME_PORT`.** Kubernetes injects `GIMME_PORT` itself for service discovery, so Gimme binds each variable explicitly rather than mapping the whole `GIMME_` prefix — otherwise the cluster would silently override the configured port.
->
-> `cors.allowed_origins` is a list and has no variable; set it in the file.
+> **The port variable is `GIMME_APP_PORT`, not `GIMME_PORT`.** For every Service in a namespace, Kubernetes injects a `<SVCNAME>_PORT` variable into every pod, holding a URL such as `tcp://10.96.0.1:8080`. The Helm chart names its Service after the release, so `helm install gimme` produces exactly `GIMME_PORT`. Gimme therefore binds each variable explicitly instead of mapping the whole `GIMME_` prefix — otherwise the cluster would overwrite the configured port with a URL and the instance would fail to bind.
+
+`cors.allowed_origins` is a list: separate the origins with commas, or with spaces if you prefer. Neither character is legal inside an origin, so both work and surrounding spaces are ignored.
+
+```bash
+GIMME_CORS_ALLOWED_ORIGINS="https://app.example.com,https://admin.example.com"
+```
 
 ### OIDC authentication (optional)
 
