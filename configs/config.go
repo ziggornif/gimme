@@ -1,6 +1,7 @@
 package configs
 
 import (
+	stderrors "errors"
 	"fmt"
 	"strings"
 
@@ -90,6 +91,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("s3.bucketName", "GIMME_S3_BUCKETNAME")
 	_ = viper.BindEnv("s3.location", "GIMME_S3_LOCATION")
 	_ = viper.BindEnv("s3.ssl", "GIMME_S3_SSL")
+	_ = viper.BindEnv("cors.allowed_origins", "GIMME_CORS_ALLOWED_ORIGINS")
 	_ = viper.BindEnv("port", "GIMME_APP_PORT")
 	_ = viper.BindEnv("metrics", "GIMME_METRICS")
 	_ = viper.BindEnv("redis_url", "GIMME_REDIS_URL")
@@ -120,10 +122,13 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		logrus.Errorf("Unable to read the config file: %s", err)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("unable to read the config file"))
+	if err := viper.ReadInConfig(); err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		if !stderrors.As(err, &notFound) {
+			logrus.Errorf("Unable to read the config file: %s", err)
+			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("unable to read the config file"))
+		}
+		logrus.Info("no config file found, relying on environment variables")
 	}
 
 	config := Configuration{}
@@ -138,7 +143,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	config.S3Location = viper.GetString("s3.location")
 	config.S3SSL = viper.GetBool("s3.ssl")
 	config.EnableMetrics = viper.GetBool("metrics")
-	config.CORSAllowedOrigins = viper.GetStringSlice("cors.allowed_origins")
+	config.CORSAllowedOrigins = splitOrigins(viper.GetStringSlice("cors.allowed_origins"))
 	config.RedisURL = viper.GetString("redis_url")
 	config.TokenFile = viper.GetString("token_file")
 	config.Cache = CacheConfig{
@@ -168,6 +173,19 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	}
 
 	return &config, nil
+}
+
+// splitOrigins splits on commas, trims each origin, and never returns nil.
+func splitOrigins(raw []string) []string {
+	origins := make([]string, 0, len(raw))
+	for _, item := range raw {
+		for _, origin := range strings.Split(item, ",") {
+			if trimmed := strings.TrimSpace(origin); trimmed != "" {
+				origins = append(origins, trimmed)
+			}
+		}
+	}
+	return origins
 }
 
 func validateConfig(config *Configuration) error {

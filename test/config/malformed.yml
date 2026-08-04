@@ -1,0 +1,7 @@
+secret: "secret-for-testing-purposes-only"
+admin:
+  user: test
+ password: test
+s3:
+	url: test.s3.url.cloud
+  key: "s3key
