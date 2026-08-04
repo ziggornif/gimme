@@ -145,6 +145,8 @@ make build && ./gimme
 Configuration is read from `gimme.yml` (local directory or `/config/gimme.yml` in Docker).  
 Environment variables override file values automatically (via [Viper](https://github.com/spf13/viper)).
 
+The config file is **optional**: when every required value is supplied through the environment, Gimme starts without one. See [Environment variables](#environment-variables) below.
+
 ```yaml
 admin:
   user: gimmeadmin
@@ -204,6 +206,55 @@ s3:
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
 
 > **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances. Set `tokenStore.mode: postgres` and provide `tokenStore.pg_url` for deployments that already have a PostgreSQL database.
+
+### Environment variables
+
+Every key above except `cors.allowed_origins` has a `GIMME_*` equivalent. An environment variable always wins over the same key in the file, and a deployment that sets all the required ones needs no `gimme.yml` at all:
+
+```bash
+docker run -p 8080:8080 \
+  -e GIMME_SECRET=your-secret-at-least-32-chars-long \
+  -e GIMME_ADMIN_USER=gimmeadmin \
+  -e GIMME_ADMIN_PASSWORD=gimmeadmin \
+  -e GIMME_S3_URL=your.s3.endpoint \
+  -e GIMME_S3_KEY=your-access-key \
+  -e GIMME_S3_SECRET=your-secret-key \
+  -e GIMME_S3_LOCATION=garage \
+  ziggornif/gimme
+```
+
+A missing file is fine; a file that exists but cannot be parsed is still a startup error. Missing values are reported per field, whatever they were meant to come from.
+
+| Key | Variable |
+|-----|----------|
+| `secret` | `GIMME_SECRET` |
+| `admin.user` | `GIMME_ADMIN_USER` |
+| `admin.password` | `GIMME_ADMIN_PASSWORD` |
+| `port` | `GIMME_APP_PORT` |
+| `s3.url` | `GIMME_S3_URL` |
+| `s3.key` | `GIMME_S3_KEY` |
+| `s3.secret` | `GIMME_S3_SECRET` |
+| `s3.bucketName` | `GIMME_S3_BUCKETNAME` |
+| `s3.location` | `GIMME_S3_LOCATION` |
+| `s3.ssl` | `GIMME_S3_SSL` |
+| `metrics` | `GIMME_METRICS` |
+| `redis_url` | `GIMME_REDIS_URL` |
+| `token_file` | `GIMME_TOKEN_FILE` |
+| `cache.enabled` | `GIMME_CACHE_ENABLED` |
+| `cache.type` | `GIMME_CACHE_TYPE` |
+| `cache.ttl` | `GIMME_CACHE_TTL` |
+| `auth.mode` | `GIMME_AUTH_MODE` |
+| `auth.oidc.issuer` | `GIMME_AUTH_OIDC_ISSUER` |
+| `auth.oidc.client_id` | `GIMME_AUTH_OIDC_CLIENT_ID` |
+| `auth.oidc.client_secret` | `GIMME_AUTH_OIDC_CLIENT_SECRET` |
+| `auth.oidc.redirect_url` | `GIMME_AUTH_OIDC_REDIRECT_URL` |
+| `auth.oidc.secure_cookies` | `GIMME_AUTH_OIDC_SECURE_COOKIES` |
+| `tokenStore.mode` | `GIMME_TOKENSTORE_MODE` |
+| `tokenStore.pg_url` | `GIMME_TOKENSTORE_PG_URL` |
+
+> **The port variable is `GIMME_APP_PORT`, not `GIMME_PORT`.** Kubernetes injects `GIMME_PORT` itself for service discovery, so Gimme binds each variable explicitly rather than mapping the whole `GIMME_` prefix — otherwise the cluster would silently override the configured port.
+>
+> `cors.allowed_origins` is a list and has no variable; set it in the file.
 
 ### OIDC authentication (optional)
 

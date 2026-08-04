@@ -7,9 +7,23 @@ import (
 
 	"github.com/ziggornif/gimme/test/utils"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// setRequiredEnv exports the minimal set of GIMME_* variables a basic-auth
+// instance needs, so that a test can run with no config file at all.
+func setRequiredEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("GIMME_SECRET", "secret-for-testing-purposes-only")
+	t.Setenv("GIMME_ADMIN_USER", "envadmin")
+	t.Setenv("GIMME_ADMIN_PASSWORD", "envpass")
+	t.Setenv("GIMME_S3_URL", "env.s3.url.cloud")
+	t.Setenv("GIMME_S3_KEY", "envkey")
+	t.Setenv("GIMME_S3_SECRET", "envsecret")
+	t.Setenv("GIMME_S3_LOCATION", "eu-west-3")
+}
 
 func remove(src string) error {
 	err := os.Remove(src)
@@ -25,9 +39,17 @@ func init() {
 	_ = remove("./gimme.yml")
 }
 
-func TestNewConfigFileErr(t *testing.T) {
+// TestNewConfigNoFileNoEnv asserts that an absent config file is not fatal on
+// its own: with nothing else to configure from, the failure must come from
+// validateConfig and name the missing fields.
+func TestNewConfigNoFileNoEnv(t *testing.T) {
+	viper.Reset()
 	_, err := NewConfig()
-	assert.Equal(t, "unable to read the config file", err.Error())
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "configuration is not valid:")
+	assert.Contains(t, err.Error(), "secret is not set")
+	assert.Contains(t, err.Error(), "s3.url is not set")
+	assert.NotContains(t, err.Error(), "unable to read the config file")
 }
 
 func TestNewConfig(t *testing.T) {
@@ -331,4 +353,77 @@ func TestNewConfigManagedS3ExampleIsAccepted(t *testing.T) {
 
 	require.Nil(t, err, "the demonstration stack must start as shipped")
 	assert.GreaterOrEqual(t, len(confObj.Secret), 32)
+}
+
+// TestNewConfigEnvOnly is the twelve-factor deployment: no file mounted at all,
+// every value injected as GIMME_*.
+func TestNewConfigEnvOnly(t *testing.T) {
+	viper.Reset()
+	setRequiredEnv(t)
+
+	confObj, err := NewConfig()
+
+	require.Nil(t, err, "an env-only configuration must be accepted")
+	assert.Equal(t, "envadmin", confObj.AdminUser)
+	assert.Equal(t, "envpass", confObj.AdminPassword)
+	assert.Equal(t, "secret-for-testing-purposes-only", confObj.Secret)
+	assert.Equal(t, "env.s3.url.cloud", confObj.S3Url)
+	assert.Equal(t, "envkey", confObj.S3Key)
+	assert.Equal(t, "envsecret", confObj.S3Secret)
+	assert.Equal(t, "eu-west-3", confObj.S3Location)
+	// Defaults still apply when no file supplies them.
+	assert.Equal(t, "8080", confObj.AppPort)
+	assert.Equal(t, "gimme", confObj.S3BucketName)
+	assert.Equal(t, "file", confObj.TokenStore.Mode)
+}
+
+// TestNewConfigEnvOnlyMissingField asserts the env-only path still reports the
+// missing field by name rather than a generic file error.
+func TestNewConfigEnvOnlyMissingField(t *testing.T) {
+	viper.Reset()
+	setRequiredEnv(t)
+	t.Setenv("GIMME_S3_LOCATION", "")
+
+	_, err := NewConfig()
+
+	require.NotNil(t, err)
+	assert.Equal(t, "configuration is not valid: s3.location is not set", err.Error())
+}
+
+// TestNewConfigMalformedFileErr asserts that only a genuinely absent file is
+// tolerated: a file that exists but cannot be parsed stays fatal.
+func TestNewConfigMalformedFileErr(t *testing.T) {
+	viper.Reset()
+	setRequiredEnv(t)
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "malformed.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+
+	_, err := NewConfig()
+
+	require.NotNil(t, err, "a malformed config file must not be silently ignored")
+	assert.Equal(t, "unable to read the config file", err.Error())
+}
+
+// TestNewConfigEnvOverridesFile guards the existing precedence: when both are
+// present, the environment wins.
+func TestNewConfigEnvOverridesFile(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
+	defer func() {
+		err := remove("./gimme.yml")
+		assert.Nil(t, err)
+	}()
+	t.Setenv("GIMME_S3_LOCATION", "eu-west-3")
+	t.Setenv("GIMME_ADMIN_USER", "envadmin")
+
+	confObj, err := NewConfig()
+
+	require.Nil(t, err)
+	assert.Equal(t, "eu-west-3", confObj.S3Location)
+	assert.Equal(t, "envadmin", confObj.AdminUser)
+	// Untouched by the environment, so it still comes from the file.
+	assert.Equal(t, "test.s3.url.cloud", confObj.S3Url)
 }

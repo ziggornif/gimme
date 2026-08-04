@@ -182,8 +182,10 @@ Before touching application code, so the lint inventory is known in advance.
   *Settled while implementing:* the `configuration is not valid:` prefix moved into `validateConfig` and `NewConfig` passes the error through, so a **single** problem keeps its exact previous wording — that is what leaves the fifteen existing single-field assertions untouched. Two or more problems are listed as two-space-indented `-` bullets under the prefix. Mode-dependent checks still skip what does not apply: an unknown `auth.mode` reports only the unsupported-mode message, never the OIDC fields that a non-existent mode has no use for.
   *Also removed:* the `logrus.Errorf` that logged the validation error inside `NewConfig`. logrus quotes the message, so a multi-problem report came out as one unreadable line of escaped `\n` — printed immediately before the readable one from `log.Fatalln` in `application.loadConfig`, the only caller. Verified on a running instance with six problems.
 
-- [ ] **#61 — Environment-only configuration**
+- [x] **#61 — Environment-only configuration**
   A missing config file is currently fatal even when every value is set via `GIMME_*`. Pairs naturally with #64 — same file, same first-run concern.
+  *Settled while implementing:* only `viper.ConfigFileNotFoundError` is tolerated — a file that exists but cannot be parsed stays fatal with the same message, since silently ignoring a typo in a mounted `gimme.yml` would start an instance the operator did not configure. No flag makes the file optional: absence is detected, not configured. `validateConfig` (#64) is what reports what is missing, so an env-only deployment with a hole fails per field rather than on the file.
+  *Also:* the README documented the YAML keys but never named a single `GIMME_*` variable, so the feature was undiscoverable — an *Environment variables* section now carries the mapping, the `docker run` form, and the two traps: `GIMME_APP_PORT` (not `GIMME_PORT`, which Kubernetes injects) and `cors.allowed_origins`, which has no variable.
 
 - [ ] **#62 — Upload limits** (size, entry count, decompressed size)
   Needs a new `PayloadTooLarge` kind in `internal/errors/business-error.go`.

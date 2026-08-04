@@ -1,6 +1,7 @@
 package configs
 
 import (
+	stderrors "errors"
 	"fmt"
 	"strings"
 
@@ -120,10 +121,13 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		logrus.Errorf("Unable to read the config file: %s", err)
-		return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("unable to read the config file"))
+	if err := viper.ReadInConfig(); err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		if !stderrors.As(err, &notFound) {
+			logrus.Errorf("Unable to read the config file: %s", err)
+			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("unable to read the config file"))
+		}
+		logrus.Info("no config file found, relying on environment variables")
 	}
 
 	config := Configuration{}
