@@ -87,8 +87,9 @@ type Configuration struct {
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
+	// No SetConfigType: it would make viper accept an extension-less file named
+	// gimme, which is the compiled binary's own name.
 	viper.SetConfigName("gimme")
-	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")       // local path
 	viper.AddConfigPath("/config") // docker path
 	// Enable env var overrides with GIMME_ prefix.

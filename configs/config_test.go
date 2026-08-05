@@ -499,6 +499,23 @@ func TestNewConfigEnvOnly(t *testing.T) {
 	assert.Equal(t, "file", confObj.TokenStore.Mode)
 }
 
+// The compiled binary is named gimme and lands next to the config search path,
+// so an extension-less file of that name must never be read as configuration.
+func TestNewConfigEnvOnlyIgnoresExtensionlessFile(t *testing.T) {
+	viper.Reset()
+	require.NoError(t, os.WriteFile("./gimme", []byte("\x7fELF\x02\x01\x01\x00\xff\xfe binary, not yaml"), 0o600))
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme"))
+		viper.Reset()
+	})
+	setRequiredEnv(t)
+
+	confObj, err := NewConfig()
+
+	require.Nil(t, err, "a file named gimme with no extension is not a config file")
+	assert.Equal(t, "envadmin", confObj.AdminUser)
+}
+
 func TestNewConfigEnvOnlyMissingField(t *testing.T) {
 	viper.Reset()
 	setRequiredEnv(t)

@@ -133,7 +133,7 @@ Requires Go 1.26+ and a running S3-compatible backend.
 ```bash
 cp gimme.example.yml gimme.yml
 # Edit gimme.yml with your S3 credentials
-make build && ./gimme
+make build && ./dist/gimme
 ```
 
 > `make build` compiles a native binary for your current OS/architecture. Use `make release` to produce a Linux/amd64 binary with `upx` compression (used by Docker and CI).
