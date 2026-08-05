@@ -217,6 +217,11 @@ Before touching application code, so the lint inventory is known in advance.
   *Approach:* three branches — `http.ErrMissingFile` keeps today's wording (asserted in `internal/archive_validator/archive-validator_test.go:21`), `*http.MaxBytesError` keeps the 413, anything else names its cause. Check what `mime/multipart` actually propagates before splitting parse errors from I/O errors.
   *Independent of everything else.* Small: one branch, three tests.
 
+- [x] **#98 — Env-only configuration fails from the repository root** *(found while running a live instance for #62)*
+  `SetConfigType("yaml")` makes viper accept a file named `gimme` with **no extension**, and `make build` writes the binary to exactly that path, so viper parsed 32 MB of Mach-O as YAML and the instance refused to start — defeating #61 in the one flow the README documents (`make build && ./gimme` plus `GIMME_*`). Docker was never affected: the binary is at `/bin/gimme` and the workdir holds only assets.
+  *Fixed by:* removing `SetConfigType` — nothing mounts an extension-less config, viper infers the format from the extension, and `ConfigFileNotFoundError` still fires so #61 keeps working. `make build` and `make release` now write to `dist/gimme`, which keeps a build artifact out of a config search path but is hygiene, not the fix: an operator dropping the binary next to their config directory would hit the same wall.
+  *Proved red first:* a test writing a non-YAML file named `gimme` next to the config path failed with `unable to read the config file` before the change.
+
 - [ ] **#88 — Archive shapes that produce surprising object keys without erroring** *(after #42 + #43)*
   Follow-up to #42/#43, all of it measured against `archiveKeys()`, none of it a regression — these are the archives the new code accepts while still producing keys the user did not mean.
   1. **the common-root heuristic is disarmed by a single root-level file.** `dist/app.js` + `dist/css/style.css` strips to `pkg@1.0.0/app.js`; add a `README.md` at the root and the same archive yields `pkg@1.0.0/dist/app.js` — one added file moves **every** asset URL. A Finder-made zip on macOS is therefore *never* stripped: the root-level `.DS_Store` and the `__MACOSX/` top-level segment both defeat the detection, and the junk is published inside the package.

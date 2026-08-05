@@ -12,7 +12,7 @@ fmt:
 
 .PHONY: build
 build:
-	go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
+	go build -ldflags "-w -s" -o dist/gimme ./cmd/server/main.go
 
 # GOOS/GOARCH can be overridden on the command line or via environment variables.
 # When invoked from the Dockerfile, they are set via ARG/ENV so the build
@@ -24,8 +24,8 @@ GOARCH ?= amd64
 release:
 	rm -rf dist
 	mkdir dist
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o gimme ./cmd/server/main.go
-	cp -R gimme docs templates assets ./dist
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-w -s" -o dist/gimme ./cmd/server/main.go
+	cp -R docs templates assets ./dist
 
 .PHONY: test
 test: garage-start
