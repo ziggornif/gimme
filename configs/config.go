@@ -21,10 +21,18 @@ type CacheConfig struct {
 	TTL     int    // seconds
 }
 
+// Size is a byte count as it was configured. Bytes is only meaningful once
+// validateConfig has accepted it.
+type Size struct {
+	Bytes int64
+	raw   string
+	err   error
+}
+
 type UploadConfig struct {
-	MaxSize             int64
+	MaxSize             Size
 	MaxEntries          int
-	MaxUncompressedSize int64
+	MaxUncompressedSize Size
 }
 
 // OIDCConfig holds the configuration for the OIDC provider.
@@ -183,15 +191,13 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 		Mode:        viper.GetString("tokenStore.mode"),
 		PostgresURL: viper.GetString("tokenStore.pg_url"),
 	}
-	maxSize, sizeProblems := readSize("upload.max_size", nil)
-	maxUncompressedSize, sizeProblems := readSize("upload.max_uncompressed_size", sizeProblems)
 	config.Upload = UploadConfig{
-		MaxSize:             maxSize,
+		MaxSize:             readSize("upload.max_size"),
 		MaxEntries:          viper.GetInt("upload.max_entries"),
-		MaxUncompressedSize: maxUncompressedSize,
+		MaxUncompressedSize: readSize("upload.max_uncompressed_size"),
 	}
 
-	if err := validateConfig(&config, sizeProblems); err != nil {
+	if err := validateConfig(&config); err != nil {
 		return nil, errors.NewBusinessError(errors.InternalError, err)
 	}
 
@@ -210,18 +216,24 @@ var sizeMultipliers = map[string]int64{
 	"TB": 1 << 40, "TIB": 1 << 40,
 }
 
-// readSize resolves a size key to bytes, appending a problem when the configured
-// value cannot be read or is not strictly positive.
-func readSize(key string, problems []string) (int64, []string) {
+// readSize converts a size key to bytes. It passes no judgement: an unreadable
+// value keeps its text and its error so that validateConfig can tell it apart
+// from a value the operator really wrote as 0.
+func readSize(key string) Size {
 	raw := viper.GetString(key)
-	value, err := parseSize(raw)
+	bytes, err := parseSize(raw)
+	return Size{Bytes: bytes, raw: raw, err: err}
+}
+
+// sizeProblem reports why a configured size cannot be used, or "" when it can.
+func sizeProblem(key string, size Size) string {
 	switch {
-	case err != nil:
-		return 0, append(problems, fmt.Sprintf("%s is not a valid size: %q", key, raw))
-	case value <= 0:
-		return value, append(problems, fmt.Sprintf("%s must be greater than 0 (got %d)", key, value))
+	case size.err != nil:
+		return fmt.Sprintf("%s is not a valid size: %q", key, size.raw)
+	case size.Bytes <= 0:
+		return fmt.Sprintf("%s must be greater than 0 (got %d)", key, size.Bytes)
 	}
-	return value, problems
+	return ""
 }
 
 // parseSize reads a byte count written either as a plain integer or with a unit
@@ -262,10 +274,8 @@ func splitOrigins(raw []string) []string {
 	return origins
 }
 
-// validateConfig reports every invalid field at once. sizeProblems holds the
-// problems already found while reading the size keys, which are parsed before
-// they can be validated.
-func validateConfig(config *Configuration, sizeProblems []string) error {
+// validateConfig reports every invalid field at once.
+func validateConfig(config *Configuration) error {
 	var problems []string
 
 	// Admin credentials are only required in "basic" mode.
@@ -298,7 +308,12 @@ func validateConfig(config *Configuration, sizeProblems []string) error {
 	if config.S3Location == "" {
 		problems = append(problems, "s3.location is not set")
 	}
-	problems = append(problems, sizeProblems...)
+	if problem := sizeProblem("upload.max_size", config.Upload.MaxSize); problem != "" {
+		problems = append(problems, problem)
+	}
+	if problem := sizeProblem("upload.max_uncompressed_size", config.Upload.MaxUncompressedSize); problem != "" {
+		problems = append(problems, problem)
+	}
 	if config.Upload.MaxEntries <= 0 {
 		problems = append(problems, fmt.Sprintf("upload.max_entries must be greater than 0 (got %d)", config.Upload.MaxEntries))
 	}

@@ -121,9 +121,9 @@ func TestNewConfig(t *testing.T) {
 			Mode: "file",
 		},
 		Upload: UploadConfig{
-			MaxSize:             104857600,
+			MaxSize:             Size{Bytes: 104857600, raw: "100MB"},
 			MaxEntries:          10000,
-			MaxUncompressedSize: 524288000,
+			MaxUncompressedSize: Size{Bytes: 524288000, raw: "500MB"},
 		},
 	}, confObj)
 	assert.Nil(t, err)
@@ -139,7 +139,9 @@ func TestNewConfigUploadDefaults(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
+	assert.Equal(t, int64(104857600), config.Upload.MaxSize.Bytes)
+	assert.Equal(t, 10000, config.Upload.MaxEntries)
+	assert.Equal(t, int64(524288000), config.Upload.MaxUncompressedSize.Bytes)
 }
 
 func TestNewConfigUploadUnits(t *testing.T) {
@@ -152,7 +154,9 @@ func TestNewConfigUploadUnits(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
+	assert.Equal(t, int64(104857600), config.Upload.MaxSize.Bytes)
+	assert.Equal(t, 10000, config.Upload.MaxEntries)
+	assert.Equal(t, int64(524288000), config.Upload.MaxUncompressedSize.Bytes)
 }
 
 func TestNewConfigUploadSizeInvalid(t *testing.T) {
@@ -180,7 +184,7 @@ func TestNewConfigUploadSizeEnv(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, int64(262144000), config.Upload.MaxSize)
+	assert.Equal(t, int64(262144000), config.Upload.MaxSize.Bytes)
 }
 
 func TestNewConfigUploadLimitsInvalid(t *testing.T) {
@@ -208,7 +212,9 @@ func TestNewConfigUploadLimits(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 123456, MaxEntries: 321, MaxUncompressedSize: 654321}, config.Upload)
+	assert.Equal(t, int64(123456), config.Upload.MaxSize.Bytes)
+	assert.Equal(t, 321, config.Upload.MaxEntries)
+	assert.Equal(t, int64(654321), config.Upload.MaxUncompressedSize.Bytes)
 }
 
 func TestNewConfigValidationErrAdmUsr(t *testing.T) {

@@ -148,9 +148,9 @@ func (app *Application) loadModules() {
 	}
 
 	app.contentService = content.NewContentService(app.storageManager, app.cacheManager, cacheTTL, content.UploadLimits{
-		MaxSize:             app.config.Upload.MaxSize,
+		MaxSize:             app.config.Upload.MaxSize.Bytes,
 		MaxEntries:          app.config.Upload.MaxEntries,
-		MaxUncompressedSize: app.config.Upload.MaxUncompressedSize,
+		MaxUncompressedSize: app.config.Upload.MaxUncompressedSize.Bytes,
 	})
 
 	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
