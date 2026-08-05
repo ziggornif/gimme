@@ -159,6 +159,98 @@ func TestPackageControllerCreatePackageRequestTooLarge(t *testing.T) {
 		"the body must stop being read at the limit, not be drained and then rejected")
 }
 
+func newUploadRouter(t *testing.T) (*gin.Engine, string) {
+	t.Helper()
+	router := gin.New()
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
+	_, rawToken, tokenErr := authManager.CreateToken(context.Background(), "upload-test", "")
+	require.Nil(t, tokenErr)
+	mockOSManager := mocks.MockOSManager{}
+	service := content.NewContentService(&mockOSManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+	return router, rawToken
+}
+
+func uploadPayload(t *testing.T) (*bytes.Buffer, string) {
+	t.Helper()
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	formFile, err := writer.CreateFormFile("file", "package.zip")
+	require.NoError(t, err)
+	_, err = formFile.Write(make([]byte, 1024))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteField("name", "test"))
+	require.NoError(t, writer.WriteField("version", "1.0.0"))
+	require.NoError(t, writer.Close())
+	return payload, writer.FormDataContentType()
+}
+
+func TestPackageControllerCreatePackageMissingFileField(t *testing.T) {
+	router, token := newUploadRouter(t)
+
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	require.NoError(t, writer.WriteField("name", "test"))
+	require.NoError(t, writer.WriteField("version", "1.0.0"))
+	require.NoError(t, writer.Close())
+
+	response := utils.PerformRequest(router, "POST", "/packages", payload,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{Key: "Content-Type", Value: writer.FormDataContentType()})
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Contains(t, response.Body.String(), "input file is required. (accepted types : application/zip)")
+}
+
+func TestPackageControllerCreatePackageMalformedMultipart(t *testing.T) {
+	router, token := newUploadRouter(t)
+	payload, _ := uploadPayload(t)
+
+	response := utils.PerformRequest(router, "POST", "/packages", payload,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{Key: "Content-Type", Value: "multipart/form-data; boundary=WRONGBOUNDARY"})
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Contains(t, response.Body.String(), "multipart")
+	assert.NotContains(t, response.Body.String(), "input file is required",
+		"a client that did send a file must not be told it did not")
+}
+
+func TestPackageControllerCreatePackageNotMultipart(t *testing.T) {
+	router, token := newUploadRouter(t)
+
+	response := utils.PerformRequest(router, "POST", "/packages", bytes.NewReader([]byte(`{"name":"test"}`)),
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{Key: "Content-Type", Value: "application/json"})
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+	assert.Contains(t, response.Body.String(), "multipart/form-data")
+	assert.NotContains(t, response.Body.String(), "input file is required")
+}
+
+func TestPackageControllerCreatePackageSpillWriteFailure(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("a read-only directory does not constrain root")
+	}
+
+	router, token := newUploadRouter(t)
+	router.MaxMultipartMemory = 1
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chmod(tmpDir, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(tmpDir, 0o700) })
+	t.Setenv("TMPDIR", tmpDir)
+
+	payload, contentType := uploadPayload(t)
+	response := utils.PerformRequest(router, "POST", "/packages", payload,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", token)},
+		utils.Header{Key: "Content-Type", Value: contentType})
+
+	assert.Equal(t, http.StatusInternalServerError, response.Code,
+		"a failure writing the form to disk is a server fault, not a client error")
+	assert.NotContains(t, response.Body.String(), "input file is required")
+	assert.NotContains(t, response.Body.String(), tmpDir, "the response must not leak a server path")
+}
+
 func TestGetSlice_EmptyName(t *testing.T) {
 	ctrl := &PackageController{}
 	_, err := ctrl.getSlice("@1.0.0")

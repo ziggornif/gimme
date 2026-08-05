@@ -3,6 +3,7 @@ package api
 import (
 	stderrors "errors"
 	"fmt"
+	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -74,6 +75,16 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 		var maxBytesErr *http.MaxBytesError
 		if stderrors.As(formErr, &maxBytesErr) {
 			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": fmt.Sprintf("upload exceeds the maximum request size of %d bytes (upload.max_size)", maxSize)})
+			return
+		}
+		if !stderrors.Is(formErr, http.ErrMissingFile) {
+			var pathErr *fs.PathError
+			if stderrors.As(formErr, &pathErr) {
+				logrus.Errorf("[PackageController] createPackage - failed to buffer the uploaded form: %v", formErr)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "could not process the uploaded file"})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("malformed upload request: %s", formErr)})
 			return
 		}
 	}
