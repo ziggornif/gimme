@@ -92,7 +92,7 @@ func TestPackageControllerGETErr(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager, nil, 0)
+	service := content.NewContentService(&mockOSManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0/file.js", nil)
@@ -105,12 +105,58 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	router := gin.New()
 	authManager := auth.NewAuthManager(newPackageTestStore(t))
 	mockOSManager := mocks.MockOSManagerErr{}
-	service := content.NewContentService(&mockOSManager, nil, 0)
+	service := content.NewContentService(&mockOSManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/test@1.0.0", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// countingReader counts the bytes actually consumed from a request body.
+type countingReader struct {
+	reader io.Reader
+	read   int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.reader.Read(p)
+	c.read += int64(n)
+	return n, err
+}
+
+func TestPackageControllerCreatePackageRequestTooLarge(t *testing.T) {
+	const maxSize = 300
+	const payloadSize = 1 << 20
+
+	router := gin.New()
+	authManager := auth.NewAuthManager(newPackageTestStore(t))
+	_, rawToken, tokenErr := authManager.CreateToken(context.Background(), "upload-test", "")
+	require.Nil(t, tokenErr)
+	mockOSManager := mocks.MockOSManager{}
+	service := content.NewContentService(&mockOSManager, nil, 0, content.UploadLimits{MaxSize: maxSize})
+	NewPackageController(router, authManager, service)
+
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	formFile, err := writer.CreateFormFile("file", "package.zip")
+	require.NoError(t, err)
+	_, err = formFile.Write(make([]byte, payloadSize))
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteField("name", "test"))
+	require.NoError(t, writer.WriteField("version", "1.0.0"))
+	require.NoError(t, writer.Close())
+	require.Greater(t, payload.Len(), payloadSize)
+
+	body := &countingReader{reader: bytes.NewReader(payload.Bytes())}
+	response := utils.PerformRequest(router, "POST", "/packages", body,
+		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", rawToken)},
+		utils.Header{Key: "Content-Type", Value: writer.FormDataContentType()})
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, response.Code)
+	assert.Contains(t, response.Body.String(), "upload.max_size")
+	assert.LessOrEqual(t, body.read, int64(maxSize+1),
+		"the body must stop being read at the limit, not be drained and then rejected")
 }
 
 func TestGetSlice_EmptyName(t *testing.T) {

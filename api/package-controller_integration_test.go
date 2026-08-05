@@ -30,7 +30,7 @@ func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/file.js", nil)
@@ -42,7 +42,7 @@ func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/foo/bar.js", nil)
@@ -54,7 +54,7 @@ func TestPackageControllerRedirect(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme", nil)
@@ -67,7 +67,7 @@ func TestPackageControllerCreate(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
@@ -81,7 +81,7 @@ func TestPackageControllerGet(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
@@ -101,7 +101,7 @@ func TestPackageControllerGetUI(t *testing.T) {
 	router.LoadHTMLGlob("../templates/*.tmpl")
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
@@ -120,7 +120,7 @@ func TestPackageControllerGetUIAlter(t *testing.T) {
 	router.LoadHTMLGlob("../templates/*.tmpl")
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
@@ -137,7 +137,7 @@ func TestPackageControllerCreateConflictErr(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	resp := createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
@@ -153,7 +153,7 @@ func TestPackageControllerGetEmpty(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/awesome-lib@4.0.0", nil)
@@ -165,7 +165,7 @@ func TestPackageControllerGetNotFound(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "GET", "/gimme/invalid@1.0.0/invalid.js", nil)
@@ -178,7 +178,7 @@ func TestPackageControllerPOSTEmptyFile(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	payload := &bytes.Buffer{}
@@ -205,7 +205,7 @@ func TestPackageControllerDeleteInvalidUrlErr(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "DELETE", "/packages/file.js", nil,
@@ -219,7 +219,7 @@ func TestPackageControllerDelete(t *testing.T) {
 	router := gin.New()
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
-	service := content.NewContentService(objectStorageManager, nil, 0)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
 	NewPackageController(router, authManager, service)
 
 	w := utils.PerformRequest(router, "DELETE", "/packages/awesome-lib@1.0.0", nil,
