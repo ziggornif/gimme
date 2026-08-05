@@ -177,9 +177,9 @@ s3:
 #   file_path: /tmp/gimme-tokens.enc  # used only when tokenStore.mode is "file"
 
 # upload:
-#   max_size: 104857600               # request body, in bytes (100 MB)
-#   max_entries: 10000                # ZIP file entries
-#   max_uncompressed_size: 524288000  # decompressed total, in bytes (500 MB)
+#   max_size: 100MB              # request body size
+#   max_entries: 50000           # ZIP file entries
+#   max_uncompressed_size: 500MB # decompressed total size
 ```
 
 | Key               | Description                              | Default  |
@@ -209,9 +209,11 @@ s3:
 | `auth.oidc.client_secret`| OIDC client secret              | optional |
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
-| `upload.max_size` | Maximum upload request body size in bytes | `104857600` |
-| `upload.max_entries` | Maximum number of file entries in a ZIP archive | `10000` |
-| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size in bytes | `524288000` |
+| `upload.max_size` | Maximum upload request body size; accepts bytes or a size such as `100MB` (base 1024) | `100MB` |
+| `upload.max_entries` | Maximum number of file entries in a ZIP archive | `50000` |
+| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size; accepts bytes or a size such as `500MB` (base 1024) | `500MB` |
+
+> **Reverse proxies.** nginx limits request bodies to 1 MB by default. If gimme is behind nginx, set `client_max_body_size` high enough for `upload.max_size`; otherwise nginx returns 413 before the request reaches gimme.
 
 > **Token store mode.** By default (`tokenStore.mode: file`), tokens are persisted to an encrypted local file — no external dependency needed. Set `tokenStore.mode: redis` and provide `redis_url` to share tokens across multiple instances. Set `tokenStore.mode: postgres` and provide `tokenStore.pg_url` for deployments that already have a PostgreSQL database.
 

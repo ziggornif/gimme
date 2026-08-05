@@ -80,9 +80,11 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 | `metrics`             | Enable `/metrics` OpenMetrics endpoint                  | `true`   |
 | `tokenStore.mode`     | Token persistence backend (`file`, `redis`, `postgres`) | `file`   |
 | `tokenStore.pg_url`   | PostgreSQL URL (required when mode is `postgres`)       | `""`     |
-| `upload.max_size` | Maximum upload request size in bytes | `104857600` |
-| `upload.max_entries` | Maximum ZIP file-entry count | `10000` |
-| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size in bytes | `524288000` |
+| `upload.max_size` | Maximum upload request size; accepts bytes or a size such as `100MB` (base 1024) | `100MB` |
+| `upload.max_entries` | Maximum ZIP file-entry count | `50000` |
+| `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size; accepts bytes or a size such as `500MB` (base 1024) | `500MB` |
+
+nginx limits request bodies to 1 MB by default. When gimme runs behind nginx, set `client_max_body_size` high enough for `upload.max_size` or nginx will return 413 before gimme receives the request.
 
 ---
 

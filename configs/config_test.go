@@ -33,6 +33,43 @@ func remove(src string) error {
 
 var confDir = "../test/config"
 
+func TestParseSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		expected int64
+		wantErr  bool
+	}{
+		{name: "raw bytes", raw: "104857600", expected: 104857600},
+		{name: "megabytes", raw: "100MB", expected: 104857600},
+		{name: "lowercase", raw: "100mb", expected: 104857600},
+		{name: "whitespace", raw: "100 MB", expected: 104857600},
+		{name: "five hundred megabytes", raw: "500MB", expected: 524288000},
+		{name: "gigabyte", raw: "1GB", expected: 1073741824},
+		{name: "explicit binary", raw: "1MiB", expected: 1048576},
+		{name: "fractional", raw: "1.5GB", expected: 1610612736},
+		{name: "zero", raw: "0", expected: 0},
+		{name: "empty", raw: "", wantErr: true},
+		{name: "letters", raw: "abc", wantErr: true},
+		{name: "unknown unit", raw: "100 apples", wantErr: true},
+		{name: "missing value", raw: "MB", wantErr: true},
+		{name: "overflow", raw: "9999999999GB", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := parseSize(tt.raw)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), fmt.Sprintf("%q", tt.raw))
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
 func init() {
 	_ = remove("./gimme.yml")
 }
@@ -85,7 +122,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		Upload: UploadConfig{
 			MaxSize:             104857600,
-			MaxEntries:          10000,
+			MaxEntries:          50000,
 			MaxUncompressedSize: 524288000,
 		},
 	}, confObj)
@@ -102,7 +139,48 @@ func TestNewConfigUploadDefaults(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
+	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 50000, MaxUncompressedSize: 524288000}, config.Upload)
+}
+
+func TestNewConfigUploadUnits(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "upload-units.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+
+	config, err := NewConfig()
+	require.Nil(t, err)
+	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 50000, MaxUncompressedSize: 524288000}, config.Upload)
+}
+
+func TestNewConfigUploadSizeInvalid(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "upload-size-invalid.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+
+	_, err := NewConfig()
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), `upload.max_size is not a valid size: "12 apples"`)
+	assert.NotContains(t, err.Error(), "upload.max_size must be greater than 0")
+}
+
+func TestNewConfigUploadSizeEnv(t *testing.T) {
+	viper.Reset()
+	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
+	t.Cleanup(func() {
+		assert.NoError(t, remove("./gimme.yml"))
+		viper.Reset()
+	})
+	t.Setenv("GIMME_UPLOAD_MAX_SIZE", "250MB")
+
+	config, err := NewConfig()
+	require.Nil(t, err)
+	assert.Equal(t, int64(262144000), config.Upload.MaxSize)
 }
 
 func TestNewConfigUploadLimitsInvalid(t *testing.T) {

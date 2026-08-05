@@ -3,6 +3,9 @@ package configs
 import (
 	stderrors "errors"
 	"fmt"
+	"math"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ziggornif/gimme/internal/errors"
@@ -131,9 +134,9 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("auth.mode", "basic")
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
-	viper.SetDefault("upload.max_size", 104857600)
-	viper.SetDefault("upload.max_entries", 10000)
-	viper.SetDefault("upload.max_uncompressed_size", 524288000)
+	viper.SetDefault("upload.max_size", "100MB")
+	viper.SetDefault("upload.max_entries", 50000)
+	viper.SetDefault("upload.max_uncompressed_size", "500MB")
 
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
@@ -180,17 +183,70 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 		Mode:        viper.GetString("tokenStore.mode"),
 		PostgresURL: viper.GetString("tokenStore.pg_url"),
 	}
+	maxSize, sizeProblems := readSize("upload.max_size", nil)
+	maxUncompressedSize, sizeProblems := readSize("upload.max_uncompressed_size", sizeProblems)
 	config.Upload = UploadConfig{
-		MaxSize:             viper.GetInt64("upload.max_size"),
+		MaxSize:             maxSize,
 		MaxEntries:          viper.GetInt("upload.max_entries"),
-		MaxUncompressedSize: viper.GetInt64("upload.max_uncompressed_size"),
+		MaxUncompressedSize: maxUncompressedSize,
 	}
 
-	if err := validateConfig(&config); err != nil {
+	if err := validateConfig(&config, sizeProblems); err != nil {
 		return nil, errors.NewBusinessError(errors.InternalError, err)
 	}
 
 	return &config, nil
+}
+
+var sizePattern = regexp.MustCompile(`^\s*([+-]?[0-9]+(?:\.[0-9]+)?)\s*([[:alpha:]]*)\s*$`)
+
+// sizeMultipliers are all base 1024, the nginx convention: client_max_body_size 100m
+// is 100 MiB, so 100MB here is exactly 104857600 bytes.
+var sizeMultipliers = map[string]int64{
+	"": 1, "B": 1,
+	"KB": 1 << 10, "KIB": 1 << 10,
+	"MB": 1 << 20, "MIB": 1 << 20,
+	"GB": 1 << 30, "GIB": 1 << 30,
+	"TB": 1 << 40, "TIB": 1 << 40,
+}
+
+// readSize resolves a size key to bytes, appending a problem when the configured
+// value cannot be read or is not strictly positive.
+func readSize(key string, problems []string) (int64, []string) {
+	raw := viper.GetString(key)
+	value, err := parseSize(raw)
+	switch {
+	case err != nil:
+		return 0, append(problems, fmt.Sprintf("%s is not a valid size: %q", key, raw))
+	case value <= 0:
+		return value, append(problems, fmt.Sprintf("%s must be greater than 0 (got %d)", key, value))
+	}
+	return value, problems
+}
+
+// parseSize reads a byte count written either as a plain integer or with a unit
+// suffix (100MB, 1.5 GiB). A fractional result is truncated.
+func parseSize(raw string) (int64, error) {
+	matches := sizePattern.FindStringSubmatch(raw)
+	if matches == nil {
+		return 0, fmt.Errorf("invalid size %q", raw)
+	}
+
+	multiplier, known := sizeMultipliers[strings.ToUpper(matches[2])]
+	if !known {
+		return 0, fmt.Errorf("invalid size %q", raw)
+	}
+
+	value, err := strconv.ParseFloat(matches[1], 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q", raw)
+	}
+
+	bytes := value * float64(multiplier)
+	if bytes >= math.MaxInt64 || bytes <= math.MinInt64 {
+		return 0, fmt.Errorf("size %q does not fit in 64 bits", raw)
+	}
+	return int64(bytes), nil
 }
 
 // splitOrigins splits on commas, trims each origin, and never returns nil.
@@ -206,7 +262,10 @@ func splitOrigins(raw []string) []string {
 	return origins
 }
 
-func validateConfig(config *Configuration) error {
+// validateConfig reports every invalid field at once. sizeProblems holds the
+// problems already found while reading the size keys, which are parsed before
+// they can be validated.
+func validateConfig(config *Configuration, sizeProblems []string) error {
 	var problems []string
 
 	// Admin credentials are only required in "basic" mode.
@@ -239,14 +298,9 @@ func validateConfig(config *Configuration) error {
 	if config.S3Location == "" {
 		problems = append(problems, "s3.location is not set")
 	}
-	if config.Upload.MaxSize <= 0 {
-		problems = append(problems, fmt.Sprintf("upload.max_size must be greater than 0 (got %d)", config.Upload.MaxSize))
-	}
+	problems = append(problems, sizeProblems...)
 	if config.Upload.MaxEntries <= 0 {
 		problems = append(problems, fmt.Sprintf("upload.max_entries must be greater than 0 (got %d)", config.Upload.MaxEntries))
-	}
-	if config.Upload.MaxUncompressedSize <= 0 {
-		problems = append(problems, fmt.Sprintf("upload.max_uncompressed_size must be greater than 0 (got %d)", config.Upload.MaxUncompressedSize))
 	}
 	// redis_url is optional: when absent Gimme falls back to FileTokenStore.
 	// When present, a single shared Redis client is built and injected into any
