@@ -9,5 +9,5 @@ s3:
   location: eu-west-1
 upload:
   max_size: 100MB
-  max_entries: 50000
+  max_entries: 10000
   max_uncompressed_size: 500MB

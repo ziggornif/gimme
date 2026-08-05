@@ -135,7 +135,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("auth.oidc.secure_cookies", true)
 	viper.SetDefault("tokenStore.mode", "file")
 	viper.SetDefault("upload.max_size", "100MB")
-	viper.SetDefault("upload.max_entries", 50000)
+	viper.SetDefault("upload.max_entries", 10000)
 	viper.SetDefault("upload.max_uncompressed_size", "500MB")
 
 	if err := viper.ReadInConfig(); err != nil {

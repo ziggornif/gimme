@@ -178,7 +178,7 @@ s3:
 
 # upload:
 #   max_size: 100MB              # request body size
-#   max_entries: 50000           # ZIP file entries
+#   max_entries: 10000           # ZIP file entries
 #   max_uncompressed_size: 500MB # decompressed total size
 ```
 
@@ -210,7 +210,7 @@ s3:
 | `auth.oidc.redirect_url` | OIDC redirect URI               | required if `oidc` |
 | `auth.oidc.secure_cookies` | Use `Secure` flag on session cookies (disable only for local HTTP dev) | `true` |
 | `upload.max_size` | Maximum upload request body size; accepts bytes or a size such as `100MB` (base 1024) | `100MB` |
-| `upload.max_entries` | Maximum number of file entries in a ZIP archive | `50000` |
+| `upload.max_entries` | Maximum number of file entries in a ZIP archive | `10000` |
 | `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size; accepts bytes or a size such as `500MB` (base 1024) | `500MB` |
 
 **Reverse proxies.** nginx limits request bodies to 1 MB by default. If gimme is behind nginx, set `client_max_body_size` high enough for `upload.max_size`; otherwise nginx returns 413 before the request reaches gimme.

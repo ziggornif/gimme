@@ -18,7 +18,7 @@ s3:
 # When using nginx, raise its 1 MB default with client_max_body_size to match max_size.
 # upload:
 #   max_size: 100MB              # request body size
-#   max_entries: 50000           # ZIP file entries
+#   max_entries: 10000           # ZIP file entries
 #   max_uncompressed_size: 500MB # decompressed total size
 
 # Redis connection URL — used by any Redis-backed component (token store, cache).

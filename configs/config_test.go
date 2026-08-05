@@ -122,7 +122,7 @@ func TestNewConfig(t *testing.T) {
 		},
 		Upload: UploadConfig{
 			MaxSize:             104857600,
-			MaxEntries:          50000,
+			MaxEntries:          10000,
 			MaxUncompressedSize: 524288000,
 		},
 	}, confObj)
@@ -139,7 +139,7 @@ func TestNewConfigUploadDefaults(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 50000, MaxUncompressedSize: 524288000}, config.Upload)
+	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
 }
 
 func TestNewConfigUploadUnits(t *testing.T) {
@@ -152,7 +152,7 @@ func TestNewConfigUploadUnits(t *testing.T) {
 
 	config, err := NewConfig()
 	require.Nil(t, err)
-	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 50000, MaxUncompressedSize: 524288000}, config.Upload)
+	assert.Equal(t, UploadConfig{MaxSize: 104857600, MaxEntries: 10000, MaxUncompressedSize: 524288000}, config.Upload)
 }
 
 func TestNewConfigUploadSizeInvalid(t *testing.T) {
