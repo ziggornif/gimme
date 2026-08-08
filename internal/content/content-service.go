@@ -19,6 +19,7 @@ import (
 	"github.com/ziggornif/gimme/internal/storage"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/text/unicode/norm"
 )
 
 type ContentService struct {
@@ -153,6 +154,7 @@ type archiveFile struct {
 // archiveKeys validates archive entry names and maps files into the package namespace.
 func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors.GimmeError) {
 	normalized := make([]archiveFile, 0, len(files))
+	droppedJunk := 0
 	for _, file := range files {
 		original := file.Name
 		if file.FileInfo().IsDir() || strings.HasSuffix(original, "/") {
@@ -165,30 +167,44 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q is an absolute path", original))
 		}
 
-		cleaned := path.Clean(original)
+		cleaned := path.Clean(norm.NFC.String(original))
 		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
 			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
 		}
+		firstSegment, _, _ := strings.Cut(cleaned, "/")
+		base := path.Base(cleaned)
+		if firstSegment == "__MACOSX" || base == ".DS_Store" || strings.HasPrefix(base, "._") {
+			droppedJunk++
+			continue
+		}
 		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
+	}
+	if droppedJunk > 0 {
+		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX, .DS_Store, or AppleDouble)", droppedJunk)
 	}
 
 	if len(normalized) == 0 {
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
 	}
 
-	commonRoot := ""
-	stripRoot := true
-	for i, file := range normalized {
+	topLevelDirectories := make(map[string]struct{})
+	rootFilesAreMetadata := true
+	for _, file := range normalized {
 		root, _, found := strings.Cut(file.name, "/")
 		if !found {
-			stripRoot = false
-			break
+			if !isArchiveMetadata(file.name) {
+				rootFilesAreMetadata = false
+			}
+			continue
 		}
-		if i == 0 {
+		topLevelDirectories[root] = struct{}{}
+	}
+
+	commonRoot := ""
+	stripRoot := len(topLevelDirectories) == 1 && rootFilesAreMetadata
+	if stripRoot {
+		for root := range topLevelDirectories {
 			commonRoot = root
-		} else if root != commonRoot {
-			stripRoot = false
-			break
 		}
 	}
 
@@ -197,8 +213,8 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	originalByKey := make(map[string]string, len(normalized))
 	for _, file := range normalized {
 		relativePath := file.name
-		if stripRoot {
-			_, relativePath, _ = strings.Cut(relativePath, "/")
+		if stripRoot && strings.HasPrefix(relativePath, commonRoot+"/") {
+			relativePath = strings.TrimPrefix(relativePath, commonRoot+"/")
 		}
 		key := prefix + relativePath
 		if !strings.HasPrefix(key, prefix) {
@@ -212,6 +228,20 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	}
 
 	return objects, nil
+}
+
+func isArchiveMetadata(name string) bool {
+	base := path.Base(name)
+	if strings.EqualFold(base, ".gitignore") {
+		return true
+	}
+	metadataBase, _, _ := strings.Cut(base, ".")
+	switch strings.ToUpper(metadataBase) {
+	case "README", "LICENSE", "LICENCE", "CHANGELOG":
+		return true
+	default:
+		return false
+	}
 }
 
 // checkArchiveLimits counts the file entries of an archive and sums their declared
