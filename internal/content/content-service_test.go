@@ -588,19 +588,19 @@ func TestContentService_CreatePackage_RootDetection(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:     "a metadata file at the root does not block the wrapper folder",
+			name:     "any file at the root blocks the wrapper folder",
 			entries:  []string{"dist/app.js", "dist/css/style.css", "README.md"},
-			expected: []string{"pkg@1.0.0/README.md", "pkg@1.0.0/app.js", "pkg@1.0.0/css/style.css"},
+			expected: []string{"pkg@1.0.0/README.md", "pkg@1.0.0/dist/app.js", "pkg@1.0.0/dist/css/style.css"},
 		},
 		{
-			name:     "metadata names are matched case insensitively",
-			entries:  []string{"dist/app.js", "readme.md", "LICENSE", "Changelog.md", ".gitignore"},
-			expected: []string{"pkg@1.0.0/.gitignore", "pkg@1.0.0/Changelog.md", "pkg@1.0.0/LICENSE", "pkg@1.0.0/app.js", "pkg@1.0.0/readme.md"},
-		},
-		{
-			name:     "a content file at the root still blocks the wrapper folder",
+			name:     "a content file at the root blocks the wrapper folder",
 			entries:  []string{"app.js", "style.css", "img/logo.svg"},
 			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg", "pkg@1.0.0/style.css"},
+		},
+		{
+			name:     "junk at the root does not block the wrapper folder",
+			entries:  []string{"dist/app.js", "dist/css/style.css", ".DS_Store"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/css/style.css"},
 		},
 		{
 			name:     "two top level folders are never stripped",

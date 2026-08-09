@@ -187,24 +187,19 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
 	}
 
-	topLevelDirectories := make(map[string]struct{})
-	rootFilesAreMetadata := true
-	for _, file := range normalized {
+	commonRoot := ""
+	stripRoot := true
+	for i, file := range normalized {
 		root, _, found := strings.Cut(file.name, "/")
 		if !found {
-			if !isArchiveMetadata(file.name) {
-				rootFilesAreMetadata = false
-			}
-			continue
+			stripRoot = false
+			break
 		}
-		topLevelDirectories[root] = struct{}{}
-	}
-
-	commonRoot := ""
-	stripRoot := len(topLevelDirectories) == 1 && rootFilesAreMetadata
-	if stripRoot {
-		for root := range topLevelDirectories {
+		if i == 0 {
 			commonRoot = root
+		} else if root != commonRoot {
+			stripRoot = false
+			break
 		}
 	}
 
@@ -213,8 +208,8 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	originalByKey := make(map[string]string, len(normalized))
 	for _, file := range normalized {
 		relativePath := file.name
-		if stripRoot && strings.HasPrefix(relativePath, commonRoot+"/") {
-			relativePath = strings.TrimPrefix(relativePath, commonRoot+"/")
+		if stripRoot {
+			_, relativePath, _ = strings.Cut(relativePath, "/")
 		}
 		key := prefix + relativePath
 		if !strings.HasPrefix(key, prefix) {
@@ -228,20 +223,6 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	}
 
 	return objects, nil
-}
-
-func isArchiveMetadata(name string) bool {
-	base := path.Base(name)
-	if strings.EqualFold(base, ".gitignore") {
-		return true
-	}
-	metadataBase, _, _ := strings.Cut(base, ".")
-	switch strings.ToUpper(metadataBase) {
-	case "README", "LICENSE", "LICENCE", "CHANGELOG":
-		return true
-	default:
-		return false
-	}
 }
 
 // checkArchiveLimits counts the file entries of an archive and sums their declared

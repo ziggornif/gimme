@@ -369,24 +369,17 @@ awesome-lib/app.js          ->  /gimme/awesome-lib@1.0.0/app.js
 awesome-lib/img/logo.svg    ->  /gimme/awesome-lib@1.0.0/img/logo.svg
 ```
 
-Files sitting at the archive root do not prevent the wrapper from being stripped, as long as they are `README`, `LICENCE`/`LICENSE`, `CHANGELOG` or `.gitignore` (any extension, any case). They are uploaded like any other file, where they are:
-
-```text
-dist/app.js                 ->  /gimme/awesome-lib@1.0.0/app.js
-dist/css/style.css          ->  /gimme/awesome-lib@1.0.0/css/style.css
-README.md                   ->  /gimme/awesome-lib@1.0.0/README.md
-```
-
-Any other file at the root means there is no wrapper, and every path is kept as it is:
+Any file sitting at the archive root means there is no wrapper, and every path is kept as it is:
 
 ```text
 app.js                      ->  /gimme/awesome-lib@1.0.0/app.js
 img/logo.svg                ->  /gimme/awesome-lib@1.0.0/img/logo.svg
+README.md                   ->  /gimme/awesome-lib@1.0.0/README.md
 ```
 
 The same holds when the archive has several top-level folders — nothing is stripped.
 
-macOS metadata (`__MACOSX/`, `.DS_Store`, AppleDouble `._*` files) is dropped and never published, so an archive zipped from the Finder behaves like any other.
+macOS metadata (`__MACOSX/`, `.DS_Store`, and AppleDouble `._*` files, at any depth) is dropped and never published, and it does not count when looking for the wrapper folder — so an archive zipped from the Finder behaves like any other.
 
 An archive is **rejected whole**, and nothing is uploaded, when an entry escapes the package namespace (`../`, absolute paths, empty names) or when two entries land on the same URL.
 
