@@ -639,9 +639,9 @@ func TestContentService_CreatePackage_DropsArchiveJunk(t *testing.T) {
 			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg"},
 		},
 		{
-			name:     "AppleDouble files are dropped outside __MACOSX too",
+			name:     "AppleDouble files outside __MACOSX are kept",
 			entries:  []string{"dist/app.js", "dist/._app.js"},
-			expected: []string{"pkg@1.0.0/app.js"},
+			expected: []string{"pkg@1.0.0/._app.js", "pkg@1.0.0/app.js"},
 		},
 	}
 

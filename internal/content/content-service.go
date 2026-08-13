@@ -172,15 +172,14 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
 		}
 		firstSegment, _, _ := strings.Cut(cleaned, "/")
-		base := path.Base(cleaned)
-		if firstSegment == "__MACOSX" || base == ".DS_Store" || strings.HasPrefix(base, "._") {
+		if firstSegment == "__MACOSX" || path.Base(cleaned) == ".DS_Store" {
 			droppedJunk++
 			continue
 		}
 		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
 	}
 	if droppedJunk > 0 {
-		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX, .DS_Store, or AppleDouble)", droppedJunk)
+		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX or .DS_Store)", droppedJunk)
 	}
 
 	if len(normalized) == 0 {

@@ -379,7 +379,7 @@ README.md                   ->  /gimme/awesome-lib@1.0.0/README.md
 
 The same holds when the archive has several top-level folders — nothing is stripped.
 
-macOS metadata (`__MACOSX/`, `.DS_Store`, and AppleDouble `._*` files, at any depth) is dropped and never published, and it does not count when looking for the wrapper folder — so an archive zipped from the Finder behaves like any other.
+macOS metadata is dropped and never published, and it does not count when looking for the wrapper folder — so an archive zipped from the Finder behaves like any other. Two patterns are removed: everything under a top-level `__MACOSX/`, and any `.DS_Store` at any depth. Everything else in the archive is uploaded as it is.
 
 An archive is **rejected whole**, and nothing is uploaded, when an entry escapes the package namespace (`../`, absolute paths, empty names) or when two entries land on the same URL.
 
