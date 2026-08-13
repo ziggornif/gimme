@@ -581,6 +581,135 @@ func TestContentService_CreatePackage_KeyLayout(t *testing.T) {
 	}
 }
 
+func TestContentService_CreatePackage_RootDetection(t *testing.T) {
+	tests := []struct {
+		name     string
+		entries  []string
+		expected []string
+	}{
+		{
+			name:     "any file at the root blocks the wrapper folder",
+			entries:  []string{"dist/app.js", "dist/css/style.css", "README.md"},
+			expected: []string{"pkg@1.0.0/README.md", "pkg@1.0.0/dist/app.js", "pkg@1.0.0/dist/css/style.css"},
+		},
+		{
+			name:     "a content file at the root blocks the wrapper folder",
+			entries:  []string{"app.js", "style.css", "img/logo.svg"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg", "pkg@1.0.0/style.css"},
+		},
+		{
+			name:     "junk at the root does not block the wrapper folder",
+			entries:  []string{"dist/app.js", "dist/css/style.css", ".DS_Store"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/css/style.css"},
+		},
+		{
+			name:     "two top level folders are never stripped",
+			entries:  []string{"src/a.js", "docs/b.md", "README.md"},
+			expected: []string{"pkg@1.0.0/README.md", "pkg@1.0.0/docs/b.md", "pkg@1.0.0/src/a.js"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+
+			reader, size := buildArchiveFrom(t, tt.entries...)
+			err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+			require.Nil(t, err)
+			assert.Equal(t, tt.expected, manager.sortedKeys())
+		})
+	}
+}
+
+func TestContentService_CreatePackage_DropsArchiveJunk(t *testing.T) {
+	tests := []struct {
+		name     string
+		entries  []string
+		expected []string
+	}{
+		{
+			name:     "a Finder made archive is stripped and its metadata dropped",
+			entries:  []string{"dist/app.js", "__MACOSX/dist/._app.js", ".DS_Store", "dist/.DS_Store"},
+			expected: []string{"pkg@1.0.0/app.js"},
+		},
+		{
+			name:     "DS_Store is dropped at every level",
+			entries:  []string{"app.js", ".DS_Store", "img/.DS_Store", "img/css/.DS_Store", "img/logo.svg"},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/img/logo.svg"},
+		},
+		{
+			name:     "AppleDouble files outside __MACOSX are kept",
+			entries:  []string{"dist/app.js", "dist/._app.js"},
+			expected: []string{"pkg@1.0.0/._app.js", "pkg@1.0.0/app.js"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+
+			reader, size := buildArchiveFrom(t, tt.entries...)
+			err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+			require.Nil(t, err)
+			assert.Equal(t, tt.expected, manager.sortedKeys())
+		})
+	}
+}
+
+func TestContentService_CreatePackage_RejectsJunkOnlyArchive(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+
+	reader, size := buildArchiveFrom(t, ".DS_Store", "__MACOSX/._x")
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "an archive holding nothing but junk must be rejected")
+	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+	assert.Empty(t, manager.sortedKeys())
+}
+
+// Escaped rather than written literally: an editor or tool normalising this
+// source file would make the two constants byte-identical and the tests below
+// vacuous.
+const (
+	nfcCafe = "caf\u00e9.js"  // precomposed e-acute, the form a browser sends
+	nfdCafe = "cafe\u0301.js" // e + combining acute, the form macOS stores
+)
+
+func TestContentService_NFCFixturesDiffer(t *testing.T) {
+	require.NotEqual(t, nfcCafe, nfdCafe, "the NFC and NFD fixtures must not be byte-identical")
+	require.Len(t, nfcCafe, 8)
+	require.Len(t, nfdCafe, 9)
+}
+
+func TestContentService_CreatePackage_NormalisesEntryNamesToNFC(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+
+	reader, size := buildArchiveFrom(t, "app.js", nfdCafe)
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.Nil(t, err)
+	assert.Equal(t, []string{"pkg@1.0.0/app.js", "pkg@1.0.0/" + nfcCafe}, manager.sortedKeys(),
+		"an NFD entry name must be stored under its NFC key, the form a browser requests")
+}
+
+func TestContentService_CreatePackage_RejectsDuplicatesAfterNormalisation(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+
+	reader, size := buildArchiveFrom(t, nfcCafe, nfdCafe)
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "entries colliding only after NFC normalisation must be rejected")
+	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+	assert.Contains(t, err.Error(), `"`+nfcCafe+`"`, "the error must name the first colliding entry")
+	assert.Contains(t, err.Error(), `"`+nfdCafe+`"`, "the error must name the second colliding entry")
+	assert.Empty(t, manager.sortedKeys(), "nothing must be uploaded when the archive is rejected")
+}
+
 func TestContentService_CreatePackage_RejectsEscapingEntries(t *testing.T) {
 	tests := []string{
 		"../x.js",

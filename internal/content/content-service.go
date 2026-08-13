@@ -19,6 +19,7 @@ import (
 	"github.com/ziggornif/gimme/internal/storage"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/text/unicode/norm"
 )
 
 type ContentService struct {
@@ -153,6 +154,7 @@ type archiveFile struct {
 // archiveKeys validates archive entry names and maps files into the package namespace.
 func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors.GimmeError) {
 	normalized := make([]archiveFile, 0, len(files))
+	droppedJunk := 0
 	for _, file := range files {
 		original := file.Name
 		if file.FileInfo().IsDir() || strings.HasSuffix(original, "/") {
@@ -165,11 +167,19 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q is an absolute path", original))
 		}
 
-		cleaned := path.Clean(original)
+		cleaned := path.Clean(norm.NFC.String(original))
 		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
 			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
 		}
+		firstSegment, _, _ := strings.Cut(cleaned, "/")
+		if firstSegment == "__MACOSX" || path.Base(cleaned) == ".DS_Store" {
+			droppedJunk++
+			continue
+		}
 		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
+	}
+	if droppedJunk > 0 {
+		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX or .DS_Store)", droppedJunk)
 	}
 
 	if len(normalized) == 0 {
