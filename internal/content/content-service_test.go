@@ -493,6 +493,32 @@ func (osc *recordingOSManager) sortedKeys() []string {
 	return out
 }
 
+// archiveEntry is a zip entry whose content matters, as opposed to buildArchiveFrom
+// where only the name does.
+type archiveEntry struct {
+	name    string
+	content string
+}
+
+// buildArchiveWithEntries builds an in-memory zip archive from entries whose content
+// is given, so an ignore file can carry real patterns.
+func buildArchiveWithEntries(t *testing.T, entries ...archiveEntry) (*bytes.Reader, int64) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for _, entry := range entries {
+		header := &zip.FileHeader{Name: entry.name, Method: zip.Deflate}
+		file, err := writer.CreateHeader(header)
+		require.NoError(t, err)
+		_, err = file.Write([]byte(entry.content))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	return bytes.NewReader(buf.Bytes()), int64(buf.Len())
+}
+
 // buildArchiveFrom builds an in-memory zip archive holding the given entry names.
 // A name ending with "/" is written as a directory entry.
 func buildArchiveFrom(t *testing.T, names ...string) (*bytes.Reader, int64) {
@@ -708,6 +734,134 @@ func TestContentService_CreatePackage_RejectsDuplicatesAfterNormalisation(t *tes
 	assert.Contains(t, err.Error(), `"`+nfcCafe+`"`, "the error must name the first colliding entry")
 	assert.Contains(t, err.Error(), `"`+nfdCafe+`"`, "the error must name the second colliding entry")
 	assert.Empty(t, manager.sortedKeys(), "nothing must be uploaded when the archive is rejected")
+}
+
+func TestContentService_CreatePackage_GimmeIgnore(t *testing.T) {
+	tests := []struct {
+		name     string
+		entries  []archiveEntry
+		expected []string
+	}{
+		{
+			name: "at the archive root, patterns apply to the whole tree",
+			entries: []archiveEntry{
+				{".gimmeignore", "*.map\nnode_modules/\n"},
+				{"app.js", "x"},
+				{"app.js.map", "x"},
+				{"sub/b.js", "x"},
+				{"sub/b.js.map", "x"},
+				{"node_modules/dep/index.js", "x"},
+			},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/sub/b.js"},
+		},
+		{
+			name: "inside the single wrapper folder, patterns anchor to that folder",
+			entries: []archiveEntry{
+				{"dist/.gimmeignore", "*.map\n/app.js\n"},
+				{"dist/app.js", "x"},
+				{"dist/app.js.map", "x"},
+				{"dist/sub/app.js", "x"},
+			},
+			expected: []string{"pkg@1.0.0/sub/app.js"},
+		},
+		{
+			name: "an ignored root file no longer blocks the wrapper folder",
+			entries: []archiveEntry{
+				{".gimmeignore", "README.md\n"},
+				{"dist/app.js", "x"},
+				{"dist/css/style.css", "x"},
+				{"README.md", "x"},
+			},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/css/style.css"},
+		},
+		{
+			name: "negation brings a file back",
+			entries: []archiveEntry{
+				{".gimmeignore", "keep/*\n!keep/important.js\n"},
+				{"app.js", "x"},
+				{"keep/other.js", "x"},
+				{"keep/important.js", "x"},
+			},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/keep/important.js"},
+		},
+		{
+			name: "a .gitignore is not honoured and is published like any file",
+			entries: []archiveEntry{
+				{".gitignore", "*.map\n"},
+				{"app.js", "x"},
+				{"app.js.map", "x"},
+			},
+			expected: []string{"pkg@1.0.0/.gitignore", "pkg@1.0.0/app.js", "pkg@1.0.0/app.js.map"},
+		},
+		{
+			name: "a .gimmeignore anywhere else is published and has no effect",
+			entries: []archiveEntry{
+				{"app.js", "x"},
+				{"sub/.gimmeignore", "*.map\n"},
+				{"sub/b.js.map", "x"},
+			},
+			expected: []string{"pkg@1.0.0/app.js", "pkg@1.0.0/sub/.gimmeignore", "pkg@1.0.0/sub/b.js.map"},
+		},
+		{
+			// The root file excludes *.css and the nested one *.js, so app.js
+			// surviving while style.css does not is what proves the root won.
+			// The nested file is then an ordinary entry inside the wrapper.
+			name: "the archive root file wins over one in the wrapper folder",
+			entries: []archiveEntry{
+				{".gimmeignore", "*.css\n"},
+				{"dist/.gimmeignore", "*.js\n"},
+				{"dist/app.js", "x"},
+				{"dist/style.css", "x"},
+			},
+			expected: []string{"pkg@1.0.0/.gimmeignore", "pkg@1.0.0/app.js"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+
+			reader, size := buildArchiveWithEntries(t, tt.entries...)
+			err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+			require.Nil(t, err)
+			assert.Equal(t, tt.expected, manager.sortedKeys())
+		})
+	}
+}
+
+func TestContentService_CreatePackage_GimmeIgnoreExcludesEverything(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+
+	reader, size := buildArchiveWithEntries(t,
+		archiveEntry{".gimmeignore", "*\n"},
+		archiveEntry{"app.js", "x"},
+	)
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "an archive whose entries are all excluded must be rejected")
+	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+	assert.Empty(t, manager.sortedKeys())
+}
+
+func TestContentService_CreatePackage_GimmeIgnoreDoesNotRelaxLimits(t *testing.T) {
+	manager := &recordingOSManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{MaxEntries: 3})
+
+	reader, size := buildArchiveWithEntries(t,
+		archiveEntry{".gimmeignore", "*.map\n"},
+		archiveEntry{"app.js", "x"},
+		archiveEntry{"a.js.map", "x"},
+		archiveEntry{"b.js.map", "x"},
+		archiveEntry{"c.js.map", "x"},
+	)
+	err := service.CreatePackage(context.Background(), "pkg", "1.0.0", reader, size)
+
+	require.NotNil(t, err, "limits bound the raw archive, not what survives the ignore file")
+	assert.Equal(t, errors.ErrorKindEnum(errors.PayloadTooLarge), err.Kind)
+	assert.Contains(t, err.Error(), "upload.max_entries")
+	assert.Empty(t, manager.sortedKeys())
 }
 
 func TestContentService_CreatePackage_RejectsEscapingEntries(t *testing.T) {

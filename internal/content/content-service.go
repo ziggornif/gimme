@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
+	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/sirupsen/logrus"
 	"github.com/ziggornif/gimme/internal/cache"
 	"github.com/ziggornif/gimme/internal/errors"
@@ -186,21 +187,82 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
 	}
 
-	commonRoot := ""
-	stripRoot := true
-	for i, file := range normalized {
-		root, _, found := strings.Cut(file.name, "/")
-		if !found {
-			stripRoot = false
-			break
+	wrapperRoot := func(files []archiveFile) (string, bool) {
+		commonRoot := ""
+		for i, file := range files {
+			root, _, found := strings.Cut(file.name, "/")
+			if !found {
+				return "", false
+			}
+			if i == 0 {
+				commonRoot = root
+			} else if root != commonRoot {
+				return "", false
+			}
 		}
-		if i == 0 {
-			commonRoot = root
-		} else if root != commonRoot {
-			stripRoot = false
+		return commonRoot, true
+	}
+
+	preFilterRoot, hasWrapper := wrapperRoot(normalized)
+	ignoreIndex := -1
+	ignoreBase := ""
+	for i, file := range normalized {
+		if file.name == ".gimmeignore" {
+			ignoreIndex = i
 			break
 		}
 	}
+	if ignoreIndex == -1 && hasWrapper {
+		wrapperIgnore := preFilterRoot + "/.gimmeignore"
+		for i, file := range normalized {
+			if file.name == wrapperIgnore {
+				ignoreIndex = i
+				ignoreBase = preFilterRoot + "/"
+				break
+			}
+		}
+	}
+
+	if ignoreIndex != -1 {
+		ignoreFile := normalized[ignoreIndex]
+		reader, err := ignoreFile.file.Open()
+		if err != nil {
+			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while opening %q: %w", ignoreFile.original, err))
+		}
+		defer func(src io.ReadCloser) {
+			if err := src.Close(); err != nil {
+				logrus.Errorf("[ContentService] archiveKeys - Fail to close %s", ignoreFile.name)
+			}
+		}(reader)
+		contents, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while reading %q: %w", ignoreFile.original, err))
+		}
+
+		matcher := ignore.CompileIgnoreLines(strings.Split(string(contents), "\n")...)
+		filtered := make([]archiveFile, 0, len(normalized)-1)
+		droppedIgnored := 0
+		for _, file := range normalized {
+			if file.name == ignoreFile.name {
+				continue
+			}
+			if matcher.MatchesPath(strings.TrimPrefix(file.name, ignoreBase)) {
+				droppedIgnored++
+				continue
+			}
+			filtered = append(filtered, file)
+		}
+		normalized = filtered
+		if droppedIgnored > 0 {
+			logrus.Infof("[ContentService] archiveKeys - dropped %d entries excluded by %s", droppedIgnored, ignoreFile.name)
+		}
+
+		if len(normalized) == 0 {
+			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
+		}
+	}
+
+	commonRoot, stripRoot := wrapperRoot(normalized)
 
 	prefix := folderName + "/"
 	objects := make([]archiveObject, 0, len(normalized))
@@ -208,7 +270,7 @@ func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors
 	for _, file := range normalized {
 		relativePath := file.name
 		if stripRoot {
-			_, relativePath, _ = strings.Cut(relativePath, "/")
+			relativePath = strings.TrimPrefix(relativePath, commonRoot+"/")
 		}
 		key := prefix + relativePath
 		if !strings.HasPrefix(key, prefix) {
