@@ -5,14 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
-	"path"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
-	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/sirupsen/logrus"
 	"github.com/ziggornif/gimme/internal/cache"
 	"github.com/ziggornif/gimme/internal/errors"
@@ -20,7 +17,6 @@ import (
 	"github.com/ziggornif/gimme/internal/storage"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/text/unicode/norm"
 )
 
 type ContentService struct {
@@ -139,178 +135,6 @@ func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string,
 
 	lversion := svc.getLatestVersion(filtred)
 	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
-}
-
-type archiveObject struct {
-	key  string
-	file *zip.File
-}
-
-type archiveFile struct {
-	name     string
-	original string
-	file     *zip.File
-}
-
-// archiveKeys validates archive entry names and maps files into the package namespace.
-func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors.GimmeError) {
-	normalized := make([]archiveFile, 0, len(files))
-	droppedJunk := 0
-	for _, file := range files {
-		original := file.Name
-		if file.FileInfo().IsDir() || strings.HasSuffix(original, "/") {
-			continue
-		}
-		if original == "" {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains an empty entry name"))
-		}
-		if strings.HasPrefix(original, "/") {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q is an absolute path", original))
-		}
-
-		cleaned := path.Clean(norm.NFC.String(original))
-		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
-		}
-		firstSegment, _, _ := strings.Cut(cleaned, "/")
-		if firstSegment == "__MACOSX" || path.Base(cleaned) == ".DS_Store" {
-			droppedJunk++
-			continue
-		}
-		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
-	}
-	if droppedJunk > 0 {
-		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX or .DS_Store)", droppedJunk)
-	}
-
-	if len(normalized) == 0 {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
-	}
-
-	wrapperRoot := func(files []archiveFile) (string, bool) {
-		commonRoot := ""
-		for i, file := range files {
-			root, _, found := strings.Cut(file.name, "/")
-			if !found {
-				return "", false
-			}
-			if i == 0 {
-				commonRoot = root
-			} else if root != commonRoot {
-				return "", false
-			}
-		}
-		return commonRoot, true
-	}
-
-	preFilterRoot, hasWrapper := wrapperRoot(normalized)
-	ignoreIndex := -1
-	ignoreBase := ""
-	for i, file := range normalized {
-		if file.name == ".gimmeignore" {
-			ignoreIndex = i
-			break
-		}
-	}
-	if ignoreIndex == -1 && hasWrapper {
-		wrapperIgnore := preFilterRoot + "/.gimmeignore"
-		for i, file := range normalized {
-			if file.name == wrapperIgnore {
-				ignoreIndex = i
-				ignoreBase = preFilterRoot + "/"
-				break
-			}
-		}
-	}
-
-	if ignoreIndex != -1 {
-		ignoreFile := normalized[ignoreIndex]
-		reader, err := ignoreFile.file.Open()
-		if err != nil {
-			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while opening %q: %w", ignoreFile.original, err))
-		}
-		defer func(src io.ReadCloser) {
-			if err := src.Close(); err != nil {
-				logrus.Errorf("[ContentService] archiveKeys - Fail to close %s", ignoreFile.name)
-			}
-		}(reader)
-		contents, err := io.ReadAll(reader)
-		if err != nil {
-			return nil, errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while reading %q: %w", ignoreFile.original, err))
-		}
-
-		matcher := ignore.CompileIgnoreLines(strings.Split(string(contents), "\n")...)
-		filtered := make([]archiveFile, 0, len(normalized)-1)
-		droppedIgnored := 0
-		for _, file := range normalized {
-			if file.name == ignoreFile.name {
-				continue
-			}
-			if matcher.MatchesPath(strings.TrimPrefix(file.name, ignoreBase)) {
-				droppedIgnored++
-				continue
-			}
-			filtered = append(filtered, file)
-		}
-		normalized = filtered
-		if droppedIgnored > 0 {
-			logrus.Infof("[ContentService] archiveKeys - dropped %d entries excluded by %s", droppedIgnored, ignoreFile.name)
-		}
-
-		if len(normalized) == 0 {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
-		}
-	}
-
-	commonRoot, stripRoot := wrapperRoot(normalized)
-
-	prefix := folderName + "/"
-	objects := make([]archiveObject, 0, len(normalized))
-	originalByKey := make(map[string]string, len(normalized))
-	for _, file := range normalized {
-		relativePath := file.name
-		if stripRoot {
-			relativePath = strings.TrimPrefix(relativePath, commonRoot+"/")
-		}
-		key := prefix + relativePath
-		if !strings.HasPrefix(key, prefix) {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", file.original))
-		}
-		if previous, exists := originalByKey[key]; exists {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entries %q and %q map to duplicate key %q", previous, file.original, key))
-		}
-		originalByKey[key] = file.original
-		objects = append(objects, archiveObject{key: key, file: file.file})
-	}
-
-	return objects, nil
-}
-
-// checkArchiveLimits counts the file entries of an archive and sums their declared
-// uncompressed size, then rejects the archive when either limit is exceeded.
-// Directory entries are skipped: they produce no object.
-func (svc *ContentService) checkArchiveLimits(archive *zip.Reader) *errors.GimmeError {
-	var entryCount int
-	var uncompressedSize uint64
-	for _, archiveFile := range archive.File {
-		if archiveFile.FileInfo().IsDir() || strings.HasSuffix(archiveFile.Name, "/") {
-			continue
-		}
-		entryCount++
-		if math.MaxUint64-uncompressedSize < archiveFile.UncompressedSize64 {
-			uncompressedSize = math.MaxUint64
-		} else {
-			uncompressedSize += archiveFile.UncompressedSize64
-		}
-	}
-
-	if svc.uploadLimits.MaxEntries > 0 && entryCount > svc.uploadLimits.MaxEntries {
-		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive holds %d entries, over the limit of %d (upload.max_entries)", entryCount, svc.uploadLimits.MaxEntries))
-	}
-	if svc.uploadLimits.MaxUncompressedSize > 0 && uncompressedSize > uint64(svc.uploadLimits.MaxUncompressedSize) {
-		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive expands to %d bytes, over the limit of %d (upload.max_uncompressed_size)", uncompressedSize, svc.uploadLimits.MaxUncompressedSize))
-	}
-	return nil
 }
 
 // CreatePackage create package
