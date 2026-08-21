@@ -300,16 +300,41 @@
             "description": "File path within the package. Nested paths are supported (e.g. `dist/awesome-lib.min.js`). The leading `/` captured by the Gin wildcard is stripped internally.",
             "required": true,
             "schema": { "type": "string", "example": "dist/awesome-lib.min.js" }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETag validator from a previous response",
+            "schema": { "type": "string", "example": "\"abc123\"" }
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Last-Modified validator from a previous response, used when If-None-Match is absent",
+            "schema": { "type": "string", "example": "Fri, 21 Aug 2026 12:30:45 GMT" }
           }
         ],
         "responses": {
           "200": {
             "description": "File content",
+            "headers": {
+              "ETag": {
+                "description": "Quoted S3 object ETag",
+                "schema": { "type": "string" }
+              },
+              "Last-Modified": {
+                "description": "S3 object modification time in HTTP-date format",
+                "schema": { "type": "string" }
+              }
+            },
             "content": {
               "application/javascript": {},
               "text/css": {},
               "application/octet-stream": {}
             }
+          },
+          "304": {
+            "description": "Not modified — the client's `If-None-Match` or `If-Modified-Since` still matches"
           },
           "400": {
             "description": "Invalid package identifier format"

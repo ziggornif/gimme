@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
@@ -127,6 +128,43 @@ func cacheControlHeader(version string) string {
 	return "public, max-age=300"
 }
 
+// etagMatches reports whether an If-None-Match header value matches etag.
+// Both sides are compared weakly: the W/ prefix is ignored.
+func etagMatches(ifNoneMatch string, etag string) bool {
+	if ifNoneMatch == "" || etag == "" {
+		return false
+	}
+
+	etag = strings.TrimPrefix(etag, "W/")
+	for candidate := range strings.SplitSeq(ifNoneMatch, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
+			return true
+		}
+	}
+
+	return false
+}
+
+// notModified reports whether the request may be answered with 304.
+func notModified(r *http.Request, etag string, lastModified time.Time) bool {
+	if ifNoneMatch := r.Header.Get("If-None-Match"); ifNoneMatch != "" {
+		return etagMatches(ifNoneMatch, etag)
+	}
+
+	ifModifiedSince := r.Header.Get("If-Modified-Since")
+	if ifModifiedSince == "" || lastModified.IsZero() {
+		return false
+	}
+
+	modifiedSince, err := http.ParseTime(ifModifiedSince)
+	if err != nil {
+		return false
+	}
+
+	return !lastModified.Truncate(time.Second).After(modifiedSince)
+}
+
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
 
@@ -162,7 +200,21 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
+	etag := ""
+	if infos.ETag != "" {
+		etag = `"` + strings.Trim(infos.ETag, `"`) + `"`
+		c.Header("ETag", etag)
+	}
+	if !infos.LastModified.IsZero() {
+		c.Header("Last-Modified", infos.LastModified.UTC().Format(http.TimeFormat))
+	}
 	c.Header("Cache-Control", cacheControlHeader(pkg.Version))
+
+	if notModified(c.Request, etag, infos.LastModified) {
+		c.Status(http.StatusNotModified)
+		return
+	}
+
 	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
 }
 

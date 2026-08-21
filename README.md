@@ -527,6 +527,8 @@ Gimme automatically emits `Cache-Control` headers on every file response, allowi
 
 **404 responses** are never cached, to avoid propagating transient misses.
 
+**Every file response also carries `ETag` and `Last-Modified`.** A cache that revalidates with `If-None-Match` — or with `If-Modified-Since`, which is consulted only when `If-None-Match` is absent — gets a `304 Not Modified` with no body when the file has not changed. That is what makes the 5-minute revalidation of a partial version cost a set of headers instead of the whole file.
+
 #### Using a reverse proxy or CDN
 
 Any HTTP cache that honours `Cache-Control` headers will work in front of gimme — Nginx, Varnish, Caddy (with the [`cache-handler`](https://github.com/caddyserver/cache-handler) plugin), Cloudflare, Fastly, etc.
@@ -534,7 +536,7 @@ Any HTTP cache that honours `Cache-Control` headers will work in front of gimme 
 Configure your proxy to cache `/gimme/*` responses and pass the `Cache-Control` header through. The headers emitted by gimme are enough to drive the caching policy:
 
 - Pinned versions (`pkg@1.0.0`) — `immutable`, safe to cache for 1 year.
-- Partial versions (`pkg@1.0`) — `max-age=300`, revalidated every 5 minutes.
+- Partial versions (`pkg@1.0`) — `max-age=300`, revalidated every 5 minutes; an unchanged file answers `304` with no body.
 - 404 / errors — `no-store`, never cached.
 
 ### Level 2 — Internal Redis cache (optional)

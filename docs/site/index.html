@@ -1826,6 +1826,17 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
                             </tbody>
                         </table>
                     </div>
+                    <p>
+                        Every file response also carries <code>ETag</code> and
+                        <code>Last-Modified</code>. Gimme answers
+                        <code>304 Not Modified</code> when
+                        <code>If-None-Match</code> matches, or when
+                        <code>If-Modified-Since</code> matches and
+                        <code>If-None-Match</code> is absent. Revalidating a
+                        partial version therefore transfers only headers when
+                        the file has not changed, instead of downloading the
+                        body again.
+                    </p>
 
                     <h3>
                         Level 2 — Internal Redis cache

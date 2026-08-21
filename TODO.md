@@ -259,8 +259,17 @@ Before touching application code, so the lint inventory is known in advance.
   *Library: `github.com/sabhiram/go-gitignore`, chosen on measurement* — 8 modules added to the graph against 51 for `go-git`, for the same matcher. Its support was probed rather than assumed: `*.map` at any depth, `node_modules/` at any depth, `/anchored.txt` root-only, `docs/**/*.tmp`, `!` negation, and CRLF line endings all behave. It is untagged and frozen since 2021; gitignore semantics do not change, so a frozen matcher is acceptable here.
   *Note:* #55 can filter client-side, but only for people using the CLI or the Action. This one covers hand-made zips.
 
-- [ ] **#48 — ETag / `If-None-Match` → 304**
+- [x] **#48 — ETag / `If-None-Match` → 304**
   Do before #47: smaller and self-contained, and #47 then extends it per encoding variant.
+  *Hand-rolled, not `http.ServeContent`.* `minio.Object` is an `io.ReadSeeker`, so `ServeContent` would have supplied the conditional logic for free — and Range/206 with it, which is a separate feature: a new status code, and a `Seek` on a `minio.Object` re-issues a GET against S3. The reason this task is scheduled before #47 is that it is small; taking Range along would have undone that.
+  *Precedence is an early return, not an `||`* — a present `If-None-Match` that does not match answers 200 and `If-Modified-Since` is never consulted, which is the rule that makes a stale-ETag revalidation carrying an old date behave.
+  *`LastModified` is truncated to the second before comparison.* S3 keeps sub-second precision while `Last-Modified` is second-granular, so without the truncation a client echoing back our own header looks stale on every request. Pinned by a unit case.
+  *`minio.ObjectInfo.ETag` arrives unquoted* — the header value is wrapped in `"`. A multipart upload yields a `-N` suffix instead of an MD5; it is an opaque validator either way.
+  *The `If-None-Match` list is split on `,` without honouring commas inside a quoted ETag.* S3 ETags are hex plus an optional `-N` and never contain one; a client that sends one gets a 200 with a body, never a wrong 304.
+  *304 answers pinned versions too* — `immutable` does not stop a cache from revalidating, and answering costs nothing.
+  *Tests are split, and not by preference:* `etagMatches` and `notModified` are pure functions unit-tested in `api/package-controller_test.go`, while the end-to-end 200-then-304 has to be an integration test. `MockOSManager.GetObject` returns `&minio.Object{}`, whose `Stat()` carries no ETag and no modification time — no mock fixture can express this behaviour.
+  *Left for #47:* no `Vary` header, since nothing varies yet. When brotli/gzip lands it must add `Vary: Accept-Encoding` **and** suffix the ETag per encoding variant, or a cache serves a brotli body to a client that asked for identity.
+  *Files:* `api/package-controller.go`, `api/package-controller_test.go`, `api/package-controller_integration_test.go`, `README.md`, `docs/site/index.html`, `docs/api/swagger.json`
 
 - [ ] **#47 — Serve brotli/gzip**
   Pre-compress at upload, negotiate on `Accept-Encoding`. Touches `CreatePackage`, so it must come after #42/#43.
