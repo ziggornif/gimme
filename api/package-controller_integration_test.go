@@ -94,6 +94,43 @@ func TestPackageControllerGet(t *testing.T) {
 	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
 }
 
+func TestPackageControllerGetConditional(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	_ = createPackage(t, router, "awesome-lib", "1.0.0", "../test/test.zip", rawToken)
+
+	for _, version := range []string{"1.0.0", "1.0"} {
+		t.Run(version, func(t *testing.T) {
+			path := "/gimme/awesome-lib@" + version + "/awesome-lib.min.js"
+			first := utils.PerformRequest(router, "GET", path, nil)
+
+			assert.Equal(t, http.StatusOK, first.Code)
+			etag := first.Header().Get("ETag")
+			assert.NotEmpty(t, etag)
+			assert.NotEmpty(t, first.Header().Get("Last-Modified"))
+
+			notModified := utils.PerformRequest(router, "GET", path, nil,
+				utils.Header{Key: "If-None-Match", Value: etag})
+			assert.Equal(t, http.StatusNotModified, notModified.Code)
+			assert.Zero(t, notModified.Body.Len())
+			assert.NotEmpty(t, notModified.Header().Get("Cache-Control"))
+			assert.Equal(t, etag, notModified.Header().Get("ETag"))
+
+			stale := utils.PerformRequest(router, "GET", path, nil,
+				utils.Header{Key: "If-None-Match", Value: `"nope"`})
+			assert.Equal(t, http.StatusOK, stale.Code)
+			assert.NotZero(t, stale.Body.Len())
+		})
+	}
+
+	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
+}
+
 func TestPackageControllerGetUI(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
