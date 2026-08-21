@@ -29,6 +29,7 @@ Upload ZIP packages and serve static assets (JS, CSS, images, …) via a simple 
 - [Configuration](#configuration)
 - [API Usage](#api-usage)
 - [Deployment Examples](#deployment-examples)
+- [Compression](#compression)
 - [Caching Strategy](#caching-strategy)
   - [Level 1 — HTTP Cache-Control headers](#level-1--http-cache-control-headers-zero-dependency)
   - [Level 2 — Internal Redis cache](#level-2--internal-redis-cache-optional)
@@ -199,6 +200,7 @@ s3:
 | `tokenStore.mode` | Token persistence backend. `file` stores tokens in an encrypted local file (no external dependency). `redis` stores tokens in Redis (requires `redis_url`). `postgres` stores tokens in PostgreSQL (requires `tokenStore.pg_url`). | `file` |
 | `tokenStore.pg_url` | PostgreSQL connection URL. Required when `tokenStore.mode` is `postgres`. | `""` |
 | `cache.enabled`   | Enable internal Redis cache for version resolution | `false`  |
+| `compression.enabled` | Generate Brotli and gzip variants during upload | `true` |
 | `cache.type`      | Cache backend (`redis`)                  | `redis`  |
 | `cache.ttl`       | Cache entry TTL in seconds               | `3600`   |
 | `cache.file_path` | Path to the encrypted token file (used when `tokenStore.mode` is `file`) | `/tmp/gimme-tokens.enc` |
@@ -252,6 +254,7 @@ A missing file is fine; a file that exists but cannot be parsed is still a start
 | `redis_url` | `GIMME_REDIS_URL` |
 | `token_file` | `GIMME_TOKEN_FILE` |
 | `cache.enabled` | `GIMME_CACHE_ENABLED` |
+| `compression.enabled` | `GIMME_COMPRESSION_ENABLED` |
 | `cache.type` | `GIMME_CACHE_TYPE` |
 | `cache.ttl` | `GIMME_CACHE_TTL` |
 | `auth.mode` | `GIMME_AUTH_MODE` |
@@ -503,6 +506,12 @@ docker run -p 8080:8080 \
 
 ---
 
+## Compression
+
+With `compression.enabled: true`, gimme generates sibling `.br` and `.gz` objects while uploading compressible files between 1 KiB and 8 MiB. A variant is kept only when it is at most 80% of the identity size. Existing archive entries such as `app.js.gz` are preserved and take precedence over generated variants.
+
+File responses negotiate Brotli and gzip through `Accept-Encoding` and include `Vary: Accept-Encoding`. When a requested variant is unavailable, gimme serves the identity object. Packages uploaded before compression support was enabled must be re-uploaded to gain precompressed variants.
+
 ## Caching Strategy
 
 Gimme implements two independent, composable caching levels:
@@ -602,7 +611,7 @@ In addition to the standard Go runtime and process metrics (goroutines, memory, 
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `gimme_s3_operation_duration_seconds` | Histogram | `operation` | Duration of S3 operations in seconds. `operation` values: `AddObject`, `GetObject`, `ListObjects`, `ObjectExists`, `RemoveObjects`, `Ping` |
+| `gimme_s3_operation_duration_seconds` | Histogram | `operation` | Duration of S3 operations in seconds. `operation` values: `AddObject`, `AddBytes`, `GetObject`, `ListObjects`, `ObjectExists`, `RemoveObjects`, `Ping` |
 
 ### Internal cache (optional — requires `cache.enabled: true`)
 

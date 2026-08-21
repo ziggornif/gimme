@@ -1022,6 +1022,11 @@ metrics: true            # expose /metrics (Prometheus)
                                     <td><code>false</code></td>
                                 </tr>
                                 <tr>
+                                    <td><code>compression.enabled</code></td>
+                                    <td>Generate Brotli and gzip variants during upload</td>
+                                    <td><code>true</code></td>
+                                </tr>
+                                <tr>
                                     <td><code>cache.type</code></td>
                                     <td>Cache backend type</td>
                                     <td><code>redis</code></td>
@@ -1787,6 +1792,13 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
                     <p>
                         Gimme emits <code>Cache-Control</code> headers on every
                         response. Any HTTP cache honours them automatically.
+                    </p>
+                    <p>
+                        Compressible files are stored with Brotli and gzip variants during upload.
+                        Requests negotiate them with <code>Accept-Encoding</code>, and responses emit
+                        <code>Vary: Accept-Encoding</code> so browsers and intermediate caches keep
+                        each representation separate. Missing variants fall back to the identity object;
+                        older packages must be re-uploaded to gain compressed variants.
                     </p>
                     <div class="table-wrapper">
                         <table

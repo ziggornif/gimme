@@ -71,14 +71,14 @@ func TestContentService_CreatePackageExists(t *testing.T) {
 
 func TestContentService_GetFileSemverErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	_, err := service.GetFile(context.Background(), "test", "a.b.c", "test.js")
+	_, _, err := service.GetFile(context.Background(), "test", "a.b.c", "test.js", nil)
 	assert.Equal(t, "invalid version (asked version must be semver compatible)", err.Error())
 }
 
 func TestContentService_GetFile(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-	file, err := service.GetFile(context.Background(), "test", "1.1.1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1.1", "/test.js", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 	assert.Equal(t, "test@1.1.1/test.js", osm.LastGetObjectPath())
@@ -89,7 +89,7 @@ func TestContentService_GetFile(t *testing.T) {
 func TestContentService_GetMajorFile(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-	file, err := service.GetFile(context.Background(), "test", "1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1", "/test.js", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 	assert.Equal(t, "test@1.10.0/test.js", osm.LastGetObjectPath())
@@ -98,7 +98,7 @@ func TestContentService_GetMajorFile(t *testing.T) {
 func TestContentService_GetMinorFile(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-	file, err := service.GetFile(context.Background(), "test", "1.1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1", "/test.js", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 	// 1.1 must not swallow 1.10.0 or 1.11.0.
@@ -110,7 +110,7 @@ func TestContentService_GetMinorFile(t *testing.T) {
 func TestContentService_GetFile_PartialVersionSkipsPrerelease(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-	_, err := service.GetFile(context.Background(), "test", "2", "/test.js")
+	_, _, err := service.GetFile(context.Background(), "test", "2", "/test.js", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "test@2/test.js", osm.LastGetObjectPath())
 }
@@ -121,7 +121,7 @@ func TestContentService_GetFile_FileNameIsNotASubstringMatch(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
 
-	file, err := service.GetFile(context.Background(), "test", "1.11", "/test.js.map")
+	file, _, err := service.GetFile(context.Background(), "test", "1.11", "/test.js.map", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 	assert.Equal(t, "test@1.11.0/test.js.map", osm.LastGetObjectPath())
@@ -130,7 +130,7 @@ func TestContentService_GetFile_FileNameIsNotASubstringMatch(t *testing.T) {
 	// unresolved partial version is queried and the storage answers 404.
 	osm = &mocks.MockOSManager{}
 	service = NewContentService(osm, nil, 0, UploadLimits{})
-	_, err = service.GetFile(context.Background(), "test", "1.11", "/test.js")
+	_, _, err = service.GetFile(context.Background(), "test", "1.11", "/test.js", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "test@1.11/test.js", osm.LastGetObjectPath())
 }
@@ -183,7 +183,7 @@ func TestContentService_GetLatestVersion_MalformedKeys(t *testing.T) {
 func TestContentService_GetFile_CacheDisabled(t *testing.T) {
 	// nil cache manager — behaviour identical to before
 	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	file, err := service.GetFile(context.Background(), "test", "1.1", "test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1", "test.js", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
 }
@@ -192,7 +192,7 @@ func TestContentService_GetFile_CacheMiss_StoresEntry(t *testing.T) {
 	cm := mocks.NewMockCacheManager()
 	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour, UploadLimits{})
 
-	file, err := service.GetFile(context.Background(), "test", "1.1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1", "/test.js", nil)
 	require.Nil(t, err)
 	assert.NotNil(t, file)
 	// Cache miss → Get called once, Set called once
@@ -207,7 +207,7 @@ func TestContentService_GetFile_CacheHit_SkipsResolution(t *testing.T) {
 	})
 	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour, UploadLimits{})
 
-	file, err := service.GetFile(context.Background(), "test", "1.1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1", "/test.js", nil)
 	require.Nil(t, err)
 	assert.NotNil(t, file)
 	// Cache hit → Get called once, Set never called
@@ -220,7 +220,7 @@ func TestContentService_GetFile_PinnedVersion_SkipsCache(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour, UploadLimits{})
 
 	// Pinned version (1.1.1) — cache must not be consulted or populated
-	file, err := service.GetFile(context.Background(), "test", "1.1.1", "/test.js")
+	file, _, err := service.GetFile(context.Background(), "test", "1.1.1", "/test.js", nil)
 	require.Nil(t, err)
 	assert.NotNil(t, file)
 	assert.Equal(t, 0, cm.GetCalls)
@@ -290,7 +290,7 @@ func TestContentService_GetFile_CacheHit_IncrementsHitCounter(t *testing.T) {
 
 	before := testutil.ToFloat64(metrics.CacheHitsTotal)
 
-	_, err := service.GetFile(context.Background(), "hit-pkg", "1.1", "/file.js")
+	_, _, err := service.GetFile(context.Background(), "hit-pkg", "1.1", "/file.js", nil)
 	require.Nil(t, err)
 
 	assert.Equal(t, before+1, testutil.ToFloat64(metrics.CacheHitsTotal))
@@ -302,7 +302,7 @@ func TestContentService_GetFile_CacheMiss_IncrementsMissCounter(t *testing.T) {
 
 	before := testutil.ToFloat64(metrics.CacheMissesTotal)
 
-	_, err := service.GetFile(context.Background(), "miss-pkg", "1.1", "/file.js")
+	_, _, err := service.GetFile(context.Background(), "miss-pkg", "1.1", "/file.js", nil)
 	require.Nil(t, err)
 
 	assert.Equal(t, before+1, testutil.ToFloat64(metrics.CacheMissesTotal))
@@ -517,6 +517,60 @@ func buildArchiveWithEntries(t *testing.T, entries ...archiveEntry) (*bytes.Read
 	require.NoError(t, writer.Close())
 
 	return bytes.NewReader(buf.Bytes()), int64(buf.Len())
+}
+
+func TestContentService_CreatePackage_Compression(t *testing.T) {
+	largeJS := strings.Repeat("const answer = 42;\n", 256)
+	tests := []struct {
+		name     string
+		enabled  bool
+		entries  []archiveEntry
+		expected []string
+	}{
+		{"enabled", true, []archiveEntry{{"app.js", largeJS}}, []string{"test@1.0.0/app.js.br", "test@1.0.0/app.js.gz"}},
+		{"disabled", false, []archiveEntry{{"app.js", largeJS}}, nil},
+		{"not compressible", true, []archiveEntry{{"image.png", largeJS}}, nil},
+		{"under minimum", true, []archiveEntry{{"small.js", "const x = 1"}}, nil},
+		{"over maximum", true, []archiveEntry{{"large.js", strings.Repeat("x", compressionMaxSize+1)}}, nil},
+		{"existing gzip", true, []archiveEntry{{"app.js", largeJS}, {"app.js.gz", "supplied"}}, []string{"test@1.0.0/app.js.br"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &mocks.MockOSManager{}
+			reader, size := buildArchiveWithEntries(t, tt.entries...)
+			service := NewContentService(manager, nil, 0, UploadLimits{}, WithCompression(tt.enabled))
+			require.Nil(t, service.CreatePackage(context.Background(), "test", "1.0.0", reader, size))
+			sort.Strings(manager.AddBytesKeys)
+			assert.Equal(t, tt.expected, manager.AddBytesKeys)
+			if tt.name == "existing gzip" {
+				assert.Contains(t, manager.AddObjectKeys, "test@1.0.0/app.js.gz")
+			}
+		})
+	}
+}
+
+type listingOSManager struct {
+	*mocks.MockOSManager
+	objects []minio.ObjectInfo
+}
+
+func (manager *listingOSManager) ListObjects(context.Context, string) []minio.ObjectInfo {
+	return manager.objects
+}
+
+func TestContentService_GetFiles_HidesGeneratedVariants(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "test@1.0.0/app.js"}, {Key: "test@1.0.0/app.js.br"}, {Key: "test@1.0.0/app.js.gz"},
+		{Key: "test@1.0.0/foo.tar"}, {Key: "test@1.0.0/foo.tar.gz"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	files, err := service.GetFiles(context.Background(), "test", "1.0.0")
+	require.Nil(t, err)
+	var names []string
+	for _, file := range files {
+		names = append(names, file.Name)
+	}
+	assert.Equal(t, []string{"test@1.0.0/app.js", "test@1.0.0/foo.tar", "test@1.0.0/foo.tar.gz"}, names)
 }
 
 // buildArchiveFrom builds an in-memory zip archive holding the given entry names.

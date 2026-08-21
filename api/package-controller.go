@@ -4,8 +4,12 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io/fs"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -165,6 +169,73 @@ func notModified(r *http.Request, etag string, lastModified time.Time) bool {
 	return !lastModified.Truncate(time.Second).After(modifiedSince)
 }
 
+func parseAcceptEncoding(header string) []content.Encoding {
+	if strings.TrimSpace(header) == "" {
+		return nil
+	}
+	type preference struct {
+		encoding content.Encoding
+		quality  float64
+	}
+	qualities := map[content.Encoding]float64{}
+	for _, part := range strings.Split(header, ",") {
+		segments := strings.Split(strings.TrimSpace(part), ";")
+		token := strings.ToLower(strings.TrimSpace(segments[0]))
+		quality := 1.0
+		valid := true
+		for _, parameter := range segments[1:] {
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			if strings.EqualFold(name, "q") {
+				if !found {
+					valid = false
+					break
+				}
+				parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+				if err != nil || parsed < 0 || parsed > 1 {
+					valid = false
+					break
+				}
+				quality = parsed
+			}
+		}
+		if !valid || quality == 0 {
+			continue
+		}
+		var encodings []content.Encoding
+		switch token {
+		case "br":
+			encodings = []content.Encoding{content.EncodingBrotli}
+		case "gzip":
+			encodings = []content.Encoding{content.EncodingGzip}
+		case "*":
+			encodings = []content.Encoding{content.EncodingBrotli, content.EncodingGzip}
+		}
+		for _, encoding := range encodings {
+			if current, exists := qualities[encoding]; !exists || quality > current {
+				qualities[encoding] = quality
+			}
+		}
+	}
+	if len(qualities) == 0 {
+		return nil
+	}
+	preferences := make([]preference, 0, len(qualities))
+	for encoding, quality := range qualities {
+		preferences = append(preferences, preference{encoding: encoding, quality: quality})
+	}
+	sort.Slice(preferences, func(i, j int) bool {
+		if preferences[i].quality == preferences[j].quality {
+			return preferences[i].encoding == content.EncodingBrotli
+		}
+		return preferences[i].quality > preferences[j].quality
+	})
+	accepted := make([]content.Encoding, len(preferences))
+	for i, preference := range preferences {
+		accepted[i] = preference.encoding
+	}
+	return accepted
+}
+
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
 
@@ -178,8 +249,9 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
 		return
 	}
+	c.Header("Vary", "Accept-Encoding")
 
-	object, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file)
+	object, encoding, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file, parseAcceptEncoding(c.GetHeader("Accept-Encoding")))
 	if err != nil {
 		c.Header("Cache-Control", "no-store")
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
@@ -215,7 +287,15 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
-	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
+	contentType := infos.ContentType
+	if encoding != "" {
+		c.Header("Content-Encoding", string(encoding))
+		contentType = mime.TypeByExtension(strings.ToLower(filepath.Ext(file)))
+		if contentType == "" {
+			contentType = "text/plain"
+		}
+	}
+	c.DataFromReader(http.StatusOK, infos.Size, contentType, object, nil)
 }
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
