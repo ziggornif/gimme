@@ -48,8 +48,12 @@ The artifact is not always a Go test: `helm-unittest` for chart bugs, a recorded
 **4. Delegate the implementation to Codex**
 
 ```bash
-codex exec --full-auto "<self-contained prompt>"
+codex exec -s workspace-write "$(cat <prompt-file>)"
 ```
+
+`--full-auto` was removed in codex-cli 0.147.0 — it now errors with `unexpected argument '--full-auto' found`. The sandbox is selected with `-s`: `read-only`, `workspace-write` or `danger-full-access`. `workspace-write` is what this workflow needs. Passing `-` instead of the prompt reads it from stdin.
+
+Claude Code's auto-mode classifier can refuse the call outright, with no output from Codex. That is the harness, not Codex: the fix is a Bash permission rule on `codex exec`, not a reworded command.
 
 **Never tell Codex to read the issue.** Its `gh` cannot authenticate: the token lives in the macOS keyring, not in `~/.config/gh/hosts.yml`, and `gh auth status` inside the sandbox reports *the token in default is invalid*. The failure surfaces as `error connecting to api.github.com`, which is misleading — `curl https://api.github.com` returns `200` from that same sandbox. Codex does not stop on the missing issue; it guesses, and the guess can look right.
 
@@ -86,6 +90,8 @@ make build
 ```
 
 Ask it for the raw output, not a verdict. Codex reported #70's failures as "sandbox network restrictions" and the real cause was `bind`; a summarised result is where a wrong diagnosis hides.
+
+Tell it to re-run anything that fails — or that it is about to quote — through `rtk proxy`. The hook does not merely condense: on #48 it reported one `golangci-lint` typecheck finding in `configs/config.go`, and the raw run printed `0 issues.` A fabricated finding costs more than a summary, because it sends the next agent hunting a defect that is not there.
 
 `golangci-lint` is not installed on every machine (`No such file or directory`). Report it as not run — never as passing. Installing it is #52's job, not the current task's.
 
