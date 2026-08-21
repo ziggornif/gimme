@@ -379,7 +379,39 @@ README.md                   ->  /gimme/awesome-lib@1.0.0/README.md
 
 The same holds when the archive has several top-level folders — nothing is stripped.
 
-macOS metadata is dropped and never published, and it does not count when looking for the wrapper folder — so an archive zipped from the Finder behaves like any other. Two patterns are removed: everything under a top-level `__MACOSX/`, and any `.DS_Store` at any depth. Everything else in the archive is uploaded as it is.
+macOS metadata is dropped and never published, and it does not count when looking for the wrapper folder — so an archive zipped from the Finder behaves like any other. Two patterns are removed: everything under a top-level `__MACOSX/`, and any `.DS_Store` at any depth. Everything else in the archive is uploaded as it is, unless a `.gimmeignore` says otherwise.
+
+#### Excluding files with `.gimmeignore`
+
+Put a `.gimmeignore` in the archive to keep files out of the package. It uses `.gitignore` syntax, and it is looked up in two places: the archive root, or — when the archive wraps everything in a single top-level folder — inside that folder. So both ways of building the archive work:
+
+```bash
+cd dist && zip -r ../pkg.zip .   # .gimmeignore sits at the archive root
+zip -r pkg.zip dist              # .gimmeignore sits at dist/.gimmeignore
+```
+
+Patterns are written against the contents of your package, not against the archive, so the same file works either way:
+
+```gitignore
+*.map
+node_modules/
+/internal-notes.md
+!keep/important.js
+```
+
+The `.gimmeignore` itself is not published. A `.gimmeignore` anywhere else in the tree is treated as an ordinary file — uploaded, with no effect.
+
+An excluded file does not count when looking for the wrapper folder, which is how you publish a `dist/` folder alongside files you do not want served:
+
+```text
+dist/app.js, dist/css/style.css, README.md   with a .gimmeignore holding "README.md"
+  ->  /gimme/awesome-lib@1.0.0/app.js
+      /gimme/awesome-lib@1.0.0/css/style.css
+```
+
+A `.gitignore` is **not** honoured, deliberately: it usually lists `dist/`, so applying it would drop the very files you meant to publish. It is uploaded like any other file.
+
+An archive whose entries are all excluded is rejected, like an empty one. Exclusions do not relax the upload limits — those apply to the archive as sent.
 
 An archive is **rejected whole**, and nothing is uploaded, when an entry escapes the package namespace (`../`, absolute paths, empty names) or when two entries land on the same URL.
 

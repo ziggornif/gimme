@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
-	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -19,7 +17,6 @@ import (
 	"github.com/ziggornif/gimme/internal/storage"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/text/unicode/norm"
 )
 
 type ContentService struct {
@@ -138,117 +135,6 @@ func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string,
 
 	lversion := svc.getLatestVersion(filtred)
 	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
-}
-
-type archiveObject struct {
-	key  string
-	file *zip.File
-}
-
-type archiveFile struct {
-	name     string
-	original string
-	file     *zip.File
-}
-
-// archiveKeys validates archive entry names and maps files into the package namespace.
-func archiveKeys(files []*zip.File, folderName string) ([]archiveObject, *errors.GimmeError) {
-	normalized := make([]archiveFile, 0, len(files))
-	droppedJunk := 0
-	for _, file := range files {
-		original := file.Name
-		if file.FileInfo().IsDir() || strings.HasSuffix(original, "/") {
-			continue
-		}
-		if original == "" {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains an empty entry name"))
-		}
-		if strings.HasPrefix(original, "/") {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q is an absolute path", original))
-		}
-
-		cleaned := path.Clean(norm.NFC.String(original))
-		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", original))
-		}
-		firstSegment, _, _ := strings.Cut(cleaned, "/")
-		if firstSegment == "__MACOSX" || path.Base(cleaned) == ".DS_Store" {
-			droppedJunk++
-			continue
-		}
-		normalized = append(normalized, archiveFile{name: cleaned, original: original, file: file})
-	}
-	if droppedJunk > 0 {
-		logrus.Infof("[ContentService] archiveKeys - dropped %d junk entries (__MACOSX or .DS_Store)", droppedJunk)
-	}
-
-	if len(normalized) == 0 {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive contains no files"))
-	}
-
-	commonRoot := ""
-	stripRoot := true
-	for i, file := range normalized {
-		root, _, found := strings.Cut(file.name, "/")
-		if !found {
-			stripRoot = false
-			break
-		}
-		if i == 0 {
-			commonRoot = root
-		} else if root != commonRoot {
-			stripRoot = false
-			break
-		}
-	}
-
-	prefix := folderName + "/"
-	objects := make([]archiveObject, 0, len(normalized))
-	originalByKey := make(map[string]string, len(normalized))
-	for _, file := range normalized {
-		relativePath := file.name
-		if stripRoot {
-			_, relativePath, _ = strings.Cut(relativePath, "/")
-		}
-		key := prefix + relativePath
-		if !strings.HasPrefix(key, prefix) {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entry %q escapes the package namespace", file.original))
-		}
-		if previous, exists := originalByKey[key]; exists {
-			return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("archive entries %q and %q map to duplicate key %q", previous, file.original, key))
-		}
-		originalByKey[key] = file.original
-		objects = append(objects, archiveObject{key: key, file: file.file})
-	}
-
-	return objects, nil
-}
-
-// checkArchiveLimits counts the file entries of an archive and sums their declared
-// uncompressed size, then rejects the archive when either limit is exceeded.
-// Directory entries are skipped: they produce no object.
-func (svc *ContentService) checkArchiveLimits(archive *zip.Reader) *errors.GimmeError {
-	var entryCount int
-	var uncompressedSize uint64
-	for _, archiveFile := range archive.File {
-		if archiveFile.FileInfo().IsDir() || strings.HasSuffix(archiveFile.Name, "/") {
-			continue
-		}
-		entryCount++
-		if math.MaxUint64-uncompressedSize < archiveFile.UncompressedSize64 {
-			uncompressedSize = math.MaxUint64
-		} else {
-			uncompressedSize += archiveFile.UncompressedSize64
-		}
-	}
-
-	if svc.uploadLimits.MaxEntries > 0 && entryCount > svc.uploadLimits.MaxEntries {
-		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive holds %d entries, over the limit of %d (upload.max_entries)", entryCount, svc.uploadLimits.MaxEntries))
-	}
-	if svc.uploadLimits.MaxUncompressedSize > 0 && uncompressedSize > uint64(svc.uploadLimits.MaxUncompressedSize) {
-		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("archive expands to %d bytes, over the limit of %d (upload.max_uncompressed_size)", uncompressedSize, svc.uploadLimits.MaxUncompressedSize))
-	}
-	return nil
 }
 
 // CreatePackage create package
