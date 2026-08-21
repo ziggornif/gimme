@@ -84,6 +84,15 @@ func TestNewConfigNoFileNoEnv(t *testing.T) {
 	assert.NotContains(t, err.Error(), "unable to read the config file")
 }
 
+func TestNewConfigCompressionEnv(t *testing.T) {
+	viper.Reset()
+	setRequiredEnv(t)
+	t.Setenv("GIMME_COMPRESSION_ENABLED", "false")
+	config, err := NewConfig()
+	require.Nil(t, err)
+	assert.False(t, config.Compression.Enabled)
+}
+
 func TestNewConfig(t *testing.T) {
 	utils.CopyFile(fmt.Sprintf("%v/%v", confDir, "valid.yml"), "./gimme.yml")
 	defer func() {
@@ -111,6 +120,7 @@ func TestNewConfig(t *testing.T) {
 			Type:    "redis",
 			TTL:     3600,
 		},
+		Compression: CompressionConfig{Enabled: true},
 		Auth: AuthConfig{
 			Mode: "basic",
 			OIDC: OIDCConfig{

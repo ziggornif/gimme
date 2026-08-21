@@ -327,6 +327,26 @@ func TestETagMatches(t *testing.T) {
 	}
 }
 
+func TestParseAcceptEncoding(t *testing.T) {
+	tests := []struct {
+		header   string
+		expected []content.Encoding
+	}{
+		{"", nil},
+		{"br", []content.Encoding{content.EncodingBrotli}},
+		{"gzip", []content.Encoding{content.EncodingGzip}},
+		{"br, gzip", []content.Encoding{content.EncodingBrotli, content.EncodingGzip}},
+		{"br;q=0.5, gzip;q=0.9", []content.Encoding{content.EncodingGzip, content.EncodingBrotli}},
+		{"gzip;q=0", nil},
+		{"*", []content.Encoding{content.EncodingBrotli, content.EncodingGzip}},
+		{"deflate, zstd", nil},
+		{"br;q=nope, gzip", []content.Encoding{content.EncodingGzip}},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.expected, parseAcceptEncoding(tt.header), tt.header)
+	}
+}
+
 func TestNotModified(t *testing.T) {
 	lastModified := time.Date(2026, time.August, 21, 12, 30, 45, 0, time.UTC)
 	tests := []struct {

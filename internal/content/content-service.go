@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -24,6 +25,14 @@ type ContentService struct {
 	cacheManager         cache.CacheManager // nil = cache disabled
 	cacheTTL             time.Duration
 	uploadLimits         UploadLimits
+	compressionEnabled   bool
+}
+
+type Option func(*ContentService)
+
+// WithCompression enables or disables precompressed object variants.
+func WithCompression(enabled bool) Option {
+	return func(svc *ContentService) { svc.compressionEnabled = enabled }
 }
 
 // UploadLimits controls upload checks; a non-positive field disables that check.
@@ -41,13 +50,17 @@ type File struct {
 
 // NewContentService create a new content service instance.
 // cacheManager may be nil to disable caching.
-func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheManager cache.CacheManager, cacheTTL time.Duration, limits UploadLimits) ContentService {
-	return ContentService{
+func NewContentService(objectStorageManager storage.ObjectStorageManager, cacheManager cache.CacheManager, cacheTTL time.Duration, limits UploadLimits, opts ...Option) ContentService {
+	svc := ContentService{
 		objectStorageManager: objectStorageManager,
 		cacheManager:         cacheManager,
 		cacheTTL:             cacheTTL,
 		uploadLimits:         limits,
 	}
+	for _, opt := range opts {
+		opt(&svc)
+	}
+	return svc
 }
 
 // UploadLimits returns the limits the service enforces, so the HTTP layer can
@@ -164,6 +177,12 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 		logrus.Errorf("[ContentService] CreatePackage - Invalid archive: %v", validationErr)
 		return validationErr
 	}
+	identityKeys := make(map[string]struct{}, len(objects))
+	for _, object := range objects {
+		identityKeys[object.key] = struct{}{}
+	}
+	compressionSlots := make(chan struct{}, runtime.NumCPU())
+	var compressedEntries, uploadedVariants atomic.Int64
 
 	var eg errgroup.Group
 	// Bound concurrency so resource use does not grow unbounded with archive entry count.
@@ -178,12 +197,40 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 				logrus.Errorf("[ContentService] CreatePackage - Error while processing file %s", objectKey)
 				return err.Err
 			}
+			contentType, compressible := compressibleContentType(currentFile.Name)
+			size := currentFile.UncompressedSize64
+			if !svc.compressionEnabled || !compressible || size < compressionMinSize || size > compressionMaxSize {
+				return nil
+			}
+			if archiveSuppliesVariants(identityKeys, objectKey) {
+				return nil
+			}
+			compressionSlots <- struct{}{}
+			variants, err := compressVariants(currentFile)
+			<-compressionSlots
+			if err != nil {
+				return err
+			}
+			compressedEntries.Add(1)
+			for encoding, data := range variants {
+				variantKey := objectKey + encoding.suffix()
+				if _, exists := identityKeys[variantKey]; exists {
+					continue
+				}
+				if err := svc.objectStorageManager.AddBytes(ctx, variantKey, data, contentType); err != nil {
+					return err.Err
+				}
+				uploadedVariants.Add(1)
+			}
 			return nil
 		})
 	}
 
 	if err := eg.Wait(); err != nil {
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w", err))
+	}
+	if entries := compressedEntries.Load(); entries > 0 {
+		logrus.Infof("[ContentService] CreatePackage - compressed %d entries into %d variants", entries, uploadedVariants.Load())
 	}
 
 	metrics.PackagesUploadedTotal.Inc()
@@ -212,10 +259,10 @@ func IsPinnedVersion(version string) bool {
 }
 
 // GetFile get package file
-func (svc *ContentService) GetFile(ctx context.Context, pkg string, version string, fileName string) (*minio.Object, *errors.GimmeError) {
+func (svc *ContentService) GetFile(ctx context.Context, pkg string, version string, fileName string, accepted []Encoding) (*minio.Object, Encoding, *errors.GimmeError) {
 	valid := semver.IsValid(fmt.Sprintf("v%v", version))
 	if !valid {
-		return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
+		return nil, "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
 	}
 
 	pinned := IsPinnedVersion(version)
@@ -226,7 +273,7 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 		if entry, ok := svc.cacheManager.Get(ctx, cacheKey); ok {
 			logrus.Debugf("[ContentService] GetFile - Cache hit for %s", cacheKey)
 			metrics.CacheHitsTotal.Inc()
-			return svc.objectStorageManager.GetObject(ctx, entry.ObjectPath)
+			return svc.getEncodedObject(ctx, entry.ObjectPath, fileName, accepted)
 		}
 		metrics.CacheMissesTotal.Inc()
 	}
@@ -238,9 +285,9 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 		objectPath = svc.getLatestPackagePath(ctx, pkg, version, fileName)
 	}
 
-	obj, err := svc.objectStorageManager.GetObject(ctx, objectPath)
+	obj, encoding, err := svc.getEncodedObject(ctx, objectPath, fileName, accepted)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Store resolved path in cache for future partial-version requests
@@ -253,15 +300,51 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 		}
 	}
 
-	return obj, nil
+	return obj, encoding, nil
+}
+
+// archiveSuppliesVariants reports whether the archive already carries every encoded
+// variant of an entry.
+func archiveSuppliesVariants(keys map[string]struct{}, objectKey string) bool {
+	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
+		if _, exists := keys[objectKey+encoding.suffix()]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+func (svc *ContentService) getEncodedObject(ctx context.Context, objectPath, fileName string, accepted []Encoding) (*minio.Object, Encoding, *errors.GimmeError) {
+	_, compressible := compressibleContentType(fileName)
+	if compressible {
+		for _, encoding := range accepted {
+			obj, err := svc.objectStorageManager.GetObject(ctx, objectPath+encoding.suffix())
+			if err != nil {
+				continue
+			}
+			if _, statErr := obj.Stat(); statErr == nil {
+				return obj, encoding, nil
+			}
+			_ = obj.Close()
+		}
+	}
+	obj, err := svc.objectStorageManager.GetObject(ctx, objectPath)
+	return obj, "", err
 }
 
 // GetFiles get package files
 func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version string) ([]File, *errors.GimmeError) {
 	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
+	keys := make(map[string]struct{}, len(objs))
+	for _, obj := range objs {
+		keys[obj.Key] = struct{}{}
+	}
 
 	var files []File
 	for _, obj := range objs {
+		if isEncodedVariant(obj.Key, keys) {
+			continue
+		}
 		files = append(files, File{
 			Name:   obj.Key,
 			Size:   obj.Size,
@@ -269,6 +352,24 @@ func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version str
 		})
 	}
 	return files, nil
+}
+
+// isEncodedVariant reports whether a key is the encoded variant of another listed
+// object, so the listing shows the file once instead of once per encoding.
+func isEncodedVariant(key string, keys map[string]struct{}) bool {
+	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
+		sibling, found := strings.CutSuffix(key, encoding.suffix())
+		if !found {
+			continue
+		}
+		if _, exists := keys[sibling]; !exists {
+			continue
+		}
+		if _, compressible := compressibleContentType(sibling); compressible {
+			return true
+		}
+	}
+	return false
 }
 
 // DeletePackage delete package

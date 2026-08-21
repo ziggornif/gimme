@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/ziggornif/gimme/internal/errors"
 
@@ -15,6 +16,10 @@ type MockOSManager struct {
 	// assert on the path version resolution produced — not merely that some
 	// object came back.
 	GetObjectPaths []string
+	mu             sync.Mutex
+	AddObjectKeys  []string
+	AddBytesKeys   []string
+	AddBytesSizes  []int
 }
 
 // LastGetObjectPath returns the last key passed to GetObject, or "" if it was never called.
@@ -28,7 +33,18 @@ func (osc *MockOSManager) LastGetObjectPath() string {
 func (osc *MockOSManager) CreateBucket(_ context.Context, _ string, _ string) *errors.GimmeError {
 	return nil
 }
-func (osc *MockOSManager) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
+
+func (osc *MockOSManager) AddObject(_ context.Context, objectName string, _ *zip.File) *errors.GimmeError {
+	osc.mu.Lock()
+	defer osc.mu.Unlock()
+	osc.AddObjectKeys = append(osc.AddObjectKeys, objectName)
+	return nil
+}
+func (osc *MockOSManager) AddBytes(_ context.Context, objectName string, data []byte, _ string) *errors.GimmeError {
+	osc.mu.Lock()
+	defer osc.mu.Unlock()
+	osc.AddBytesKeys = append(osc.AddBytesKeys, objectName)
+	osc.AddBytesSizes = append(osc.AddBytesSizes, len(data))
 	return nil
 }
 func (osc *MockOSManager) GetObject(_ context.Context, objectPath string) (*minio.Object, *errors.GimmeError) {
