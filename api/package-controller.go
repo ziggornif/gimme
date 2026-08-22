@@ -169,15 +169,24 @@ func notModified(r *http.Request, etag string, lastModified time.Time) bool {
 	return !lastModified.Truncate(time.Second).After(modifiedSince)
 }
 
-func parseAcceptEncoding(header string) []content.Encoding {
+// acceptedEncodings is the outcome of Accept-Encoding negotiation: the stored
+// encodings the client accepts, in preference order, and whether the unencoded
+// representation may be served.
+type acceptedEncodings struct {
+	encodings []content.Encoding
+	identity  bool
+}
+
+// parseAcceptEncoding applies the acceptability rules of RFC 9110 section 12.5.3:
+// a listed coding is acceptable unless its qvalue is 0, "*" covers the codings no
+// entry names, and the unencoded representation stays acceptable unless refused by
+// "identity;q=0" or by a "*;q=0" that no identity entry overrides.
+func parseAcceptEncoding(header string) acceptedEncodings {
 	if strings.TrimSpace(header) == "" {
-		return nil
+		return acceptedEncodings{identity: true}
 	}
-	type preference struct {
-		encoding content.Encoding
-		quality  float64
-	}
-	qualities := map[content.Encoding]float64{}
+
+	qualities := map[string]float64{}
 	for _, part := range strings.Split(header, ",") {
 		segments := strings.Split(strings.TrimSpace(part), ";")
 		token := strings.ToLower(strings.TrimSpace(segments[0]))
@@ -185,53 +194,63 @@ func parseAcceptEncoding(header string) []content.Encoding {
 		valid := true
 		for _, parameter := range segments[1:] {
 			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
-			if strings.EqualFold(name, "q") {
-				if !found {
-					valid = false
-					break
-				}
-				parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-				if err != nil || parsed < 0 || parsed > 1 {
-					valid = false
-					break
-				}
-				quality = parsed
+			if !strings.EqualFold(name, "q") {
+				continue
 			}
+			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+			if !found || err != nil || parsed < 0 || parsed > 1 {
+				valid = false
+				break
+			}
+			quality = parsed
 		}
-		if !valid || quality == 0 {
+		if !valid || token == "" {
 			continue
 		}
-		var encodings []content.Encoding
-		switch token {
-		case "br":
-			encodings = []content.Encoding{content.EncodingBrotli}
-		case "gzip":
-			encodings = []content.Encoding{content.EncodingGzip}
-		case "*":
-			encodings = []content.Encoding{content.EncodingBrotli, content.EncodingGzip}
+
+		if current, exists := qualities[token]; exists && quality <= current {
+			continue
 		}
-		for _, encoding := range encodings {
-			if current, exists := qualities[encoding]; !exists || quality > current {
-				qualities[encoding] = quality
-			}
+		qualities[token] = quality
+	}
+
+	wildcard, hasWildcard := qualities["*"]
+
+	resolve := func(token string) (float64, bool) {
+		if named, exists := qualities[token]; exists {
+			return named, true
 		}
+		if hasWildcard {
+			return wildcard, true
+		}
+		return 0, false
 	}
-	if len(qualities) == 0 {
-		return nil
+
+	identityQuality, identityListed := resolve("identity")
+	accepted := acceptedEncodings{identity: !identityListed || identityQuality > 0}
+
+	type preference struct {
+		encoding content.Encoding
+		quality  float64
 	}
-	preferences := make([]preference, 0, len(qualities))
-	for encoding, quality := range qualities {
+	var preferences []preference
+	for _, encoding := range []content.Encoding{content.EncodingBrotli, content.EncodingGzip} {
+		quality, listed := resolve(string(encoding))
+		if !listed || quality == 0 {
+			continue
+		}
 		preferences = append(preferences, preference{encoding: encoding, quality: quality})
 	}
-	sort.Slice(preferences, func(i, j int) bool {
-		if preferences[i].quality == preferences[j].quality {
-			return preferences[i].encoding == content.EncodingBrotli
-		}
+	if len(preferences) == 0 {
+		return accepted
+	}
+
+	sort.SliceStable(preferences, func(i, j int) bool {
 		return preferences[i].quality > preferences[j].quality
 	})
-	accepted := make([]content.Encoding, len(preferences))
+	accepted.encodings = make([]content.Encoding, len(preferences))
 	for i, preference := range preferences {
-		accepted[i] = preference.encoding
+		accepted.encodings[i] = preference.encoding
 	}
 	return accepted
 }
@@ -251,7 +270,9 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 	}
 	c.Header("Vary", "Accept-Encoding")
 
-	object, encoding, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file, parseAcceptEncoding(c.GetHeader("Accept-Encoding")))
+	accepted := parseAcceptEncoding(c.GetHeader("Accept-Encoding"))
+
+	object, encoding, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file, accepted.encodings)
 	if err != nil {
 		c.Header("Cache-Control", "no-store")
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
@@ -269,6 +290,12 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		logrus.Errorf("getPackage - Fail to stat object: %v", statErr)
 		c.Header("Cache-Control", "no-store")
 		c.JSON(http.StatusNotFound, gin.H{"error": "object not found"})
+		return
+	}
+
+	if encoding == "" && !accepted.identity {
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusNotAcceptable, gin.H{"error": "no acceptable content coding available for this file"})
 		return
 	}
 

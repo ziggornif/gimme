@@ -137,6 +137,34 @@ func TestPackageControllerCompressionSmallFileFallback(t *testing.T) {
 	assert.Equal(t, source, response.Body.Bytes())
 }
 
+func TestPackageControllerCompressionIdentityRefused(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{}, content.WithCompression(true))
+	NewPackageController(router, authManager, service)
+
+	source := []byte(strings.Repeat("const answer = 42;\n", 256))
+	resp := createPackage(t, router, "refused", "1.0.0", compressionArchive(t, "app.js", source), rawToken)
+	require.Equal(t, http.StatusCreated, resp.Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "refused", "1.0.0") })
+
+	path := "/gimme/refused@1.0.0/app.js"
+
+	// A refused identity with an acceptable variant is served as that variant.
+	served := utils.PerformRequest(router, "GET", path, nil, utils.Header{Key: "Accept-Encoding", Value: "identity;q=0, br"})
+	assert.Equal(t, http.StatusOK, served.Code)
+	assert.Equal(t, "br", served.Header().Get("Content-Encoding"))
+
+	// A refused identity with no acceptable coding left has no representation to send.
+	for _, header := range []string{"identity;q=0", "*;q=0"} {
+		refused := utils.PerformRequest(router, "GET", path, nil, utils.Header{Key: "Accept-Encoding", Value: header})
+		assert.Equal(t, http.StatusNotAcceptable, refused.Code, header)
+		assert.Equal(t, "no-store", refused.Header().Get("Cache-Control"), header)
+	}
+}
+
 func newTestAuthManager(t *testing.T) *auth.AuthManager {
 	t.Helper()
 	store, err := auth.NewFileTokenStore("this-is-a-32-byte-secret-for-test", filepath.Join(t.TempDir(), "tokens.enc"))

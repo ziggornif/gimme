@@ -328,22 +328,41 @@ func TestETagMatches(t *testing.T) {
 }
 
 func TestParseAcceptEncoding(t *testing.T) {
+	br := content.EncodingBrotli
+	gzip := content.EncodingGzip
 	tests := []struct {
-		header   string
-		expected []content.Encoding
+		header    string
+		encodings []content.Encoding
+		identity  bool
 	}{
-		{"", nil},
-		{"br", []content.Encoding{content.EncodingBrotli}},
-		{"gzip", []content.Encoding{content.EncodingGzip}},
-		{"br, gzip", []content.Encoding{content.EncodingBrotli, content.EncodingGzip}},
-		{"br;q=0.5, gzip;q=0.9", []content.Encoding{content.EncodingGzip, content.EncodingBrotli}},
-		{"gzip;q=0", nil},
-		{"*", []content.Encoding{content.EncodingBrotli, content.EncodingGzip}},
-		{"deflate, zstd", nil},
-		{"br;q=nope, gzip", []content.Encoding{content.EncodingGzip}},
+		{"", nil, true},
+		{"br", []content.Encoding{br}, true},
+		{"gzip", []content.Encoding{gzip}, true},
+		{"br, gzip", []content.Encoding{br, gzip}, true},
+		{"br;q=0.5, gzip;q=0.9", []content.Encoding{gzip, br}, true},
+		{"gzip;q=0", nil, true},
+		{"*", []content.Encoding{br, gzip}, true},
+		{"deflate, zstd", nil, true},
+		{"br;q=nope, gzip", []content.Encoding{gzip}, true},
+		// A named entry wins over "*" whatever the order, so an explicit refusal
+		// is not resurrected by the wildcard (RFC 9110 section 12.5.3, rule 3).
+		{"gzip;q=0, *;q=1", []content.Encoding{br}, true},
+		{"*;q=1, gzip;q=0", []content.Encoding{br}, true},
+		{"br;q=0, *", []content.Encoding{gzip}, true},
+		{"*;q=0.5, br;q=0.1", []content.Encoding{gzip, br}, true},
+		{"br;q=0.1, *;q=0.5", []content.Encoding{gzip, br}, true},
+		// The unencoded representation is refused only by an entry that names it,
+		// or by a wildcard no identity entry overrides.
+		{"identity;q=0", nil, false},
+		{"*;q=0", nil, false},
+		{"*;q=0, identity", nil, true},
+		{"identity;q=0, br", []content.Encoding{br}, false},
+		{"gzip;q=1.0, identity;q=0.5, *;q=0", []content.Encoding{gzip}, true},
 	}
 	for _, tt := range tests {
-		assert.Equal(t, tt.expected, parseAcceptEncoding(tt.header), tt.header)
+		accepted := parseAcceptEncoding(tt.header)
+		assert.Equal(t, tt.encodings, accepted.encodings, tt.header)
+		assert.Equal(t, tt.identity, accepted.identity, tt.header)
 	}
 }
 
