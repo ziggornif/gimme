@@ -361,6 +361,9 @@
           },
           "404": {
             "description": "File not found"
+          },
+          "406": {
+            "description": "No acceptable content coding — the request refused the unencoded representation with `identity;q=0` or `*;q=0` and no acceptable variant is stored"
           }
         }
       }
