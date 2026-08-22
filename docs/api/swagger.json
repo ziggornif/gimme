@@ -312,6 +312,12 @@
             "in": "header",
             "description": "Last-Modified validator from a previous response, used when If-None-Match is absent",
             "schema": { "type": "string", "example": "Fri, 21 Aug 2026 12:30:45 GMT" }
+          },
+          {
+            "name": "Accept-Encoding",
+            "in": "header",
+            "description": "Supported content encodings. Brotli and gzip are negotiated by quality value.",
+            "schema": { "type": "string", "example": "br, gzip;q=0.8" }
           }
         ],
         "responses": {
@@ -325,6 +331,14 @@
               "Last-Modified": {
                 "description": "S3 object modification time in HTTP-date format",
                 "schema": { "type": "string" }
+              },
+              "Content-Encoding": {
+                "description": "Selected compressed representation, when available",
+                "schema": { "type": "string", "enum": ["br", "gzip"] }
+              },
+              "Vary": {
+                "description": "Indicates that the representation varies by Accept-Encoding",
+                "schema": { "type": "string", "example": "Accept-Encoding" }
               }
             },
             "content": {
@@ -334,13 +348,22 @@
             }
           },
           "304": {
-            "description": "Not modified — the client's `If-None-Match` or `If-Modified-Since` still matches"
+            "description": "Not modified — the client's `If-None-Match` or `If-Modified-Since` still matches",
+            "headers": {
+              "Vary": {
+                "description": "Indicates that the representation varies by Accept-Encoding",
+                "schema": { "type": "string", "example": "Accept-Encoding" }
+              }
+            }
           },
           "400": {
             "description": "Invalid package identifier format"
           },
           "404": {
             "description": "File not found"
+          },
+          "406": {
+            "description": "No acceptable content coding — the request refused the unencoded representation with `identity;q=0` or `*;q=0` and no acceptable variant is stored"
           }
         }
       }

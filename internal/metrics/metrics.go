@@ -16,7 +16,7 @@ var HTTPRequestsTotal = prometheus.NewCounterVec(
 )
 
 // S3 operation latency histogram.
-// Labels: operation (AddObject, GetObject, ListObjects, RemoveObjects, ObjectExists, Ping).
+// Labels: operation (AddObject, AddBytes, GetObject, ListObjects, RemoveObjects, ObjectExists, Ping).
 var S3OperationDuration = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
 		Name:    "gimme_s3_operation_duration_seconds",

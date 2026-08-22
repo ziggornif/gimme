@@ -18,6 +18,9 @@ func (osc *MockOSManagerExists) CreateBucket(_ context.Context, _ string, _ stri
 func (osc *MockOSManagerExists) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
 	return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
 }
+func (osc *MockOSManagerExists) AddBytes(_ context.Context, _ string, _ []byte, _ string) *errors.GimmeError {
+	return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
+}
 func (osc *MockOSManagerExists) GetObject(_ context.Context, _ string) (*minio.Object, *errors.GimmeError) {
 	return nil, errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
 }

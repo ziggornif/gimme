@@ -2,6 +2,7 @@ package storage
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -46,11 +47,27 @@ type RemoveError struct {
 type ObjectStorageManager interface {
 	CreateBucket(ctx context.Context, bucketName string, location string) *errors.GimmeError
 	AddObject(ctx context.Context, objectName string, file *zip.File) *errors.GimmeError
+	AddBytes(ctx context.Context, objectName string, data []byte, contentType string) *errors.GimmeError
 	GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
 	RemoveObjects(ctx context.Context, objectParentName string) *errors.GimmeError
 	Ping(ctx context.Context) *errors.GimmeError
+}
+
+// AddBytes adds an in-memory object into the bucket.
+func (osm *objectStorageManager) AddBytes(ctx context.Context, objectName string, data []byte, contentType string) *errors.GimmeError {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("AddBytes").Observe(time.Since(start).Seconds())
+	}()
+
+	_, err := osm.client.PutObject(ctx, osm.bucketName, objectName, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		logrus.Error("[ObjectStorageManager] AddBytes - Fail to put object in the object storage", err)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to put object %s in the object storage", objectName))
+	}
+	return nil
 }
 
 // NewObjectStorageManager create a new object storage manager

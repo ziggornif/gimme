@@ -21,6 +21,10 @@ type CacheConfig struct {
 	TTL     int    // seconds
 }
 
+type CompressionConfig struct {
+	Enabled bool
+}
+
 // Size is a byte count as it was configured. Bytes is only meaningful once
 // validateConfig has accepted it.
 type Size struct {
@@ -78,12 +82,13 @@ type Configuration struct {
 	// RedisURL is the shared Redis connection URL used by any Redis-backed
 	// component (token store, cache). A single client is created from this URL
 	// and injected wherever needed.
-	RedisURL   string
-	TokenFile  string // path to the encrypted token file (FileTokenStore)
-	Cache      CacheConfig
-	Auth       AuthConfig
-	TokenStore TokenStoreConfig
-	Upload     UploadConfig
+	RedisURL    string
+	TokenFile   string // path to the encrypted token file (FileTokenStore)
+	Cache       CacheConfig
+	Compression CompressionConfig
+	Auth        AuthConfig
+	TokenStore  TokenStoreConfig
+	Upload      UploadConfig
 }
 
 func NewConfig() (*Configuration, *errors.GimmeError) {
@@ -116,6 +121,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	_ = viper.BindEnv("redis_url", "GIMME_REDIS_URL")
 	_ = viper.BindEnv("token_file", "GIMME_TOKEN_FILE")
 	_ = viper.BindEnv("cache.enabled", "GIMME_CACHE_ENABLED")
+	_ = viper.BindEnv("compression.enabled", "GIMME_COMPRESSION_ENABLED")
 	_ = viper.BindEnv("cache.type", "GIMME_CACHE_TYPE")
 	_ = viper.BindEnv("cache.ttl", "GIMME_CACHE_TTL")
 	_ = viper.BindEnv("auth.mode", "GIMME_AUTH_MODE")
@@ -138,6 +144,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 	viper.SetDefault("redis_url", "")
 	viper.SetDefault("token_file", "/tmp/gimme-tokens.enc")
 	viper.SetDefault("cache.enabled", false)
+	viper.SetDefault("compression.enabled", true)
 	viper.SetDefault("cache.type", "redis")
 	viper.SetDefault("cache.ttl", 3600)
 	viper.SetDefault("auth.mode", "basic")
@@ -176,6 +183,7 @@ func NewConfig() (*Configuration, *errors.GimmeError) {
 		Type:    viper.GetString("cache.type"),
 		TTL:     viper.GetInt("cache.ttl"),
 	}
+	config.Compression = CompressionConfig{Enabled: viper.GetBool("compression.enabled")}
 	config.Auth = AuthConfig{
 		Mode: viper.GetString("auth.mode"),
 		OIDC: OIDCConfig{
