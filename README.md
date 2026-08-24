@@ -363,6 +363,8 @@ Response: `201 Created`
 
 Uploads are limited by request size, ZIP file-entry count, and cumulative declared decompressed size. Exceeding any configured limit returns `413 Payload Too Large` with an error naming the limit that was exceeded.
 
+A failed upload is rolled back: the package either lands entirely or leaves nothing behind, so the same `name@version` can be retried immediately. If the rollback itself fails, the `500 Internal Server Error` says so and directs you to remove the partial package with `DELETE /packages/<pkg>@<version>` before retrying. A server killed outright (`kill -9`, OOM) has no chance to roll anything back and leaves a partial package that answers `409 Conflict` on retry; remove it with the same `DELETE /packages/<pkg>@<version>` request.
+
 #### Archive layout
 
 The paths inside the archive become the URLs, with one exception: when the archive wraps everything in a **single top-level folder**, that folder is stripped.
