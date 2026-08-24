@@ -33,6 +33,12 @@ func TestParseAcceptEncoding(t *testing.T) {
 		{"br;q=0.1, *;q=0.5", []content.Encoding{gzip, br}, true},
 		// The unencoded representation is refused only by an entry that names it,
 		// or by a wildcard no identity entry overrides.
+		// A qvalue that is not a number is a malformed entry, not a refusal:
+		// every comparison with NaN is false, so it used to slip past the range
+		// check and answer 406 on a servable file.
+		{"identity;q=NaN", nil, true},
+		{"br;q=NaN", nil, true},
+		{"br;q=+Inf", nil, true},
 		{"identity;q=0", nil, false},
 		{"*;q=0", nil, false},
 		{"*;q=0, identity", nil, true},

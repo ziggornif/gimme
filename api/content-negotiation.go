@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ func parseAcceptEncoding(header string) acceptedEncodings {
 				continue
 			}
 			parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
-			if !found || err != nil || parsed < 0 || parsed > 1 {
+			if !found || err != nil || math.IsNaN(parsed) || parsed < 0 || parsed > 1 {
 				valid = false
 				break
 			}
