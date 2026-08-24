@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/ziggornif/gimme/internal/auth"
 	"github.com/ziggornif/gimme/internal/content"
+	"github.com/ziggornif/gimme/test/mocks"
 	"github.com/ziggornif/gimme/test/utils"
 )
 
@@ -412,4 +413,32 @@ func TestPackageControllerDelete(t *testing.T) {
 		utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", rawToken)})
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestPackageControllerCreateFailureRollsBack(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	failing := &mocks.MockOSManagerFailAfter{OSManager: objectStorageManager, FailAt: 2}
+
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(failing, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	t.Cleanup(func() {
+		_ = objectStorageManager.RemoveObjects(context.Background(), "rollback-lib@1.0.0/") //nolint:errcheck
+	})
+
+	resp := createPackage(t, router, "rollback-lib", "1.0.0", "../test/test.zip", rawToken)
+	require.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	remaining := objectStorageManager.ListObjects(context.Background(), "rollback-lib@1.0.0/")
+	assert.Empty(t, remaining, "a failed upload must leave no object behind")
+
+	healthyRouter := gin.New()
+	healthyService := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(healthyRouter, authManager, healthyService)
+
+	retry := createPackage(t, healthyRouter, "rollback-lib", "1.0.0", "../test/test.zip", rawToken)
+	assert.Equal(t, http.StatusCreated, retry.Code)
 }

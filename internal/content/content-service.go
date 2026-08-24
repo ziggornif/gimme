@@ -20,6 +20,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const uploadRollbackTimeout = 30 * time.Second
+
 type ContentService struct {
 	objectStorageManager storage.ObjectStorageManager
 	cacheManager         cache.CacheManager // nil = cache disabled
@@ -227,7 +229,7 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	}
 
 	if err := eg.Wait(); err != nil {
-		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w", err))
+		return svc.rollbackPartialUpload(ctx, folderName, err)
 	}
 	if entries := compressedEntries.Load(); entries > 0 {
 		logrus.Infof("[ContentService] CreatePackage - compressed %d entries into %d variants", entries, uploadedVariants.Load())
@@ -235,6 +237,19 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 
 	metrics.PackagesUploadedTotal.Inc()
 	return nil
+}
+
+func (svc *ContentService) rollbackPartialUpload(ctx context.Context, folderName string, uploadErr error) *errors.GimmeError {
+	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), uploadRollbackTimeout)
+	defer cancel()
+
+	// The slash confines deletion to this package version when another version shares its prefix.
+	if rollbackErr := svc.objectStorageManager.RemoveObjects(rollbackCtx, folderName+"/"); rollbackErr != nil {
+		logrus.Errorf("[ContentService] CreatePackage - Could not roll back partial upload for %s: %v", folderName, rollbackErr)
+		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w (the partial upload could not be removed, delete it with DELETE /packages/%s before retrying)", uploadErr, folderName))
+	}
+
+	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("error while uploading package files: %w", uploadErr))
 }
 
 // IsPinnedVersion returns true if version is an explicit full 3-part semver
