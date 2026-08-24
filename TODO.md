@@ -115,6 +115,15 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `Dockerfile`, `Makefile`
   *Prove it:* shell output — binary size inside the image, `docker save | gzip | wc -c`, and startup timing.
 
+- [x] **#115 — `make test` is not reproducible: `garage-start` assumes virgin metadata** *(filed mid-flight, during #47)*
+  `garage-start` bind-mounted `/tmp/garage/{meta,data}` and then hardcoded `garage layout apply --version 1`, which is only correct against a virgin metadata directory. When the directory survives a previous run the layout is already at version 1, `layout assign` stages version 2, and the hardcoded apply is refused: `Error: Internal error: Invalid new layout version`. Same cause, second symptom: the objects of one run survived into the next, so an interrupted suite left packages in the bucket and the next upload of the same `name@version` was answered `409` by the duplicate-package check.
+  *Files:* `Makefile` — **build tooling only, no Go code**
+  *Prove it:* shell output. **The issue's own repro was stale** — `ca12632` had since added a `/tmp/garage` cleanup to `garage-stop`, so two *complete* `make test` runs pass on `main` and prove nothing. Corrected in a comment on the issue: the state only survives when `garage-stop` is not reached, so the red step must leave it behind first — `make garage-start` twice in a row, or `make garage-start` followed by `make test`.
+  *Fix:* `--tmpfs` for `meta` and `data` instead of bind mounts, so every start gets virgin metadata and `--version 1` is correct **by construction** rather than by luck. `garage.toml` stays a bind mount — the recipe regenerates it on each start.
+  *Rejected:* reading the next layout version from `garage layout show`. Fixes the layout error only, leaves the object pollution, and adds shell parsing for it.
+  *Two follow-ons in the same change:* `garage-stop`'s `alpine` round-trip existed only to delete root-owned files Docker had written into the bind mount — with tmpfs there are none, so a plain `rm -f /tmp/garage.toml` replaces it. And a second readiness wait on `:3900` was added after the bucket is created: the existing loop waits on `garage status` (RPC, `:3901`), which is necessary since `NODE_ID` is read from it, but nothing waited on the port the suite actually calls. It also catches a stale Docker Desktop port forwarding, which has cost a debugging session before.
+  *One-off on existing checkouts:* a `/tmp/garage` left by the old Makefile is root-owned and is never touched again. Remove it once with `docker run --rm -v /tmp:/tmp alpine rm -rf /tmp/garage`. Deliberately not automated — migration code in a Makefile outlives its purpose.
+
 > **#53 — Multi-arch Docker image: closed, not scheduled.** No one has asked for an arm64 image, and the `linux/arm64` binary already covers the rare case. The published image is `linux/amd64` only — verified: the registry serves a plain `manifest.v2`, not a manifest list. Reopen if someone actually deploys on ARM; the `Dockerfile` already honours `TARGETOS`/`TARGETARCH`, so it is two `docker build` steps away.
 
 ---

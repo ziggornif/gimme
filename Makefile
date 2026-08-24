@@ -64,7 +64,6 @@ GARAGE_CONTAINER ?= gimme-garage-test
 garage-start:
 	@echo "Starting Garage $(GARAGE_VERSION)..."
 	@docker rm -f $(GARAGE_CONTAINER) >/dev/null 2>&1 || true
-	@mkdir -p /tmp/garage/{meta,data}
 	@printf '%s\n' \
 		'metadata_dir = "/var/lib/garage/meta"' \
 		'data_dir     = "/var/lib/garage/data"' \
@@ -82,8 +81,8 @@ garage-start:
 	@docker run -d --name $(GARAGE_CONTAINER) \
 		-p 3900:3900 -p 3901:3901 -p 3903:3903 \
 		-v /tmp/garage.toml:/etc/garage.toml \
-		-v /tmp/garage/meta:/var/lib/garage/meta \
-		-v /tmp/garage/data:/var/lib/garage/data \
+		--tmpfs /var/lib/garage/meta \
+		--tmpfs /var/lib/garage/data \
 		dxflrs/garage:$(GARAGE_VERSION)
 	@echo "Waiting for Garage to be ready..."
 	@for i in $$(seq 1 15); do \
@@ -102,13 +101,22 @@ garage-start:
 		docker exec $(GARAGE_CONTAINER) /garage key create gimme-key && \
 		docker exec $(GARAGE_CONTAINER) /garage bucket create gimme && \
 		docker exec $(GARAGE_CONTAINER) /garage bucket allow --read --write --owner gimme --key gimme-key
+	@echo "Waiting for the S3 API on :3900..."
+	@for i in $$(seq 1 15); do \
+		curl -s -o /dev/null -m 2 http://localhost:3900 && exit 0; \
+		echo "  attempt $$i/15..."; \
+		sleep 2; \
+	done; \
+	echo "ERROR: the S3 API on :3900 never answered"; \
+	docker logs $(GARAGE_CONTAINER); \
+	exit 1
 	@echo "Garage ready."
 
 .PHONY: garage-stop
 garage-stop:
 	@echo "Stopping Garage..."
 	@docker rm -f $(GARAGE_CONTAINER) >/dev/null 2>&1 || true
-	@docker run --rm -v /tmp:/tmp alpine sh -c "rm -rf /tmp/garage /tmp/garage.toml" 2>/dev/null || true
+	@rm -f /tmp/garage.toml 2>/dev/null || true
 	@echo "Done."
 
 .PHONY: test-integration
