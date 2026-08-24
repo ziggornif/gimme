@@ -4,10 +4,11 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io/fs"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
@@ -121,50 +122,6 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func cacheControlHeader(version string) string {
-	if content.IsPinnedVersion(version) {
-		return "public, max-age=31536000, immutable"
-	}
-	return "public, max-age=300"
-}
-
-// etagMatches reports whether an If-None-Match header value matches etag.
-// Both sides are compared weakly: the W/ prefix is ignored.
-func etagMatches(ifNoneMatch string, etag string) bool {
-	if ifNoneMatch == "" || etag == "" {
-		return false
-	}
-
-	etag = strings.TrimPrefix(etag, "W/")
-	for candidate := range strings.SplitSeq(ifNoneMatch, ",") {
-		candidate = strings.TrimSpace(candidate)
-		if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
-			return true
-		}
-	}
-
-	return false
-}
-
-// notModified reports whether the request may be answered with 304.
-func notModified(r *http.Request, etag string, lastModified time.Time) bool {
-	if ifNoneMatch := r.Header.Get("If-None-Match"); ifNoneMatch != "" {
-		return etagMatches(ifNoneMatch, etag)
-	}
-
-	ifModifiedSince := r.Header.Get("If-Modified-Since")
-	if ifModifiedSince == "" || lastModified.IsZero() {
-		return false
-	}
-
-	modifiedSince, err := http.ParseTime(ifModifiedSince)
-	if err != nil {
-		return false
-	}
-
-	return !lastModified.Truncate(time.Second).After(modifiedSince)
-}
-
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
 
@@ -178,8 +135,11 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		ctrl.getHTMLPackage(c, c.Param("package"), pkg.Name, pkg.Version)
 		return
 	}
+	c.Header("Vary", "Accept-Encoding")
 
-	object, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file)
+	accepted := parseAcceptEncoding(c.GetHeader("Accept-Encoding"))
+
+	object, encoding, err := ctrl.contentService.GetFile(c.Request.Context(), pkg.Name, pkg.Version, file, accepted.encodings)
 	if err != nil {
 		c.Header("Cache-Control", "no-store")
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
@@ -200,6 +160,12 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
+	if encoding == "" && !accepted.identity {
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusNotAcceptable, gin.H{"error": "no acceptable content coding available for this file"})
+		return
+	}
+
 	etag := ""
 	if infos.ETag != "" {
 		etag = `"` + strings.Trim(infos.ETag, `"`) + `"`
@@ -215,7 +181,15 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		return
 	}
 
-	c.DataFromReader(http.StatusOK, infos.Size, infos.ContentType, object, nil)
+	contentType := infos.ContentType
+	if encoding != "" {
+		c.Header("Content-Encoding", string(encoding))
+		contentType = mime.TypeByExtension(strings.ToLower(filepath.Ext(file)))
+		if contentType == "" {
+			contentType = "text/plain"
+		}
+	}
+	c.DataFromReader(http.StatusOK, infos.Size, contentType, object, nil)
 }
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {

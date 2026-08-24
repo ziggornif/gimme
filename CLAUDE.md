@@ -83,6 +83,7 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 | `upload.max_size` | Maximum upload request size; accepts bytes or a size such as `100MB` (base 1024) | `100MB` |
 | `upload.max_entries` | Maximum ZIP file-entry count | `10000` |
 | `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size; accepts bytes or a size such as `500MB` (base 1024) | `500MB` |
+| `compression.enabled` | Generate Brotli and gzip variants during upload | `true` |
 
 nginx limits request bodies to 1 MB by default. When gimme runs behind nginx, set `client_max_body_size` high enough for `upload.max_size` or nginx will return 413 before gimme receives the request.
 

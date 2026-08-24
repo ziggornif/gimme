@@ -151,7 +151,7 @@ func (app *Application) loadModules() {
 		MaxSize:             app.config.Upload.MaxSize.Bytes,
 		MaxEntries:          app.config.Upload.MaxEntries,
 		MaxUncompressedSize: app.config.Upload.MaxUncompressedSize.Bytes,
-	})
+	}, content.WithCompression(app.config.Compression.Enabled))
 
 	err = app.storageManager.CreateBucket(context.Background(), app.config.S3BucketName, app.config.S3Location)
 	if err != nil {
