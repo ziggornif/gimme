@@ -172,6 +172,15 @@ Before touching application code, so the lint inventory is known in advance.
   *Prove it:* Go test — `NewConfig()` on the example file must be **accepted** as far as the secret goes. Red output today: `secret must be at least 32 bytes long (got 6)`.
   *Independent of #59* — opposite directions, no ordering constraint.
 
+- [x] **#114 — A failed upload leaves a partial package that cannot be retried** *(filed mid-flight, after #47)*
+  `CreatePackage` uploads entries through an `errgroup`; the first error aborts the group and the controller answers `500`, but every object already stored stays in the bucket. `ObjectExists` returns true on a single object under the prefix, so the retry is refused with `409` — the client is told the upload failed *and* told it cannot try again. Older than the compression work: an `AddObject` failure on the identity object has always done this. #47 only widened the ways to fail after some objects are already written.
+  *Files:* `internal/content/content-service.go`, `README.md`, `api/package-controller_integration_test.go`, `test/mocks/objectstorage-manager-fail-after.go`
+  *Prove it:* integration test against Garage. `MockOSManagerErr` cannot express this — it fails *every* call, so nothing is ever stored. The new `MockOSManagerFailAfter` wraps a real manager and fails the Nth `AddObject`, which is what leaves the package half-written. Red output: two objects left under `rollback-lib@1.0.0/`, and the retry answering `409` where `201` is expected.
+  *Settled while implementing:* **option 1 of the issue — roll the prefix back**, so the upload is atomic from the client's point of view. Option 2 (variant failures non-fatal) only covers the paths #47 added and degrades silently; option 3 (document the remedy) changes no behaviour — it is kept as a **complement**, since it is the only thing that helps the one case a rollback cannot reach.
+  *The rollback context is `WithTimeout(WithoutCancel(ctx), 30s)`.* The common trigger is a client that disconnected mid-upload, which cancels the request context — a rollback on that context fails and lands straight back in the bug. `WithoutCancel` keeps the values, so this is not a bare `context.Background()`; it is the one deliberate exception to the propagation rule.
+  *The prefix carries a trailing slash*, unlike `DeletePackage`: rolling back `pkg@1.0.0` without it would also delete `pkg@1.0.0-beta`. `ObjectExists` already appends the slash for that exact reason. **`DeletePackage` still omits it** — pre-existing, out of scope here, worth its own issue.
+  *What it does not cover:* `kill -9`, OOM, a node that dies — nothing runs, so nothing is rolled back. A graceful `SIGTERM` is covered as long as the rollback fits in the 60 s shutdown grace of `application.go`. Closing the `kill -9` hole needs a persistent "upload in progress" marker read at startup — another issue, not this one.
+
 ---
 
 ## Phase 4 — Features
