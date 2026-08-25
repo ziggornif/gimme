@@ -16,6 +16,7 @@ jobs:
       go: ${{ steps.filter.outputs.go }}
       helm: ${{ steps.filter.outputs.helm }}
       docs: ${{ steps.filter.outputs.docs }}
+      openapi: ${{ steps.filter.outputs.openapi }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -38,6 +39,10 @@ jobs:
             docs:
               - '**/*.md'
               - '.markdownlint-cli2.jsonc'
+            openapi:
+              - 'docs/api/swagger.json'
+              - 'redocly.yaml'
+              - '.github/workflows/**'
 
   test:
     needs: changes
@@ -163,8 +168,19 @@ jobs:
         # No globs: .markdownlint-cli2.jsonc carries them, args would override it.
         run: npx --yes markdownlint-cli2
 
+  openapi:
+    needs: changes
+    if: needs.changes.outputs.openapi == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint OpenAPI description
+        # redocly is the validator because ReDoc renders the page: the linter
+        # shares the parser, so this fails on exactly what the page fails on.
+        run: npx --yes @redocly/cli@2 lint docs/api/swagger.json
+
   build:
-    needs: [changes, test, helm-test, lint]
+    needs: [changes, test, helm-test, lint, openapi]
     # always() tolerates skipped needs, but also defeats the implicit
     # "all succeeded" guard — hence the explicit result checks.
     if: >-
@@ -173,6 +189,7 @@ jobs:
       needs.test.result != 'failure' &&
       needs.helm-test.result != 'failure' &&
       needs.lint.result != 'failure' &&
+      needs.openapi.result != 'failure' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push'
     runs-on: ubuntu-latest

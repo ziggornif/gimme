@@ -1,0 +1,23 @@
+# Configuration for `redocly lint`, run in CI against docs/api/swagger.json.
+#
+# The rules below are disabled because they contradict what gimme is, not
+# because the spec is behind on them.
+#
+# security-defined requires every operation to declare authentication. gimme is
+# a CDN: serving assets, docs and probes without credentials is the product, not
+# an oversight. The five authenticated operations declare security individually.
+#
+# operation-operationId, operation-4xx-response and no-server-example.com are
+# style rules about spec content. Turning them on is a documentation change with
+# its own review, and it is not what this job exists to catch.
+#
+# None of this weakens the check that matters: a duplicated mapping key is a
+# parse failure, which is reported whatever the rules say.
+extends:
+  - recommended
+
+rules:
+  security-defined: off
+  operation-operationId: off
+  operation-4xx-response: off
+  no-server-example.com: off
