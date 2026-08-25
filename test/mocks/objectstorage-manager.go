@@ -15,11 +15,13 @@ type MockOSManager struct {
 	// GetObjectPaths records every key GetObject was asked for, so tests can
 	// assert on the path version resolution produced — not merely that some
 	// object came back.
-	GetObjectPaths []string
-	mu             sync.Mutex
-	AddObjectKeys  []string
-	AddBytesKeys   []string
-	AddBytesSizes  []int
+	GetObjectPaths       []string
+	mu                   sync.Mutex
+	AddObjectKeys        []string
+	AddObjectIntegrities []string
+	AddBytesKeys         []string
+	AddBytesSizes        []int
+	AddBytesIntegrities  []string
 }
 
 // LastGetObjectPath returns the last key passed to GetObject, or "" if it was never called.
@@ -34,17 +36,19 @@ func (osc *MockOSManager) CreateBucket(_ context.Context, _ string, _ string) *e
 	return nil
 }
 
-func (osc *MockOSManager) AddObject(_ context.Context, objectName string, _ *zip.File) *errors.GimmeError {
+func (osc *MockOSManager) AddObject(_ context.Context, objectName string, _ *zip.File, integrity string) *errors.GimmeError {
 	osc.mu.Lock()
 	defer osc.mu.Unlock()
 	osc.AddObjectKeys = append(osc.AddObjectKeys, objectName)
+	osc.AddObjectIntegrities = append(osc.AddObjectIntegrities, integrity)
 	return nil
 }
-func (osc *MockOSManager) AddBytes(_ context.Context, objectName string, data []byte, _ string) *errors.GimmeError {
+func (osc *MockOSManager) AddBytes(_ context.Context, objectName string, data []byte, _ string, integrity string) *errors.GimmeError {
 	osc.mu.Lock()
 	defer osc.mu.Unlock()
 	osc.AddBytesKeys = append(osc.AddBytesKeys, objectName)
 	osc.AddBytesSizes = append(osc.AddBytesSizes, len(data))
+	osc.AddBytesIntegrities = append(osc.AddBytesIntegrities, integrity)
 	return nil
 }
 func (osc *MockOSManager) GetObject(_ context.Context, objectPath string) (*minio.Object, *errors.GimmeError) {

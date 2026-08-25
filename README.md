@@ -428,6 +428,7 @@ Once uploaded, files are served at:
 
 ```http
 GET /gimme/<package>@<version>/<file>
+HEAD /gimme/<package>@<version>/<file>
 ```
 
 ```bash
@@ -444,6 +445,10 @@ Use it directly in HTML:
 <link rel="stylesheet" href="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.css">
 <script src="http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js" type="module"></script>
 ```
+
+Every newly uploaded file carries a SHA-384 Subresource Integrity token in the `Gimme-Integrity` response header. The package listing provides an SRI copy button for JavaScript and CSS files, or you can retrieve the token without downloading the body with `curl -I`.
+
+Objects uploaded by older gimme versions remain available but do not include this header. The generated snippets use `crossorigin="anonymous"`, which requires `Access-Control-Allow-Origin` on the response. Gimme defaults to `*`, so SRI works out of the box. An operator who sets `cors.allowed_origins` to a fixed list silently breaks SRI for cross-origin consumers whose origins are not included.
 
 ### 4. Browse package contents
 
@@ -478,6 +483,7 @@ Response: `204 No Content`
 | `DELETE` | `/packages/:package`         | Bearer token | Delete a package (`name@version`)    |
 | `GET`    | `/gimme/:package`            | —            | List files in a package (HTML)       |
 | `GET`    | `/gimme/:package/*file`      | —            | Serve a file from a package          |
+| `HEAD`   | `/gimme/:package/*file`      | —            | Read file headers without its body   |
 | `GET`    | `/metrics`                   | —            | Prometheus / OpenMetrics endpoint    |
 | `GET`    | `/docs`                      | —            | Interactive API documentation        |
 | `GET`    | `/healthz`                   | —            | Liveness probe                       |

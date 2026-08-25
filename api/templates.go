@@ -2,6 +2,7 @@ package api
 
 import (
 	"html/template"
+	"strings"
 	"time"
 )
 
@@ -23,5 +24,6 @@ func TemplateFuncs() template.FuncMap {
 		"isRevoked": func(t time.Time) bool {
 			return !t.IsZero()
 		},
+		"hasSuffix": strings.HasSuffix,
 	}
 }

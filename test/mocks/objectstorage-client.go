@@ -7,7 +7,9 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
-type MockOSClient struct{}
+type MockOSClient struct {
+	PutObjectOptions []minio.PutObjectOptions
+}
 
 func (osc *MockOSClient) MakeBucket(_ context.Context, _ string, _ minio.MakeBucketOptions) error {
 	return nil
@@ -17,7 +19,8 @@ func (osc *MockOSClient) BucketExists(_ context.Context, _ string) (bool, error)
 	return false, nil
 }
 
-func (osc *MockOSClient) PutObject(_ context.Context, _ string, _ string, _ io.Reader, _ int64, _ minio.PutObjectOptions) (minio.UploadInfo, error) {
+func (osc *MockOSClient) PutObject(_ context.Context, _ string, _ string, _ io.Reader, _ int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+	osc.PutObjectOptions = append(osc.PutObjectOptions, opts)
 	return minio.UploadInfo{Size: 10}, nil
 }
 func (osc *MockOSClient) GetObject(_ context.Context, _ string, _ string, _ minio.GetObjectOptions) (*minio.Object, error) {

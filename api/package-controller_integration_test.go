@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -98,6 +100,66 @@ func TestPackageControllerCompression(t *testing.T) {
 	listing := utils.PerformRequest(router, "GET", "/gimme/compressed@1.0.0/", nil)
 	assert.NotContains(t, listing.Body.String(), "app.js.br")
 	assert.NotContains(t, listing.Body.String(), "app.js.gz")
+}
+
+func TestPackageControllerIntegrity(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{}, content.WithCompression(true))
+	NewPackageController(router, authManager, service)
+
+	source := []byte(strings.Repeat("const integrity = true;\n", 256))
+	resp := createPackage(t, router, "integrity", "1.0.0", compressionArchive(t, "app.js", source), rawToken)
+	require.Equal(t, http.StatusCreated, resp.Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "integrity", "1.0.0") })
+
+	digest := sha512.Sum384(source)
+	expected := "sha384-" + base64.StdEncoding.EncodeToString(digest[:])
+	path := "/gimme/integrity@1.0.0/app.js"
+
+	identity := utils.PerformRequest(router, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, identity.Code)
+	assert.Equal(t, source, identity.Body.Bytes())
+	assert.Equal(t, expected, identity.Header().Get("Gimme-Integrity"))
+
+	brotliResponse := utils.PerformRequest(router, http.MethodGet, path, nil, utils.Header{Key: "Accept-Encoding", Value: "br"})
+	require.Equal(t, http.StatusOK, brotliResponse.Code)
+	assert.Equal(t, "br", brotliResponse.Header().Get("Content-Encoding"))
+	assert.Equal(t, expected, brotliResponse.Header().Get("Gimme-Integrity"))
+
+	head := utils.PerformRequest(router, http.MethodHead, path, nil)
+	require.Equal(t, http.StatusOK, head.Code)
+	assert.Equal(t, expected, head.Header().Get("Gimme-Integrity"))
+	assert.Zero(t, head.Body.Len())
+
+	notModified := utils.PerformRequest(router, http.MethodGet, path, nil, utils.Header{Key: "If-None-Match", Value: identity.Header().Get("ETag")})
+	require.Equal(t, http.StatusNotModified, notModified.Code)
+	assert.Equal(t, expected, notModified.Header().Get("Gimme-Integrity"))
+
+	folder := utils.PerformRequest(router, http.MethodHead, "/gimme/integrity@1.0.0/", nil)
+	require.Equal(t, http.StatusOK, folder.Code)
+	assert.Zero(t, folder.Body.Len())
+
+	missingFolder := utils.PerformRequest(router, http.MethodHead, "/gimme/integrity@9.9.9/", nil)
+	assert.Equal(t, http.StatusNotFound, missingFolder.Code)
+}
+
+func TestPackageControllerLegacyObjectWithoutIntegrity(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	require.Nil(t, objectStorageManager.AddBytes(context.Background(), "legacy@1.0.0/app.js", []byte("legacy"), "application/javascript", ""))
+	t.Cleanup(func() { _ = objectStorageManager.RemoveObjects(context.Background(), "legacy@1.0.0/") })
+
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	response := utils.PerformRequest(router, http.MethodGet, "/gimme/legacy@1.0.0/app.js", nil)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Empty(t, response.Header().Get("Gimme-Integrity"))
+	assert.Equal(t, "legacy", response.Body.String())
 }
 
 func TestPackageControllerCompressionFallback(t *testing.T) {

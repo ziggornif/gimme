@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,7 @@ import (
 	"github.com/ziggornif/gimme/internal/auth"
 	"github.com/ziggornif/gimme/internal/content"
 	"github.com/ziggornif/gimme/internal/errors"
+	"github.com/ziggornif/gimme/internal/storage"
 )
 
 type PackageController struct {
@@ -57,6 +59,11 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 	files, _ := ctrl.contentService.GetFiles(c.Request.Context(), name, version)
 	if len(files) == 0 {
 		c.Status(http.StatusNotFound)
+		return
+	}
+
+	if c.Request.Method == http.MethodHead {
+		c.Status(http.StatusOK)
 		return
 	}
 
@@ -174,6 +181,9 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 	if !infos.LastModified.IsZero() {
 		c.Header("Last-Modified", infos.LastModified.UTC().Format(http.TimeFormat))
 	}
+	if integrity := infos.UserMetadata[storage.CanonicalIntegrityMetadataKey]; integrity != "" {
+		c.Header("Gimme-Integrity", integrity)
+	}
 	c.Header("Cache-Control", cacheControlHeader(pkg.Version))
 
 	if notModified(c.Request, etag, infos.LastModified) {
@@ -188,6 +198,12 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 		if contentType == "" {
 			contentType = "text/plain"
 		}
+	}
+	if c.Request.Method == http.MethodHead {
+		c.Header("Content-Length", strconv.FormatInt(infos.Size, 10))
+		c.Header("Content-Type", contentType)
+		c.Status(http.StatusOK)
+		return
 	}
 	c.DataFromReader(http.StatusOK, infos.Size, contentType, object, nil)
 }
@@ -229,6 +245,7 @@ func NewPackageController(router *gin.Engine, authManager *auth.AuthManager, con
 	})
 	router.GET("/gimme/:package", controller.getPackageFolder)
 	router.GET("/gimme/:package/*file", controller.getPackage)
+	router.HEAD("/gimme/:package/*file", controller.getPackage)
 	router.POST("/packages", authManager.AuthenticateMiddleware, controller.createPackage)
 	router.DELETE("/packages/:package", authManager.AuthenticateMiddleware, controller.deletePackage)
 }

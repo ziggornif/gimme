@@ -195,7 +195,11 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 		currentFile := object.file
 		eg.Go(func() error {
 			logrus.Debug("[ContentService] CreatePackage - Unzipping file ", currentFile.Name)
-			if err := svc.objectStorageManager.AddObject(ctx, objectKey, currentFile); err != nil {
+			integrity, hashErr := fileIntegrity(currentFile)
+			if hashErr != nil {
+				return hashErr
+			}
+			if err := svc.objectStorageManager.AddObject(ctx, objectKey, currentFile, integrity); err != nil {
 				logrus.Errorf("[ContentService] CreatePackage - Error while processing file %s", objectKey)
 				return err.Err
 			}
@@ -219,7 +223,7 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 				if _, exists := identityKeys[variantKey]; exists {
 					continue
 				}
-				if err := svc.objectStorageManager.AddBytes(ctx, variantKey, data, contentType); err != nil {
+				if err := svc.objectStorageManager.AddBytes(ctx, variantKey, data, contentType, integrity); err != nil {
 					return err.Err
 				}
 				uploadedVariants.Add(1)

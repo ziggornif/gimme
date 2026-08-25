@@ -36,6 +36,9 @@ type RemoveKindErrorEnum string
 const (
 	Read   RemoveKindErrorEnum = "Read"
 	Delete RemoveKindErrorEnum = "Delete"
+
+	IntegrityMetadataKey          = "gimme-sri"
+	CanonicalIntegrityMetadataKey = "Gimme-Sri"
 )
 
 type RemoveError struct {
@@ -46,8 +49,8 @@ type RemoveError struct {
 
 type ObjectStorageManager interface {
 	CreateBucket(ctx context.Context, bucketName string, location string) *errors.GimmeError
-	AddObject(ctx context.Context, objectName string, file *zip.File) *errors.GimmeError
-	AddBytes(ctx context.Context, objectName string, data []byte, contentType string) *errors.GimmeError
+	AddObject(ctx context.Context, objectName string, file *zip.File, integrity string) *errors.GimmeError
+	AddBytes(ctx context.Context, objectName string, data []byte, contentType string, integrity string) *errors.GimmeError
 	GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
@@ -56,13 +59,17 @@ type ObjectStorageManager interface {
 }
 
 // AddBytes adds an in-memory object into the bucket.
-func (osm *objectStorageManager) AddBytes(ctx context.Context, objectName string, data []byte, contentType string) *errors.GimmeError {
+func (osm *objectStorageManager) AddBytes(ctx context.Context, objectName string, data []byte, contentType string, integrity string) *errors.GimmeError {
 	start := time.Now()
 	defer func() {
 		metrics.S3OperationDuration.WithLabelValues("AddBytes").Observe(time.Since(start).Seconds())
 	}()
 
-	_, err := osm.client.PutObject(ctx, osm.bucketName, objectName, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{ContentType: contentType})
+	opts := minio.PutObjectOptions{ContentType: contentType}
+	if integrity != "" {
+		opts.UserMetadata = map[string]string{IntegrityMetadataKey: integrity}
+	}
+	_, err := osm.client.PutObject(ctx, osm.bucketName, objectName, bytes.NewReader(data), int64(len(data)), opts)
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] AddBytes - Fail to put object in the object storage", err)
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to put object %s in the object storage", objectName))
@@ -98,7 +105,7 @@ func (osm *objectStorageManager) CreateBucket(ctx context.Context, bucketName st
 }
 
 // AddObject add object into the bucket
-func (osm *objectStorageManager) AddObject(ctx context.Context, objectName string, file *zip.File) *errors.GimmeError {
+func (osm *objectStorageManager) AddObject(ctx context.Context, objectName string, file *zip.File, integrity string) *errors.GimmeError {
 	// Skip dir
 	if file.FileInfo().IsDir() {
 		return nil
@@ -127,7 +134,11 @@ func (osm *objectStorageManager) AddObject(ctx context.Context, objectName strin
 		contentType = "text/plain"
 	}
 
-	info, err := osm.client.PutObject(ctx, osm.bucketName, objectName, src, file.FileInfo().Size(), minio.PutObjectOptions{ContentType: contentType})
+	opts := minio.PutObjectOptions{ContentType: contentType}
+	if integrity != "" {
+		opts.UserMetadata = map[string]string{IntegrityMetadataKey: integrity}
+	}
+	info, err := osm.client.PutObject(ctx, osm.bucketName, objectName, src, file.FileInfo().Size(), opts)
 	if err != nil {
 		logrus.Error("[ObjectStorageManager] AddObject - Fail to put object in the object storage", err)
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("fail to put object %s in the object storage", objectName))
