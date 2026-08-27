@@ -63,6 +63,7 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 	}
 
 	if c.Request.Method == http.MethodHead {
+		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.Status(http.StatusOK)
 		return
 	}

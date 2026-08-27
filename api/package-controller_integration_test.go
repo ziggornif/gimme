@@ -105,6 +105,8 @@ func TestPackageControllerCompression(t *testing.T) {
 func TestPackageControllerIntegrity(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
+	router.SetFuncMap(TemplateFuncs())
+	router.LoadHTMLGlob("../templates/*.tmpl")
 	authManager := newTestAuthManager(t)
 	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
 	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{}, content.WithCompression(true))
@@ -138,9 +140,14 @@ func TestPackageControllerIntegrity(t *testing.T) {
 	require.Equal(t, http.StatusNotModified, notModified.Code)
 	assert.Equal(t, expected, notModified.Header().Get("Gimme-Integrity"))
 
+	folderGet := utils.PerformRequest(router, http.MethodGet, "/gimme/integrity@1.0.0/", nil)
+	require.Equal(t, http.StatusOK, folderGet.Code)
+	require.NotZero(t, folderGet.Body.Len())
+
 	folder := utils.PerformRequest(router, http.MethodHead, "/gimme/integrity@1.0.0/", nil)
 	require.Equal(t, http.StatusOK, folder.Code)
 	assert.Zero(t, folder.Body.Len())
+	assert.Equal(t, folderGet.Header().Get("Content-Type"), folder.Header().Get("Content-Type"))
 
 	missingFolder := utils.PerformRequest(router, http.MethodHead, "/gimme/integrity@9.9.9/", nil)
 	assert.Equal(t, http.StatusNotFound, missingFolder.Code)
