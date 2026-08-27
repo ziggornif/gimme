@@ -26,6 +26,25 @@ import (
 	"github.com/ziggornif/gimme/test/utils"
 )
 
+// archiveWithEntries builds a ZIP carrying arbitrary entries, so a test can supply
+// its own precompressed variant alongside the identity file.
+func archiveWithEntries(t *testing.T, entries map[string][]byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "package.zip")
+	file, err := os.Create(path)
+	require.NoError(t, err)
+	w := zip.NewWriter(file)
+	for name, data := range entries {
+		entry, err := w.Create(name)
+		require.NoError(t, err)
+		_, err = entry.Write(data)
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	require.NoError(t, file.Close())
+	return path
+}
+
 func compressionArchive(t *testing.T, name string, data []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "package.zip")
@@ -151,6 +170,45 @@ func TestPackageControllerIntegrity(t *testing.T) {
 
 	missingFolder := utils.PerformRequest(router, http.MethodHead, "/gimme/integrity@9.9.9/", nil)
 	assert.Equal(t, http.StatusNotFound, missingFolder.Code)
+}
+
+func TestPackageControllerIntegrityArchiveSuppliedVariant(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{}, content.WithCompression(true))
+	NewPackageController(router, authManager, service)
+
+	source := []byte(strings.Repeat("const supplied = true;\n", 256))
+	var gzipped bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzipped)
+	_, writeErr := gzipWriter.Write(source)
+	require.NoError(t, writeErr)
+	require.NoError(t, gzipWriter.Close())
+
+	archive := archiveWithEntries(t, map[string][]byte{
+		"app.js":    source,
+		"app.js.gz": gzipped.Bytes(),
+	})
+	resp := createPackage(t, router, "supplied", "1.0.0", archive, rawToken)
+	require.Equal(t, http.StatusCreated, resp.Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "supplied", "1.0.0") })
+
+	digest := sha512.Sum384(source)
+	expected := "sha384-" + base64.StdEncoding.EncodeToString(digest[:])
+
+	path := "/gimme/supplied@1.0.0/app.js"
+	identity := utils.PerformRequest(router, http.MethodGet, path, nil)
+	require.Equal(t, http.StatusOK, identity.Code)
+	require.Equal(t, expected, identity.Header().Get("Gimme-Integrity"))
+
+	// The archive supplied this variant, so its stored bytes are not the ones SRI
+	// validates: the digest must still describe the decoded body.
+	encoded := utils.PerformRequest(router, http.MethodGet, path, nil, utils.Header{Key: "Accept-Encoding", Value: "gzip"})
+	require.Equal(t, http.StatusOK, encoded.Code)
+	require.Equal(t, "gzip", encoded.Header().Get("Content-Encoding"))
+	assert.Equal(t, expected, encoded.Header().Get("Gimme-Integrity"))
 }
 
 func TestPackageControllerLegacyObjectWithoutIntegrity(t *testing.T) {

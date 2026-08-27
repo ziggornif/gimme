@@ -179,9 +179,9 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 		logrus.Errorf("[ContentService] CreatePackage - Invalid archive: %v", validationErr)
 		return validationErr
 	}
-	identityKeys := make(map[string]struct{}, len(objects))
+	archiveFiles := make(map[string]*zip.File, len(objects))
 	for _, object := range objects {
-		identityKeys[object.key] = struct{}{}
+		archiveFiles[object.key] = object.file
 	}
 	compressionSlots := make(chan struct{}, runtime.NumCPU())
 	var compressedEntries, uploadedVariants atomic.Int64
@@ -195,7 +195,11 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 		currentFile := object.file
 		eg.Go(func() error {
 			logrus.Debug("[ContentService] CreatePackage - Unzipping file ", currentFile.Name)
-			integrity, hashErr := fileIntegrity(currentFile)
+			hashSource := currentFile
+			if sibling, ok := encodedVariantSource(archiveFiles, objectKey); ok {
+				hashSource = sibling
+			}
+			integrity, hashErr := fileIntegrity(hashSource)
 			if hashErr != nil {
 				return hashErr
 			}
@@ -208,7 +212,7 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 			if !svc.compressionEnabled || !compressible || size < compressionMinSize || size > compressionMaxSize {
 				return nil
 			}
-			if archiveSuppliesVariants(identityKeys, objectKey) {
+			if archiveSuppliesVariants(archiveFiles, objectKey) {
 				return nil
 			}
 			compressionSlots <- struct{}{}
@@ -220,7 +224,7 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 			compressedEntries.Add(1)
 			for encoding, data := range variants {
 				variantKey := objectKey + encoding.suffix()
-				if _, exists := identityKeys[variantKey]; exists {
+				if _, exists := archiveFiles[variantKey]; exists {
 					continue
 				}
 				if err := svc.objectStorageManager.AddBytes(ctx, variantKey, data, contentType, integrity); err != nil {
@@ -324,7 +328,7 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 
 // archiveSuppliesVariants reports whether the archive already carries every encoded
 // variant of an entry.
-func archiveSuppliesVariants(keys map[string]struct{}, objectKey string) bool {
+func archiveSuppliesVariants(keys map[string]*zip.File, objectKey string) bool {
 	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
 		if _, exists := keys[objectKey+encoding.suffix()]; !exists {
 			return false
@@ -375,6 +379,25 @@ func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version str
 
 // isEncodedVariant reports whether a key is the encoded variant of another listed
 // object, so the listing shows the file once instead of once per encoding.
+// encodedVariantSource returns the identity entry an archive-supplied variant encodes,
+// so the variant carries the digest of the decoded body rather than of its own bytes.
+func encodedVariantSource(files map[string]*zip.File, objectKey string) (*zip.File, bool) {
+	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
+		sibling, found := strings.CutSuffix(objectKey, encoding.suffix())
+		if !found {
+			continue
+		}
+		file, exists := files[sibling]
+		if !exists {
+			continue
+		}
+		if _, compressible := compressibleContentType(sibling); compressible {
+			return file, true
+		}
+	}
+	return nil, false
+}
+
 func isEncodedVariant(key string, keys map[string]struct{}) bool {
 	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
 		sibling, found := strings.CutSuffix(key, encoding.suffix())
