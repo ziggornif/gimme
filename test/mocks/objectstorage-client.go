@@ -3,12 +3,15 @@ package mocks
 import (
 	"context"
 	"io"
+	"sort"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 )
 
 type MockOSClient struct {
 	PutObjectOptions []minio.PutObjectOptions
+	Objects          []minio.ObjectInfo
 }
 
 func (osc *MockOSClient) MakeBucket(_ context.Context, _ string, _ minio.MakeBucketOptions) error {
@@ -27,10 +30,40 @@ func (osc *MockOSClient) GetObject(_ context.Context, _ string, _ string, _ mini
 	return &minio.Object{}, nil
 }
 
-func (osc *MockOSClient) ListObjects(_ context.Context, _ string, _ minio.ListObjectsOptions) <-chan minio.ObjectInfo {
-	ch := make(chan minio.ObjectInfo, 1)
-	defer close(ch)
-	ch <- minio.ObjectInfo{ETag: "test"}
+func (osc *MockOSClient) ListObjects(ctx context.Context, _ string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
+	ch := make(chan minio.ObjectInfo)
+	go func() {
+		defer close(ch)
+		objects := make([]minio.ObjectInfo, len(osc.Objects))
+		copy(objects, osc.Objects)
+		if len(objects) == 0 {
+			objects = []minio.ObjectInfo{{Key: "test/file.js", ETag: "test"}}
+		}
+		sort.Slice(objects, func(i, j int) bool { return objects[i].Key < objects[j].Key })
+		seen := map[string]struct{}{}
+		for _, object := range objects {
+			if !strings.HasPrefix(object.Key, opts.Prefix) || object.Key <= opts.StartAfter {
+				continue
+			}
+			if !opts.Recursive {
+				rest := strings.TrimPrefix(object.Key, opts.Prefix)
+				child, _, found := strings.Cut(rest, "/")
+				if !found {
+					continue
+				}
+				object = minio.ObjectInfo{Key: opts.Prefix + child + "/"}
+				if _, exists := seen[object.Key]; exists {
+					continue
+				}
+				seen[object.Key] = struct{}{}
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- object:
+			}
+		}
+	}()
 	return ch
 }
 

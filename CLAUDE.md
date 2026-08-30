@@ -99,7 +99,7 @@ nginx limits request bodies to 1 MB by default. When gimme runs behind nginx, se
 | `DELETE` | `/tokens/:id`                | Admin auth    | Revoke an access token               |
 | `POST`   | `/packages`                  | Bearer JWT    | Upload a ZIP package                 |
 | `DELETE` | `/packages/:package`         | Bearer JWT    | Delete a package (`name@version`)    |
-| `GET`    | `/gimme/:package`            | None          | List files in a package (HTML)       |
+| `GET`    | `/gimme/:package`            | None          | Paginated package files (HTML or JSON) |
 | `GET`    | `/gimme/:package/*file`      | None          | Serve a specific file from a package |
 | `GET`    | `/metrics`                   | None          | OpenMetrics/Prometheus endpoint      |
 | `GET`    | `/docs`                      | None          | Static API documentation (ReDoc)     |
