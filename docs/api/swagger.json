@@ -255,7 +255,7 @@
       "get": {
         "tags": ["package"],
         "summary": "Browse package contents",
-        "description": "Returns an HTML page listing all files available in the given package version. Supports partial semver: `awesome-lib@1.0` resolves to the latest `1.0.x`.",
+        "description": "Returns a keyset-paginated HTML or JSON listing of files available in the given package version. Supports partial semver: `awesome-lib@1.0` resolves to the latest `1.0.x`.",
         "operationId": "getPackage",
         "parameters": [
           {
@@ -264,12 +264,35 @@
             "description": "Package identifier in the form `name@version` (e.g. `awesome-lib@1.0.0` or `awesome-lib@1.0`)",
             "required": true,
             "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of visible files to return (default 50, clamped to 1–500)",
+            "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Opaque keyset cursor returned as pagination.next by the previous page",
+            "schema": { "type": "string" }
           }
         ],
         "responses": {
           "200": {
-            "description": "HTML listing of package files",
-            "content": { "text/html": {} }
+            "description": "Paginated listing of package files",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 first and, when available, next page links for JSON responses",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "text/html": {},
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PackageListing" }
+              }
+            }
           },
           "400": {
             "description": "Invalid package identifier format"
@@ -532,6 +555,35 @@
             "type": "string",
             "format": "binary",
             "description": "ZIP archive containing the package files"
+          }
+        }
+      },
+      "PackageListing": {
+        "type": "object",
+        "required": ["package", "version", "files", "pagination"],
+        "properties": {
+          "package": { "type": "string", "example": "mui" },
+          "version": { "type": "string", "example": "5.15.21" },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "size"],
+              "properties": {
+                "name": { "type": "string", "example": "mui@5.15.21/esm/Abc.js" },
+                "size": { "type": "integer", "format": "int64", "example": 489 }
+              }
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "required": ["limit", "next", "has_more", "total"],
+            "properties": {
+              "limit": { "type": "integer", "example": 100 },
+              "next": { "type": "string", "example": "mui@5.15.21/esm/Abc.js" },
+              "has_more": { "type": "boolean", "example": true },
+              "total": { "type": "integer", "nullable": true, "description": "Exact only when the complete listing fits on the first page" }
+            }
           }
         }
       },

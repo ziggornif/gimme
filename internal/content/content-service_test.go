@@ -137,8 +137,8 @@ func TestContentService_GetFile_FileNameIsNotASubstringMatch(t *testing.T) {
 
 func TestContentService_GetFiles(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	files, err := service.GetFiles(context.Background(), "test", "1.1.1")
-	assert.Equal(t, 2, len(files))
+	listing, err := service.GetFiles(context.Background(), "test", "1.1.1", "", 100)
+	assert.Equal(t, 1, len(listing.Files))
 	assert.Nil(t, err)
 }
 
@@ -565,16 +565,48 @@ func (manager *listingOSManager) ListObjects(context.Context, string) []minio.Ob
 	return manager.objects
 }
 
+func (manager *listingOSManager) ListObjectsPage(_ context.Context, prefix string, after string, limit int) ([]minio.ObjectInfo, bool) {
+	var page []minio.ObjectInfo
+	for _, object := range manager.objects {
+		if !strings.HasPrefix(object.Key, prefix) || object.Key <= after {
+			continue
+		}
+		if len(page) == limit {
+			return page, true
+		}
+		page = append(page, object)
+	}
+	return page, false
+}
+
+func (manager *listingOSManager) ListCommonPrefixes(_ context.Context, prefix string) []string {
+	seen := map[string]struct{}{}
+	var prefixes []string
+	for _, object := range manager.objects {
+		rest := strings.TrimPrefix(object.Key, prefix)
+		version, _, found := strings.Cut(rest, "/")
+		if !strings.HasPrefix(object.Key, prefix) || !found {
+			continue
+		}
+		commonPrefix := prefix + version + "/"
+		if _, exists := seen[commonPrefix]; !exists {
+			seen[commonPrefix] = struct{}{}
+			prefixes = append(prefixes, commonPrefix)
+		}
+	}
+	return prefixes
+}
+
 func TestContentService_GetFiles_HidesGeneratedVariants(t *testing.T) {
 	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
 		{Key: "test@1.0.0/app.js"}, {Key: "test@1.0.0/app.js.br"}, {Key: "test@1.0.0/app.js.gz"},
 		{Key: "test@1.0.0/foo.tar"}, {Key: "test@1.0.0/foo.tar.gz"},
 	}}
 	service := NewContentService(manager, nil, 0, UploadLimits{})
-	files, err := service.GetFiles(context.Background(), "test", "1.0.0")
+	listing, err := service.GetFiles(context.Background(), "test", "1.0.0", "", 100)
 	require.Nil(t, err)
 	var names []string
-	for _, file := range files {
+	for _, file := range listing.Files {
 		names = append(names, file.Name)
 	}
 	assert.Equal(t, []string{"test@1.0.0/app.js", "test@1.0.0/foo.tar", "test@1.0.0/foo.tar.gz"}, names)
@@ -976,4 +1008,107 @@ func TestContentService_CreatePackage_RejectsEmptyArchive(t *testing.T) {
 
 	require.NotNil(t, err, "an archive with no file must be rejected")
 	assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+}
+
+func TestContentService_GetFiles_PartialVersionResolvesToOneVersion(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "mui@5.14.0/esm/Abc.js"},
+		{Key: "mui@5.15.21/esm/Abc.js"},
+		{Key: "mui@50.1.0/esm/Abc.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	listing, err := service.GetFiles(context.Background(), "mui", "5", "", 100)
+	require.Nil(t, err)
+	var names []string
+	for _, file := range listing.Files {
+		names = append(names, file.Name)
+	}
+	assert.Equal(t, []string{"mui@5.15.21/esm/Abc.js"}, names)
+}
+
+func TestContentService_GetFiles_PinnedVersionDoesNotReachPrerelease(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "mui@1.0.0/app.js"},
+		{Key: "mui@1.0.0-beta/app.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	listing, err := service.GetFiles(context.Background(), "mui", "1.0.0", "", 100)
+	require.Nil(t, err)
+	require.Len(t, listing.Files, 1)
+	assert.Equal(t, "mui@1.0.0/app.js", listing.Files[0].Name)
+}
+
+func TestContentService_GetFiles_PaginatesWithoutDuplicateOrGap(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "pkg@1.0.0/a.js"}, {Key: "pkg@1.0.0/b.js"}, {Key: "pkg@1.0.0/c.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	first, err := service.GetFiles(context.Background(), "pkg", "1.0.0", "", 2)
+	require.Nil(t, err)
+	assert.True(t, first.HasMore)
+	second, err := service.GetFiles(context.Background(), "pkg", "1.0.0", first.Next, 2)
+	require.Nil(t, err)
+	assert.False(t, second.HasMore)
+	assert.Equal(t, []string{"pkg@1.0.0/a.js", "pkg@1.0.0/b.js", "pkg@1.0.0/c.js"}, []string{
+		first.Files[0].Name, first.Files[1].Name, second.Files[0].Name,
+	})
+}
+
+func TestContentService_GetFiles_HidesVariantAcrossPageBoundary(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "pkg@1.0.0/app.js"}, {Key: "pkg@1.0.0/app.js.br"}, {Key: "pkg@1.0.0/next.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	first, err := service.GetFiles(context.Background(), "pkg", "1.0.0", "", 1)
+	require.Nil(t, err)
+	second, err := service.GetFiles(context.Background(), "pkg", "1.0.0", first.Next, 1)
+	require.Nil(t, err)
+	require.Len(t, second.Files, 1)
+	assert.Equal(t, "pkg@1.0.0/next.js", second.Files[0].Name)
+}
+
+func TestContentService_GetFiles_TotalKnownOnlyForFirstSinglePage(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "pkg@1.0.0/a.js"}, {Key: "pkg@1.0.0/b.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	single, err := service.GetFiles(context.Background(), "pkg", "1.0.0", "", 10)
+	require.Nil(t, err)
+	assert.True(t, single.TotalKnown)
+	assert.Equal(t, 2, single.Total)
+
+	paged, err := service.GetFiles(context.Background(), "pkg", "1.0.0", "", 1)
+	require.Nil(t, err)
+	assert.False(t, paged.TotalKnown)
+}
+
+func TestContentService_GetFiles_HidesVariantOrphanedByPageBoundary(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "test@1.0.0/app.js"}, {Key: "test@1.0.0/app.js.br"}, {Key: "test@1.0.0/app.js.gz"},
+		{Key: "test@1.0.0/zeta.js"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	listing, err := service.GetFiles(context.Background(), "test", "1.0.0", "test@1.0.0/app.js.br", 100)
+	require.Nil(t, err)
+	var names []string
+	for _, file := range listing.Files {
+		names = append(names, file.Name)
+	}
+	assert.Equal(t, []string{"test@1.0.0/zeta.js"}, names)
+}
+
+func TestContentService_GetFiles_AdvertisedNextPageIsNeverEmpty(t *testing.T) {
+	manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: []minio.ObjectInfo{
+		{Key: "test@1.0.0/a.js"}, {Key: "test@1.0.0/a.js.br"}, {Key: "test@1.0.0/a.js.gz"},
+	}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	first, err := service.GetFiles(context.Background(), "test", "1.0.0", "", 1)
+	require.Nil(t, err)
+	require.Equal(t, []string{"test@1.0.0/a.js"}, []string{first.Files[0].Name})
+	if !first.HasMore {
+		return
+	}
+	second, err := service.GetFiles(context.Background(), "test", "1.0.0", first.Next, 1)
+	require.Nil(t, err)
+	assert.NotEmpty(t, second.Files, "the Next cursor was advertised, so its page must not be empty (the controller 404s on an empty listing)")
 }

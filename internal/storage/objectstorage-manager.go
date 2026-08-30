@@ -54,8 +54,62 @@ type ObjectStorageManager interface {
 	GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
+	ListObjectsPage(ctx context.Context, prefix string, after string, limit int) ([]minio.ObjectInfo, bool)
+	ListCommonPrefixes(ctx context.Context, prefix string) []string
 	RemoveObjects(ctx context.Context, objectParentName string) *errors.GimmeError
 	Ping(ctx context.Context) *errors.GimmeError
+}
+
+// ListObjectsPage lists at most limit objects recursively and reports whether
+// another object exists after the returned page.
+func (osm *objectStorageManager) ListObjectsPage(ctx context.Context, prefix string, after string, limit int) ([]minio.ObjectInfo, bool) {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("ListObjectsPage").Observe(time.Since(start).Seconds())
+	}()
+
+	listCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	objectCh := osm.client.ListObjects(listCtx, osm.bucketName, minio.ListObjectsOptions{
+		Prefix:     prefix,
+		Recursive:  true,
+		MaxKeys:    limit + 1,
+		StartAfter: after,
+	})
+	objects := make([]minio.ObjectInfo, 0, limit)
+	for object := range objectCh {
+		if object.Err != nil {
+			logrus.Errorf("[ObjectStorageManager] ListObjectsPage - Error reading object from storage: %s", object.Err.Error())
+			continue
+		}
+		if len(objects) == limit {
+			return objects, true
+		}
+		objects = append(objects, object)
+	}
+	return objects, false
+}
+
+// ListCommonPrefixes lists the immediate child prefixes below prefix.
+func (osm *objectStorageManager) ListCommonPrefixes(ctx context.Context, prefix string) []string {
+	start := time.Now()
+	defer func() {
+		metrics.S3OperationDuration.WithLabelValues("ListCommonPrefixes").Observe(time.Since(start).Seconds())
+	}()
+
+	var prefixes []string
+	objectCh := osm.client.ListObjects(ctx, osm.bucketName, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: false,
+	})
+	for object := range objectCh {
+		if object.Err != nil {
+			logrus.Errorf("[ObjectStorageManager] ListCommonPrefixes - Error reading object from storage: %s", object.Err.Error())
+			continue
+		}
+		prefixes = append(prefixes, object.Key)
+	}
+	return prefixes
 }
 
 // AddBytes adds an in-memory object into the bucket.
