@@ -40,14 +40,28 @@ func TestObjectStorageManager_AddObject(t *testing.T) {
 	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
-	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[0])
+	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[0], "")
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[1])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[1], "")
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[2])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[2], "")
 	assert.Nil(t, gimmeerr)
-	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[3])
+	gimmeerr = osm.AddObject(context.Background(), "test", archive.File[3], "")
 	assert.Nil(t, gimmeerr)
+}
+
+func TestObjectStorageManager_IntegrityMetadata(t *testing.T) {
+	archive, err := zip.OpenReader("../../test/test.zip")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, archive.Close()) }()
+
+	client := &mocks.MockOSClient{}
+	osm := NewObjectStorageManager(client)
+	require.Nil(t, osm.AddObject(context.Background(), "object", archive.File[1], "sha384-object"))
+	require.Nil(t, osm.AddBytes(context.Background(), "variant", []byte("compressed"), "application/javascript", "sha384-object"))
+
+	require.Equal(t, map[string]string{IntegrityMetadataKey: "sha384-object"}, client.PutObjectOptions[0].UserMetadata)
+	require.Equal(t, map[string]string{IntegrityMetadataKey: "sha384-object"}, client.PutObjectOptions[1].UserMetadata)
 }
 
 func TestObjectStorageManager_AddObjectErr(t *testing.T) {
@@ -59,7 +73,7 @@ func TestObjectStorageManager_AddObjectErr(t *testing.T) {
 	}(archive)
 
 	osm := NewObjectStorageManager(&mocks.MockOSClientErr{})
-	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[1])
+	gimmeerr := osm.AddObject(context.Background(), "test", archive.File[1], "")
 	assert.Equal(t, "fail to put object test in the object storage", gimmeerr.Error())
 }
 

@@ -1667,6 +1667,12 @@ helm uninstall gimme --namespace gimme</code></pre>
                                     <td>Serve a static file</td>
                                 </tr>
                                 <tr>
+                                    <td><span class="method head">HEAD</span></td>
+                                    <td><code>/gimme/:package/*file</code></td>
+                                    <td>—</td>
+                                    <td>Read file headers without its body</td>
+                                </tr>
+                                <tr>
                                     <td><span class="method get">GET</span></td>
                                     <td><code>/metrics</code></td>
                                     <td>—</td>
@@ -1741,7 +1747,25 @@ helm uninstall gimme --namespace gimme</code></pre>
 curl http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js
 
 # Partial alias — resolves to latest 1.0.x, cached 5 minutes
-curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js</code></pre>
+curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js
+
+# Read the SHA-384 SRI token without downloading the body
+curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
+                    <p>
+                        Newly uploaded files expose their Subresource Integrity
+                        token through <code>Gimme-Integrity</code>. The package
+                        listing can copy ready-to-use JavaScript and CSS snippets;
+                        legacy objects remain available without the header.
+                    </p>
+                    <p>
+                        The generated <code>crossorigin="anonymous"</code>
+                        attribute requires an
+                        <code>Access-Control-Allow-Origin</code> response header.
+                        Gimme defaults to <code>*</code>, so this works out of the
+                        box. Setting <code>cors.allowed_origins</code> to a fixed
+                        list silently breaks SRI for cross-origin consumers whose
+                        origins are not included.
+                    </p>
 
                     <h3>Delete a package</h3>
                     <pre><code class="language-bash">curl -X DELETE http://localhost:8080/packages/my-lib@1.0.0 \

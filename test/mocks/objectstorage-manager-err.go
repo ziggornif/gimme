@@ -15,10 +15,10 @@ type MockOSManagerErr struct{}
 func (osc *MockOSManagerErr) CreateBucket(_ context.Context, _ string, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerErr) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
+func (osc *MockOSManagerErr) AddObject(_ context.Context, _ string, _ *zip.File, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerErr) AddBytes(_ context.Context, _ string, _ []byte, _ string) *errors.GimmeError {
+func (osc *MockOSManagerErr) AddBytes(_ context.Context, _ string, _ []byte, _ string, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 }
 func (osc *MockOSManagerErr) GetObject(_ context.Context, _ string) (*minio.Object, *errors.GimmeError) {

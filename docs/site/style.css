@@ -804,6 +804,7 @@ tbody tr:hover td { background: var(--bg-subtle); }
 .method.get    { background: #F0FDF4; color: #16A34A; }
 .method.post   { background: #EFF6FF; color: #2563EB; }
 .method.delete { background: #FEF2F2; color: #DC2626; }
+.method.head   { background: #F1F5F9; color: #475569; }
 
 .auth-badge {
   display: inline-block;

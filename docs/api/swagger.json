@@ -332,6 +332,10 @@
                 "description": "S3 object modification time in HTTP-date format",
                 "schema": { "type": "string" }
               },
+              "Gimme-Integrity": {
+                "description": "SHA-384 Subresource Integrity token. Absent on objects uploaded by older gimme versions.",
+                "schema": { "type": "string", "example": "sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V" }
+              },
               "Content-Encoding": {
                 "description": "Selected compressed representation, when available",
                 "schema": { "type": "string", "enum": ["br", "gzip"] }
@@ -365,6 +369,47 @@
           "406": {
             "description": "No acceptable content coding — the request refused the unencoded representation with `identity;q=0` or `*;q=0` and no acceptable variant is stored"
           }
+        }
+      },
+      "head": {
+        "tags": ["package"],
+        "summary": "Read file headers",
+        "description": "Returns the same metadata as the file GET route without streaming the object body. `Gimme-Integrity` contains a paste-ready SHA-384 SRI token for newly uploaded objects. Snippets using `crossorigin=\"anonymous\"` require `Access-Control-Allow-Origin`; gimme defaults to `*`, while a fixed `cors.allowed_origins` list silently breaks SRI for cross-origin consumers not on that list.",
+        "operationId": "headPackageFile",
+        "parameters": [
+          {
+            "name": "package",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
+          },
+          {
+            "name": "file",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "dist/awesome-lib.min.js" }
+          },
+          {
+            "name": "Accept-Encoding",
+            "in": "header",
+            "schema": { "type": "string", "example": "br, gzip;q=0.8" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metadata with an empty body",
+            "headers": {
+              "Content-Length": { "schema": { "type": "integer", "format": "int64" } },
+              "Content-Type": { "schema": { "type": "string" } },
+              "Gimme-Integrity": {
+                "description": "SHA-384 Subresource Integrity token, when available",
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": { "description": "Invalid package identifier format" },
+          "404": { "description": "File not found" },
+          "406": { "description": "No acceptable content coding available" }
         }
       }
     },

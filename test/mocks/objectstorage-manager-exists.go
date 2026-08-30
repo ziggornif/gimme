@@ -15,10 +15,10 @@ type MockOSManagerExists struct{}
 func (osc *MockOSManagerExists) CreateBucket(_ context.Context, _ string, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerExists) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
+func (osc *MockOSManagerExists) AddObject(_ context.Context, _ string, _ *zip.File, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
 }
-func (osc *MockOSManagerExists) AddBytes(_ context.Context, _ string, _ []byte, _ string) *errors.GimmeError {
+func (osc *MockOSManagerExists) AddBytes(_ context.Context, _ string, _ []byte, _ string, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.BadRequest, fmt.Errorf("boom"))
 }
 func (osc *MockOSManagerExists) GetObject(_ context.Context, _ string) (*minio.Object, *errors.GimmeError) {

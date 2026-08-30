@@ -31,6 +31,9 @@
       --accent-mid:    #BFDBFE;
       --green:         #16A34A;
       --green-light:   #F0FDF4;
+      --red:           #DC2626;
+      --red-light:     #FEF2F2;
+      --red-mid:       #FECACA;
 
       --font-display:  'Plus Jakarta Sans', system-ui, sans-serif;
       --font-body:     'Inter', system-ui, sans-serif;
@@ -327,6 +330,11 @@
       border-color: #BBF7D0;
       background: var(--green-light);
     }
+    .copy-btn.unavailable {
+      color: var(--red);
+      border-color: var(--red-mid);
+      background: var(--red-light);
+    }
 
     /* ---- Size cell ---- */
     .col-size-data {
@@ -497,6 +505,20 @@
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                   </svg>
                 </button>
+                {{ if or (hasSuffix .Name ".js") (hasSuffix .Name ".css") }}
+                <button
+                  class="copy-btn sri-btn"
+                  type="button"
+                  aria-label="Copy SRI snippet for {{ .Name }}"
+                  data-url="/gimme/{{ .Name }}"
+                  data-kind="{{ if hasSuffix .Name ".js" }}js{{ else }}css{{ end }}"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M16 18l6-6-6-6"/>
+                    <path d="M8 6l-6 6 6 6"/>
+                  </svg>
+                </button>
+                {{ end }}
               </div>
             </td>
             <td class="col-size-data" data-raw="{{ .Size }}">{{ .Size }}</td>
@@ -632,8 +654,7 @@
       }
 
       /* ---- Copy URL ---- */
-      function copyURL(url, btn) {
-        var absolute = window.location.origin + url;
+      function copyText(text, btn, successMessage) {
         var prevFocus = document.activeElement;
 
         function onSuccess() {
@@ -641,7 +662,7 @@
             btn.classList.add('copied');
             setTimeout(function () { btn.classList.remove('copied'); }, 2000);
           }
-          showToast('URL copied!', false);
+          showToast(successMessage || 'URL copied!', false);
         }
 
         function onError() {
@@ -650,12 +671,16 @@
         }
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(absolute).then(onSuccess).catch(function () {
-            fallback(absolute, btn, onSuccess, onError, prevFocus);
+          navigator.clipboard.writeText(text).then(onSuccess).catch(function () {
+            fallback(text, btn, onSuccess, onError, prevFocus);
           });
         } else {
-          fallback(absolute, btn, onSuccess, onError, prevFocus);
+          fallback(text, btn, onSuccess, onError, prevFocus);
         }
+      }
+
+      function copyURL(url, btn) {
+        copyText(new URL(url, window.location.origin).href, btn, 'URL copied!');
       }
 
       function fallback(text, btn, onSuccess, onError, prevFocus) {
@@ -674,9 +699,35 @@
 
       /* Attach events */
       document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        if (btn.classList.contains('sri-btn')) return;
         btn.addEventListener('click', function (e) {
           e.stopPropagation();
           copyURL(btn.dataset.url, btn);
+        });
+      });
+
+      document.querySelectorAll('.sri-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var href = btn.dataset.url;
+          fetch(href, { method: 'HEAD' }).then(function (response) {
+            var integrity = response.headers.get('Gimme-Integrity');
+            if (!integrity) {
+              btn.classList.add('unavailable');
+              showToast('Integrity hash unavailable', true);
+              setTimeout(function () { btn.classList.remove('unavailable'); }, 2000);
+              return;
+            }
+            var absolute = new URL(href, window.location.origin).href;
+            var snippet = btn.dataset.kind === 'js'
+              ? '<script src="' + absolute + '" integrity="' + integrity + '" crossorigin="anonymous"></' + 'script>'
+              : '<link rel="stylesheet" href="' + absolute + '" integrity="' + integrity + '" crossorigin="anonymous">';
+            copyText(snippet, btn, 'SRI snippet copied!');
+          }).catch(function () {
+            btn.classList.add('unavailable');
+            showToast('Integrity hash unavailable', true);
+            setTimeout(function () { btn.classList.remove('unavailable'); }, 2000);
+          });
         });
       });
 

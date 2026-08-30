@@ -16,8 +16,8 @@ import (
 // so a reference to internal/storage here is an import cycle.
 type OSManager interface {
 	CreateBucket(ctx context.Context, bucketName string, location string) *errors.GimmeError
-	AddObject(ctx context.Context, objectName string, file *zip.File) *errors.GimmeError
-	AddBytes(ctx context.Context, objectName string, data []byte, contentType string) *errors.GimmeError
+	AddObject(ctx context.Context, objectName string, file *zip.File, integrity string) *errors.GimmeError
+	AddBytes(ctx context.Context, objectName string, data []byte, contentType string, integrity string) *errors.GimmeError
 	GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
@@ -35,9 +35,9 @@ type MockOSManagerFailAfter struct {
 	calls  atomic.Int64
 }
 
-func (osc *MockOSManagerFailAfter) AddObject(ctx context.Context, objectName string, file *zip.File) *errors.GimmeError {
+func (osc *MockOSManagerFailAfter) AddObject(ctx context.Context, objectName string, file *zip.File, integrity string) *errors.GimmeError {
 	if osc.calls.Add(1) == osc.FailAt {
 		return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 	}
-	return osc.OSManager.AddObject(ctx, objectName, file)
+	return osc.OSManager.AddObject(ctx, objectName, file, integrity)
 }

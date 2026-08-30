@@ -341,7 +341,7 @@ type concurrencyTrackingOSManager struct {
 	calls    atomic.Int64
 }
 
-func (osc *concurrencyTrackingOSManager) AddObject(_ context.Context, _ string, _ *zip.File) *errors.GimmeError {
+func (osc *concurrencyTrackingOSManager) AddObject(_ context.Context, _ string, _ *zip.File, _ string) *errors.GimmeError {
 	osc.calls.Add(1)
 	current := osc.inFlight.Add(1)
 	for {
@@ -478,7 +478,7 @@ type recordingOSManager struct {
 	keys []string
 }
 
-func (osc *recordingOSManager) AddObject(_ context.Context, objectName string, _ *zip.File) *errors.GimmeError {
+func (osc *recordingOSManager) AddObject(_ context.Context, objectName string, _ *zip.File, _ string) *errors.GimmeError {
 	osc.mu.Lock()
 	defer osc.mu.Unlock()
 	osc.keys = append(osc.keys, objectName)
@@ -542,6 +542,13 @@ func TestContentService_CreatePackage_Compression(t *testing.T) {
 			require.Nil(t, service.CreatePackage(context.Background(), "test", "1.0.0", reader, size))
 			sort.Strings(manager.AddBytesKeys)
 			assert.Equal(t, tt.expected, manager.AddBytesKeys)
+			if tt.name == "enabled" {
+				require.Len(t, manager.AddObjectIntegrities, 1)
+				require.Len(t, manager.AddBytesIntegrities, 2)
+				assert.NotEmpty(t, manager.AddObjectIntegrities[0])
+				assert.Equal(t, manager.AddObjectIntegrities[0], manager.AddBytesIntegrities[0])
+				assert.Equal(t, manager.AddObjectIntegrities[0], manager.AddBytesIntegrities[1])
+			}
 			if tt.name == "existing gzip" {
 				assert.Contains(t, manager.AddObjectKeys, "test@1.0.0/app.js.gz")
 			}
