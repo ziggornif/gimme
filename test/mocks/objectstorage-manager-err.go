@@ -33,6 +33,14 @@ func (osc *MockOSManagerErr) ListObjects(_ context.Context, _ string) []minio.Ob
 	return []minio.ObjectInfo{}
 }
 
+func (osc *MockOSManagerErr) ListObjectsPage(_ context.Context, _ string, _ string, _ int) ([]minio.ObjectInfo, bool) {
+	return nil, false
+}
+
+func (osc *MockOSManagerErr) ListCommonPrefixes(_ context.Context, _ string) []string {
+	return nil
+}
+
 func (osc *MockOSManagerErr) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return errors.NewBusinessError(errors.InternalError, fmt.Errorf("boom"))
 }

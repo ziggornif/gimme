@@ -113,6 +113,59 @@ func TestPackageControllerNotFoundURL(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestListingLimitClamping(t *testing.T) {
+	tests := []struct {
+		raw      string
+		expected int
+	}{
+		{"", 50}, {"invalid", 50}, {"0", 1}, {"-10", 1}, {"501", 500}, {"250", 250},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.expected, listingLimit(tt.raw), tt.raw)
+	}
+}
+
+func TestListingURL(t *testing.T) {
+	assert.Equal(t, "/gimme/mui@5?limit=100", listingURL("mui@5", 100, ""))
+	assert.Equal(t, "/gimme/mui@5?limit=100&after=mui%405.15.21%2Fesm%2FAbc.js", listingURL("mui@5", 100, "mui@5.15.21/esm/Abc.js"))
+}
+
+func TestPackageControllerListingContentNegotiation(t *testing.T) {
+	tests := []struct {
+		name        string
+		accept      string
+		contentType string
+		json        bool
+	}{
+		{"json", gin.MIMEJSON, gin.MIMEJSON, true},
+		{"browser", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", gin.MIMEHTML, false},
+		{"wildcard", "*/*", gin.MIMEHTML, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.SetFuncMap(TemplateFuncs())
+			router.LoadHTMLGlob("../templates/*.tmpl")
+			authManager := auth.NewAuthManager(newPackageTestStore(t))
+			service := content.NewContentService(&mocks.MockOSManager{}, nil, 0, content.UploadLimits{})
+			NewPackageController(router, authManager, service)
+
+			response := utils.PerformRequest(router, http.MethodGet, "/gimme/test@1.1.1?limit=999", nil,
+				utils.Header{Key: "Accept", Value: tt.accept})
+			assert.Equal(t, http.StatusOK, response.Code)
+			assert.Contains(t, response.Header().Get("Content-Type"), tt.contentType)
+			if tt.json {
+				assert.Contains(t, response.Header().Get("Link"), `rel="first"`)
+				assert.JSONEq(t, `{
+					"package":"test","version":"1.1.1",
+					"files":[{"name":"test@1.1.1/test.js","size":0}],
+					"pagination":{"limit":500,"next":"","has_more":false,"total":1}
+				}`, response.Body.String())
+			}
+		})
+	}
+}
+
 // countingReader counts the bytes actually consumed from a request body.
 type countingReader struct {
 	reader io.Reader

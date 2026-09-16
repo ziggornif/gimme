@@ -33,6 +33,14 @@ func (osc *MockOSManagerExists) ListObjects(_ context.Context, _ string) []minio
 	return []minio.ObjectInfo{}
 }
 
+func (osc *MockOSManagerExists) ListObjectsPage(_ context.Context, _ string, _ string, _ int) ([]minio.ObjectInfo, bool) {
+	return nil, false
+}
+
+func (osc *MockOSManagerExists) ListCommonPrefixes(_ context.Context, _ string) []string {
+	return nil
+}
+
 func (osc *MockOSManagerExists) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return nil
 }

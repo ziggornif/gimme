@@ -109,6 +109,34 @@ func TestObjectStorageManager_ListObjects(t *testing.T) {
 	assert.Equal(t, "test", objs[0].ETag)
 }
 
+func TestObjectStorageManager_ListObjectsPage(t *testing.T) {
+	client := &mocks.MockOSClient{Objects: []minio.ObjectInfo{{Key: "pkg/a"}, {Key: "pkg/b"}, {Key: "pkg/c"}}}
+	osm := NewObjectStorageManager(client)
+
+	objects, hasMore := osm.ListObjectsPage(context.Background(), "pkg/", "", 2)
+	require.Len(t, objects, 2)
+	assert.Equal(t, []string{"pkg/a", "pkg/b"}, []string{objects[0].Key, objects[1].Key})
+	assert.True(t, hasMore)
+}
+
+func TestObjectStorageManager_ListObjectsPageShortListing(t *testing.T) {
+	client := &mocks.MockOSClient{Objects: []minio.ObjectInfo{{Key: "pkg/a"}, {Key: "pkg/b"}}}
+	osm := NewObjectStorageManager(client)
+
+	objects, hasMore := osm.ListObjectsPage(context.Background(), "pkg/", "", 3)
+	assert.Len(t, objects, 2)
+	assert.False(t, hasMore)
+}
+
+func TestObjectStorageManager_ListCommonPrefixes(t *testing.T) {
+	client := &mocks.MockOSClient{Objects: []minio.ObjectInfo{
+		{Key: "mui@5.14.0/a.js"}, {Key: "mui@5.14.0/b.js"}, {Key: "mui@5.15.21/a.js"},
+	}}
+	osm := NewObjectStorageManager(client)
+
+	assert.Equal(t, []string{"mui@5.14.0/", "mui@5.15.21/"}, osm.ListCommonPrefixes(context.Background(), "mui@"))
+}
+
 func TestObjectStorageManager_RemoveObjects(t *testing.T) {
 	osm := NewObjectStorageManager(&mocks.MockOSClient{})
 	err := osm.RemoveObjects(context.Background(), "test")

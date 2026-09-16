@@ -45,9 +45,18 @@ type UploadLimits struct {
 }
 
 type File struct {
-	Name   string
-	Size   int64
-	Folder bool
+	Name   string `json:"name"`
+	Size   int64  `json:"size"`
+	Folder bool   `json:"folder,omitempty"`
+}
+
+type FileListing struct {
+	Version    string
+	Files      []File
+	Next       string
+	HasMore    bool
+	Total      int
+	TotalKnown bool
 }
 
 // NewContentService create a new content service instance.
@@ -75,7 +84,6 @@ func (svc *ContentService) UploadLimits() UploadLimits {
 func (svc *ContentService) filterArray(arr []minio.ObjectInfo, pkg string, fileName string, version string) []minio.ObjectInfo {
 	var filtered []minio.ObjectInfo
 	packagePrefix := fmt.Sprintf("%s@", pkg)
-	partialVersion := len(strings.Split(version, ".")) < 3
 
 	for _, item := range arr {
 		keyWithoutPackage, found := strings.CutPrefix(item.Key, packagePrefix)
@@ -93,20 +101,32 @@ func (svc *ContentService) filterArray(arr []minio.ObjectInfo, pkg string, fileN
 			continue
 		}
 
-		matchesVersion := candidateVersion == version
-		if partialVersion && semver.Prerelease(candidateSemver) == "" {
-			switch len(strings.Split(version, ".")) {
-			case 1:
-				matchesVersion = semver.Major(candidateSemver) == "v"+version
-			case 2:
-				matchesVersion = semver.MajorMinor(candidateSemver) == "v"+version
-			}
-		}
-		if matchesVersion {
+		if versionMatches(candidateVersion, version) {
 			filtered = append(filtered, item)
 		}
 	}
 	return filtered
+}
+
+func versionMatches(candidateVersion string, requestedVersion string) bool {
+	candidateSemver := "v" + candidateVersion
+	if !semver.IsValid(candidateSemver) {
+		return false
+	}
+	if candidateVersion == requestedVersion {
+		return true
+	}
+	if len(strings.Split(requestedVersion, ".")) >= 3 || semver.Prerelease(candidateSemver) != "" {
+		return false
+	}
+	switch len(strings.Split(requestedVersion, ".")) {
+	case 1:
+		return semver.Major(candidateSemver) == "v"+requestedVersion
+	case 2:
+		return semver.MajorMinor(candidateSemver) == "v"+requestedVersion
+	default:
+		return false
+	}
 }
 
 // getVersion get package version from an S3 object key.
@@ -356,25 +376,98 @@ func (svc *ContentService) getEncodedObject(ctx context.Context, objectPath, fil
 }
 
 // GetFiles get package files
-func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version string) ([]File, *errors.GimmeError) {
-	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
-	keys := make(map[string]struct{}, len(objs))
-	for _, obj := range objs {
-		keys[obj.Key] = struct{}{}
+func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version string, after string, limit int) (FileListing, *errors.GimmeError) {
+	listing := FileListing{Version: version}
+	if !IsPinnedVersion(version) {
+		packagePrefix := pkg + "@"
+		var versions []string
+		for _, commonPrefix := range svc.objectStorageManager.ListCommonPrefixes(ctx, packagePrefix) {
+			candidate := strings.TrimSuffix(strings.TrimPrefix(commonPrefix, packagePrefix), "/")
+			if versionMatches(candidate, version) {
+				versions = append(versions, "v"+candidate)
+			}
+		}
+		if len(versions) == 0 {
+			return listing, nil
+		}
+		semver.Sort(versions)
+		listing.Version = strings.TrimPrefix(versions[len(versions)-1], "v")
 	}
 
-	var files []File
-	for _, obj := range objs {
-		if isEncodedVariant(obj.Key, keys) {
-			continue
-		}
-		files = append(files, File{
-			Name:   obj.Key,
-			Size:   obj.Size,
-			Folder: false,
-		})
+	prefix := fmt.Sprintf("%s@%s/", pkg, listing.Version)
+	cursor := after
+	keys := map[string]struct{}{}
+	seedBoundaryKeys(keys, after)
+
+	// One extra file beyond the page decides HasMore: a page is only advertised
+	// once a visible file is known to be on it, and its cursor resumes just
+	// before that file.
+	type pagedFile struct {
+		file   File
+		cursor string
 	}
-	return files, nil
+	var collected []pagedFile
+	singlePage := false
+	firstFetch := true
+
+	for len(collected) <= limit {
+		objects, hasMore := svc.objectStorageManager.ListObjectsPage(ctx, prefix, cursor, limit)
+		if firstFetch && after == "" && !hasMore {
+			singlePage = true
+		}
+		firstFetch = false
+		if len(objects) == 0 {
+			break
+		}
+		for _, object := range objects {
+			keys[object.Key] = struct{}{}
+		}
+		for _, object := range objects {
+			previous := cursor
+			cursor = object.Key
+			if isEncodedVariant(object.Key, keys) {
+				continue
+			}
+			collected = append(collected, pagedFile{
+				file:   File{Name: object.Key, Size: object.Size, Folder: false},
+				cursor: previous,
+			})
+			if len(collected) > limit {
+				break
+			}
+		}
+		if !hasMore {
+			break
+		}
+	}
+
+	if len(collected) > limit {
+		listing.HasMore = true
+		listing.Next = collected[limit].cursor
+		collected = collected[:limit]
+	}
+	listing.Files = make([]File, 0, len(collected))
+	for _, entry := range collected {
+		listing.Files = append(listing.Files, entry.file)
+	}
+	listing.Total = len(listing.Files)
+	listing.TotalKnown = singlePage && !listing.HasMore
+	return listing, nil
+}
+
+// seedBoundaryKeys primes the key set with the cursor and the identity object it
+// may encode, so a variant opening a page is still recognised when its sibling
+// was the last key of the previous one.
+func seedBoundaryKeys(keys map[string]struct{}, after string) {
+	if after == "" {
+		return
+	}
+	keys[after] = struct{}{}
+	for _, encoding := range []Encoding{EncodingBrotli, EncodingGzip} {
+		if sibling, found := strings.CutSuffix(after, encoding.suffix()); found {
+			keys[sibling] = struct{}{}
+		}
+	}
 }
 
 // isEncodedVariant reports whether a key is the encoded variant of another listed
