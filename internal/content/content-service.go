@@ -80,34 +80,6 @@ func (svc *ContentService) UploadLimits() UploadLimits {
 	return svc.uploadLimits
 }
 
-// filterArray filter objects array
-func (svc *ContentService) filterArray(arr []minio.ObjectInfo, pkg string, fileName string, version string) []minio.ObjectInfo {
-	var filtered []minio.ObjectInfo
-	packagePrefix := fmt.Sprintf("%s@", pkg)
-
-	for _, item := range arr {
-		keyWithoutPackage, found := strings.CutPrefix(item.Key, packagePrefix)
-		if !found {
-			continue
-		}
-
-		candidateVersion, candidateFile, found := strings.Cut(keyWithoutPackage, "/")
-		if !found || "/"+candidateFile != fileName {
-			continue
-		}
-
-		candidateSemver := "v" + candidateVersion
-		if !semver.IsValid(candidateSemver) {
-			continue
-		}
-
-		if versionMatches(candidateVersion, version) {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered
-}
-
 func versionMatches(candidateVersion string, requestedVersion string) bool {
 	candidateSemver := "v" + candidateVersion
 	if !semver.IsValid(candidateSemver) {
@@ -129,47 +101,21 @@ func versionMatches(candidateVersion string, requestedVersion string) bool {
 	}
 }
 
-// getVersion get package version from an S3 object key.
-// Returns an empty string if the key does not contain the expected '@' separator
-// (defensive: avoids a panic on malformed/unexpected object names).
-func (svc *ContentService) getVersion(objStorageFile string) string {
-	parts := strings.SplitN(objStorageFile, "@", 2)
-	if len(parts) < 2 {
-		logrus.Warnf("[ContentService] getVersion - unexpected object key without '@': %s", objStorageFile)
-		return ""
-	}
-	return strings.Split(parts[1], "/")[0]
-}
-
-// getLatestVersion get last package version
-func (svc *ContentService) getLatestVersion(arr []minio.ObjectInfo) string {
+// resolveVersion returns the highest stable matching version and whether one exists.
+func (svc *ContentService) resolveVersion(ctx context.Context, pkg string, version string) (string, bool) {
+	packagePrefix := pkg + "@"
 	var versions []string
-	for _, curr := range arr {
-		v := svc.getVersion(curr.Key)
-		if v == "" {
-			continue // skip malformed entries
+	for _, commonPrefix := range svc.objectStorageManager.ListCommonPrefixes(ctx, packagePrefix) {
+		candidate := strings.TrimSuffix(strings.TrimPrefix(commonPrefix, packagePrefix), "/")
+		if versionMatches(candidate, version) {
+			versions = append(versions, "v"+candidate)
 		}
-		versions = append(versions, "v"+v)
 	}
 	if len(versions) == 0 {
-		return ""
+		return "", false
 	}
 	semver.Sort(versions)
-	return strings.TrimPrefix(versions[len(versions)-1], "v")
-}
-
-// getLatestPackagePath get latest package path
-func (svc *ContentService) getLatestPackagePath(ctx context.Context, pkg string, version string, fileName string) string {
-	fileName = "/" + strings.TrimLeft(fileName, "/")
-	objs := svc.objectStorageManager.ListObjects(ctx, fmt.Sprintf("%s@%s", pkg, version))
-	filtred := svc.filterArray(objs, pkg, fileName, version)
-
-	if len(filtred) == 0 {
-		return fmt.Sprintf("%s@%s%s", pkg, version, fileName)
-	}
-
-	lversion := svc.getLatestVersion(filtred)
-	return fmt.Sprintf("%s@%s%s", pkg, lversion, fileName)
+	return strings.TrimPrefix(versions[len(versions)-1], "v"), true
 }
 
 // CreatePackage create package
@@ -325,7 +271,12 @@ func (svc *ContentService) GetFile(ctx context.Context, pkg string, version stri
 	if pinned {
 		objectPath = cacheKey
 	} else {
-		objectPath = svc.getLatestPackagePath(ctx, pkg, version, fileName)
+		resolvedVersion, found := svc.resolveVersion(ctx, pkg, version)
+		if found {
+			version = resolvedVersion
+		}
+		normalizedFileName := "/" + strings.TrimLeft(fileName, "/")
+		objectPath = fmt.Sprintf("%s@%s%s", pkg, version, normalizedFileName)
 	}
 
 	obj, encoding, err := svc.getEncodedObject(ctx, objectPath, fileName, accepted)
@@ -379,19 +330,11 @@ func (svc *ContentService) getEncodedObject(ctx context.Context, objectPath, fil
 func (svc *ContentService) GetFiles(ctx context.Context, pkg string, version string, after string, limit int) (FileListing, *errors.GimmeError) {
 	listing := FileListing{Version: version}
 	if !IsPinnedVersion(version) {
-		packagePrefix := pkg + "@"
-		var versions []string
-		for _, commonPrefix := range svc.objectStorageManager.ListCommonPrefixes(ctx, packagePrefix) {
-			candidate := strings.TrimSuffix(strings.TrimPrefix(commonPrefix, packagePrefix), "/")
-			if versionMatches(candidate, version) {
-				versions = append(versions, "v"+candidate)
-			}
-		}
-		if len(versions) == 0 {
+		resolvedVersion, found := svc.resolveVersion(ctx, pkg, version)
+		if !found {
 			return listing, nil
 		}
-		semver.Sort(versions)
-		listing.Version = strings.TrimPrefix(versions[len(versions)-1], "v")
+		listing.Version = resolvedVersion
 	}
 
 	prefix := fmt.Sprintf("%s@%s/", pkg, listing.Version)

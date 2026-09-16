@@ -342,7 +342,7 @@ Before touching application code, so the lint inventory is known in advance.
   *Filtering shrinks a page,* so the loop keeps fetching raw pages until it holds `limit` visible files: with brotli and gzip variants for every entry, one raw page of 100 keys renders ~33 rows. Cost stays proportional to the page, not to the package.
   *`getLatestPackagePath` was left untouched* — same file, same 31 843-object drain, but it is #85's subject and folding it in here would have made one diff out of two reviewable ones.
 
-- [ ] **#85 — Partial-version requests pay a full recursive listing** *(after #45 + #46)*
+- [x] **#85 — Partial-version requests pay a full recursive listing** *(after #45 + #46)*
   `getLatestPackagePath` calls `ListObjects` on every partial-version file request, so serving one 489 B file drains all 31 843 objects. Measured: **0.023 s pinned vs 0.810 s partial — 35x**, cache disabled. Cost scales with the file count of the package, not the size of the file served. This is the asset-serving hot path, not the browse UI.
   *Files:* `internal/content/content-service.go`, `internal/storage/objectstorage-manager.go`
   *Approach:* resolve from the version list, not the object list — a delimited (non-recursive) list on the `pkg@` prefix returns one common prefix per version instead of one entry per file, then build the path directly as the pinned branch already does.
@@ -358,6 +358,7 @@ Before touching application code, so the lint inventory is known in advance.
   A thousandfold on the asset-serving hot path, and it tracks the object count exactly as the drain predicts.
   *Note:* the cache mitigates repeat hits but is optional and does nothing for the cold path, so it does not close this.
   ⚠️ *Budget the replacement honestly:* `ListCommonPrefixes` is constant in package size but still a ~234 ms round trip at concurrency 20 on this rig (see #84). It replaces an O(objects) drain with an O(1) call — a large win here — but it is not free, so the cache stays worth having rather than being made redundant by it.
+  *Settled while implementing — a partial version serves the file from the highest matching release, whatever files it holds.* The recursive drain let resolution skip a version that lacked the requested file and fall back to an older one; a version listing cannot see files, so that fallback is gone and `pkg@1/x.js` answers 404 when the highest 1.x has no `x.js`. This is the rule `GET /gimme/pkg@1` already applied since #84, so the listing and the served file can no longer name two different versions, and it is what jsDelivr and unpkg do. Rejected: walking versions downwards with a stat each until the file turns up — one extra round trip per skipped version, and the listing/file disagreement comes back. `GetFile` and `GetFiles` share one `resolveVersion`; `filterArray`, `getLatestVersion` and `getVersion` are gone with the drain.
 
 - [ ] **#49 — Browse: `GET /packages` and version listing**
   Independent of everything else. Good candidate if a visible win is wanted early. See #84 — the pagination contract should be settled first, or in the same pass.

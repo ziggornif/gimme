@@ -627,11 +627,12 @@ my-lib@2.1.1/my-lib.min.js   ← next patch</code></pre>
 
                     <h3>Semver partial resolution</h3>
                     <p>
-                        A request for <code>my-lib@2.1/file.js</code> triggers a
-                        <code>ListObjects</code> call in S3, sorts all matching
-                        versions, and redirects to the highest patch. With Redis
-                        enabled, the resolved path is cached — S3 is only hit on
-                        a cache miss.
+                        A request for <code>my-lib@2.1/file.js</code> lists the
+                        package's versions in S3 (one entry per version, not per
+                        file) and serves the file from the highest matching
+                        version. If that version does not contain the file, the
+                        request returns 404. With Redis enabled, the resolved
+                        path is cached — S3 is only hit on a cache miss.
                     </p>
                 </section>
 
@@ -1880,9 +1881,10 @@ curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
                     </h3>
                     <p>
                         When enabled, the resolved S3 path for partial versions
-                        is stored in Redis, skipping <code>ListObjects</code> on
-                        repeat requests. File bodies are always streamed
-                        directly from S3 — only the path lookup is cached.
+                        is stored in Redis, skipping the package version listing
+                        (one entry per version, not per file) on repeat requests.
+                        File bodies are always streamed directly from S3 — only
+                        the path lookup is cached.
                     </p>
                     <pre><code class="language-yaml">redis_url: redis://localhost:6379
 cache:

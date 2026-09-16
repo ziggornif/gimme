@@ -475,6 +475,33 @@ func TestPackageControllerGetEmpty(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestPackageControllerGetPartialVersionServesHighestRelease(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	older := archiveWithEntries(t, map[string][]byte{"app.js": []byte("older"), "legacy.js": []byte("legacy")})
+	require.Equal(t, http.StatusCreated, createPackage(t, router, "partial", "1.0.0", older, rawToken).Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "partial", "1.0.0") })
+	newer := archiveWithEntries(t, map[string][]byte{"app.js": []byte("newer")})
+	require.Equal(t, http.StatusCreated, createPackage(t, router, "partial", "1.1.0", newer, rawToken).Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "partial", "1.1.0") })
+
+	app := utils.PerformRequest(router, "GET", "/gimme/partial@1/app.js", nil)
+	assert.Equal(t, http.StatusOK, app.Code)
+	assert.Equal(t, "newer", app.Body.String())
+
+	legacy := utils.PerformRequest(router, "GET", "/gimme/partial@1/legacy.js", nil)
+	assert.Equal(t, http.StatusNotFound, legacy.Code)
+
+	pinnedLine := utils.PerformRequest(router, "GET", "/gimme/partial@1.0/legacy.js", nil)
+	assert.Equal(t, http.StatusOK, pinnedLine.Code)
+	assert.Equal(t, "legacy", pinnedLine.Body.String())
+}
+
 func TestPackageControllerGetNotFound(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()

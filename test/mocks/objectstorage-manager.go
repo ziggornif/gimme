@@ -63,8 +63,7 @@ func (osc *MockOSManager) ObjectExists(_ context.Context, _ string) bool {
 func (osc *MockOSManager) ListObjects(_ context.Context, fileName string) []minio.ObjectInfo {
 	// Two-digit components (1.10.0, 1.11.0) and a second major (10.0.0) are
 	// required: without them no fixture can express the pkg@1 -> 10.0.0 bug.
-	// 1.11.0 deliberately ships only a source map, so a request for test.js
-	// must not resolve to it.
+	// 1.11.0 is the highest 1.x and holds no test.js.
 	var objs = []minio.ObjectInfo{{
 		Key: "test@1.0.0",
 	}, {
