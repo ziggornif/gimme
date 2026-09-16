@@ -435,7 +435,7 @@ HEAD /gimme/<package>@<version>/<file>
 curl http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js
 ```
 
-**Semver partial versions are supported** — `awesome-lib@1.0` resolves to the latest `1.0.x` available.
+**Semver partial versions are supported** — `awesome-lib@1.0` serves the file from the latest `1.0.x` available, or returns 404 if that version does not contain the file.
 
 > **CORS:** CORS is configurable via `cors.allowed_origins` in `gimme.yml`. If left empty (the default), all origins are allowed (`*`) — suitable for a public CDN. Set it to a list of trusted origins to restrict cross-origin access.
 
@@ -558,7 +558,7 @@ Configure your proxy to cache `/gimme/*` responses and pass the `Cache-Control` 
 
 ### Level 2 — Internal Redis cache (optional)
 
-Gimme includes an optional internal cache backed by **Redis / Valkey**. When enabled, it caches the result of partial version resolution (`pkg@1.0` → `pkg@1.0.3`) so that S3 `ListObjects` calls are avoided on repeated requests.
+Gimme includes an optional internal cache backed by **Redis / Valkey**. When enabled, it caches the result of partial version resolution (`pkg@1.0` → `pkg@1.0.3`) so that listings of the package's versions (one entry per version, not per file) are avoided on repeated requests.
 
 > The file body is always streamed directly from S3 — only the resolved S3 object path is cached.
 
@@ -566,7 +566,7 @@ Gimme includes an optional internal cache backed by **Redis / Valkey**. When ena
 
 1. A request arrives for `GET /gimme/pkg@1.0/file.js` (partial version).
 2. Gimme looks up the key `pkg@1.0/file.js` in Redis.
-3. **Cache hit** → the resolved path (e.g. `pkg@1.0.3/file.js`) is returned immediately; S3 `ListObjects` is skipped.
+3. **Cache hit** → the resolved path (e.g. `pkg@1.0.3/file.js`) is returned immediately; the package's versions are not listed in S3.
 4. **Cache miss** → gimme resolves the latest version via S3, stores the result in Redis with the configured TTL, then streams the file.
 5. When a package is deleted (`DELETE /packages/pkg@1.0.3`), cache entries whose key starts with `pkg@1.0.3` are invalidated. Partial-version entries (e.g. `pkg@1.0/file.js`) are not touched — they will naturally expire via the TTL and resolve to the next available version on the following request.
 

@@ -84,15 +84,15 @@ func TestContentService_GetFile(t *testing.T) {
 	assert.Equal(t, "test@1.1.1/test.js", osm.LastGetObjectPath())
 }
 
-// Partial versions must be compared component-wise: 1.10.0 is newer than 1.9.9,
+// Partial versions must be compared component-wise: 1.11.0 is newer than 1.9.9,
 // and 10.0.0 is a different major that pkg@1 must never resolve to.
 func TestContentService_GetMajorFile(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-	file, _, err := service.GetFile(context.Background(), "test", "1", "/test.js", nil)
+	file, _, err := service.GetFile(context.Background(), "test", "1", "/test.js.map", nil)
 	assert.NotNil(t, file)
 	assert.Nil(t, err)
-	assert.Equal(t, "test@1.10.0/test.js", osm.LastGetObjectPath())
+	assert.Equal(t, "test@1.11.0/test.js.map", osm.LastGetObjectPath())
 }
 
 func TestContentService_GetMinorFile(t *testing.T) {
@@ -115,24 +115,39 @@ func TestContentService_GetFile_PartialVersionSkipsPrerelease(t *testing.T) {
 	assert.Equal(t, "test@2/test.js", osm.LastGetObjectPath())
 }
 
-// A file name must match a whole path segment: test.js must not be satisfied by
-// test.js.map, and asking for the map must reach the version that holds it.
-func TestContentService_GetFile_FileNameIsNotASubstringMatch(t *testing.T) {
+func TestContentService_GetFile_ResolvesHighestVersionWithoutTheFile(t *testing.T) {
 	osm := &mocks.MockOSManager{}
 	service := NewContentService(osm, nil, 0, UploadLimits{})
-
-	file, _, err := service.GetFile(context.Background(), "test", "1.11", "/test.js.map", nil)
-	assert.NotNil(t, file)
+	_, _, err := service.GetFile(context.Background(), "test", "1", "/test.js", nil)
 	assert.Nil(t, err)
-	assert.Equal(t, "test@1.11.0/test.js.map", osm.LastGetObjectPath())
+	assert.Equal(t, "test@1.11.0/test.js", osm.LastGetObjectPath())
+}
 
-	// 1.11.0 holds no test.js, only test.js.map: nothing resolves, so the
-	// unresolved partial version is queried and the storage answers 404.
-	osm = &mocks.MockOSManager{}
-	service = NewContentService(osm, nil, 0, UploadLimits{})
-	_, _, err = service.GetFile(context.Background(), "test", "1.11", "/test.js", nil)
+func TestContentService_GetFile_UnresolvedPartialVersion(t *testing.T) {
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0, UploadLimits{})
+	_, _, err := service.GetFile(context.Background(), "test", "3", "/test.js", nil)
 	assert.Nil(t, err)
-	assert.Equal(t, "test@1.11/test.js", osm.LastGetObjectPath())
+	assert.Equal(t, "test@3/test.js", osm.LastGetObjectPath())
+}
+
+type recursiveListingCounter struct {
+	*mocks.MockOSManager
+	recursiveListings int
+}
+
+func (manager *recursiveListingCounter) ListObjects(ctx context.Context, prefix string) []minio.ObjectInfo {
+	manager.recursiveListings++
+	return manager.MockOSManager.ListObjects(ctx, prefix)
+}
+
+func TestContentService_GetFile_PartialVersionSkipsRecursiveListing(t *testing.T) {
+	manager := &recursiveListingCounter{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	_, _, err := service.GetFile(context.Background(), "test", "1.1", "/test.js", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "test@1.1.1/test.js", manager.LastGetObjectPath())
+	assert.Equal(t, 0, manager.recursiveListings)
 }
 
 func TestContentService_GetFiles(t *testing.T) {
@@ -152,30 +167,6 @@ func TestContentService_DeletePackageErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManagerErr{}, nil, 0, UploadLimits{})
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	assert.Equal(t, "boom", err.Error())
-}
-
-func TestContentService_GetLatestVersionEmpty(t *testing.T) {
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	result := service.getLatestVersion([]minio.ObjectInfo{})
-	assert.Equal(t, "", result)
-}
-
-func TestContentService_GetVersion_NoAtSign(t *testing.T) {
-	// Object keys without '@' must not panic and must return an empty string.
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	result := service.getVersion("malformed-object-key-without-at-sign")
-	assert.Equal(t, "", result)
-}
-
-func TestContentService_GetLatestVersion_MalformedKeys(t *testing.T) {
-	// Malformed entries (no '@') must be skipped; the valid entry wins.
-	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
-	objs := []minio.ObjectInfo{
-		{Key: "malformed-no-at-sign"},
-		{Key: "pkg@1.0.0/file.js"},
-	}
-	result := service.getLatestVersion(objs)
-	assert.Equal(t, "1.0.0", result)
 }
 
 // --- Cache tests ---
