@@ -21,6 +21,8 @@ type OSManager interface {
 	GetObject(ctx context.Context, objectName string) (*minio.Object, *errors.GimmeError)
 	ObjectExists(ctx context.Context, objectName string) bool
 	ListObjects(ctx context.Context, objectParentName string) []minio.ObjectInfo
+	ListObjectsPage(ctx context.Context, prefix string, after string, limit int) ([]minio.ObjectInfo, bool)
+	ListCommonPrefixes(ctx context.Context, prefix string) []string
 	RemoveObjects(ctx context.Context, objectParentName string) *errors.GimmeError
 	Ping(ctx context.Context) *errors.GimmeError
 }

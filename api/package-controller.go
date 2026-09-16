@@ -7,6 +7,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,6 +30,25 @@ type PackageController struct {
 type packageSlice struct {
 	Name    string
 	Version string
+}
+
+const (
+	defaultListingLimit = 50
+	maxListingLimit     = 500
+)
+
+type paginationResponse struct {
+	Limit   int    `json:"limit"`
+	Next    string `json:"next"`
+	HasMore bool   `json:"has_more"`
+	Total   *int   `json:"total"`
+}
+
+type packageListingResponse struct {
+	Package    string             `json:"package"`
+	Version    string             `json:"version"`
+	Files      []content.File     `json:"files"`
+	Pagination paginationResponse `json:"pagination"`
 }
 
 func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.GimmeError) {
@@ -56,8 +76,10 @@ func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.Gimm
 }
 
 func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name string, version string) {
-	files, _ := ctrl.contentService.GetFiles(c.Request.Context(), name, version)
-	if len(files) == 0 {
+	limit := listingLimit(c.Query("limit"))
+	after := c.Query("after")
+	listing, _ := ctrl.contentService.GetFiles(c.Request.Context(), name, version, after, limit)
+	if len(listing.Files) == 0 {
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -68,10 +90,67 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 		return
 	}
 
+	firstURL := listingURL(pkg, limit, "")
+	nextURL := ""
+	if listing.HasMore {
+		nextURL = listingURL(pkg, limit, listing.Next)
+	}
+	if c.NegotiateFormat(gin.MIMEHTML, gin.MIMEJSON) == gin.MIMEJSON {
+		links := []string{fmt.Sprintf("<%s>; rel=\"first\"", firstURL)}
+		if nextURL != "" {
+			links = append(links, fmt.Sprintf("<%s>; rel=\"next\"", nextURL))
+		}
+		c.Header("Link", strings.Join(links, ", "))
+		var total *int
+		if listing.TotalKnown {
+			total = &listing.Total
+		}
+		c.JSON(http.StatusOK, packageListingResponse{
+			Package: name,
+			Version: listing.Version,
+			Files:   listing.Files,
+			Pagination: paginationResponse{
+				Limit: limit, Next: listing.Next, HasMore: listing.HasMore, Total: total,
+			},
+		})
+		return
+	}
+
 	c.HTML(http.StatusOK, "package.tmpl", gin.H{
-		"packageName": pkg,
-		"files":       files,
+		"packageName":     pkg,
+		"resolvedVersion": listing.Version,
+		"files":           listing.Files,
+		"fileCount":       len(listing.Files),
+		"total":           listing.Total,
+		"totalKnown":      listing.TotalKnown,
+		"hasMore":         listing.HasMore,
+		"nextURL":         nextURL,
 	})
+}
+
+func listingLimit(raw string) int {
+	if raw == "" {
+		return defaultListingLimit
+	}
+	limit, err := strconv.Atoi(raw)
+	if err != nil {
+		return defaultListingLimit
+	}
+	if limit < 1 {
+		return 1
+	}
+	if limit > maxListingLimit {
+		return maxListingLimit
+	}
+	return limit
+}
+
+func listingURL(pkg string, limit int, after string) string {
+	listingPath := "/gimme/" + url.PathEscape(pkg) + "?limit=" + strconv.Itoa(limit)
+	if after != "" {
+		listingPath += "&after=" + url.QueryEscape(after)
+	}
+	return listingPath
 }
 
 func (ctrl *PackageController) createPackage(c *gin.Context) {

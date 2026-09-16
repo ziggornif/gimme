@@ -114,6 +114,40 @@ func (osc *MockOSManager) ListObjects(_ context.Context, fileName string) []mini
 	return objs
 }
 
+func (osc *MockOSManager) ListObjectsPage(ctx context.Context, prefix string, after string, limit int) ([]minio.ObjectInfo, bool) {
+	objects := osc.ListObjects(ctx, prefix)
+	page := make([]minio.ObjectInfo, 0, limit)
+	for _, object := range objects {
+		if object.Key <= after {
+			continue
+		}
+		if len(page) == limit {
+			return page, true
+		}
+		page = append(page, object)
+	}
+	return page, false
+}
+
+func (osc *MockOSManager) ListCommonPrefixes(ctx context.Context, prefix string) []string {
+	seen := map[string]struct{}{}
+	var prefixes []string
+	for _, object := range osc.ListObjects(ctx, prefix) {
+		rest := strings.TrimPrefix(object.Key, prefix)
+		version, _, found := strings.Cut(rest, "/")
+		if !found || version == "" {
+			continue
+		}
+		commonPrefix := prefix + version + "/"
+		if _, exists := seen[commonPrefix]; exists {
+			continue
+		}
+		seen[commonPrefix] = struct{}{}
+		prefixes = append(prefixes, commonPrefix)
+	}
+	return prefixes
+}
+
 func (osc *MockOSManager) RemoveObjects(_ context.Context, _ string) *errors.GimmeError {
 	return nil
 }

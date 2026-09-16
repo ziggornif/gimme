@@ -474,7 +474,8 @@
           </svg>
           {{ .packageName }}
         </span>
-        <span class="file-count" id="file-count" aria-live="polite"></span>
+        <span class="file-count" id="file-count" aria-live="polite">{{ if .totalKnown }}{{ .total }} file{{ if ne .total 1 }}s{{ end }}{{ else }}{{ .fileCount }} file{{ if ne .fileCount 1 }}s{{ end }} shown{{ end }}</span>
+		<span class="file-count">Resolved version: {{ .resolvedVersion }}</span>
       </div>
     </div>
 
@@ -535,6 +536,12 @@
       <p>No files found in this package.</p>
     </div>
     {{ end }}
+
+	{{ if .hasMore }}
+	<nav aria-label="Package pagination" style="margin-top: 1rem; text-align: right;">
+	  <a href="{{ .nextURL }}">Next</a>
+	</nav>
+	{{ end }}
 
   </main>
 
@@ -629,13 +636,6 @@
           }
         }
       });
-
-      /* ---- File count ---- */
-      var rows = document.querySelectorAll('#file-tbody tr');
-      var countEl = document.getElementById('file-count');
-      if (countEl && rows.length > 0) {
-        countEl.textContent = rows.length + ' file' + (rows.length !== 1 ? 's' : '');
-      }
 
       /* ---- Toast ---- */
       var toast = document.getElementById('toast');

@@ -327,22 +327,47 @@ Before touching application code, so the lint inventory is known in advance.
   ⚠️ *Serving cannot be unit-tested against the mocks* — `MockOSManager.GetObject` returns `&minio.Object{}` and `Stat()` on that zero value panics. Same wall as #48 and #47: the digest is proven end-to-end in `api/package-controller_integration_test.go` against Garage, and only the hashing helper is unit-tested.
   *Deliberately out of scope:* SHA-256/SHA-512 variants, a per-package manifest object, `GET /packages` JSON (that is #49's, and it should read the same metadata), and backfilling hashes for already-uploaded packages.
 
-- [ ] **#84 — Paginate the package listing (UI + API)** ⚠️ *settle before or with #49*
+- [x] **#84 — Paginate the package listing (UI + API)** ⚠️ *settle before or with #49*
   `GET /gimme/<pkg>@<version>` returns every object under the prefix in one response. Measured on `@mui/icons-material@5.15.21` (31 843 files): **39.7 MB of HTML** for an 18.7 MB package, 1.3 s server-side, and a browser that visibly struggles. A design-system icon package is the primary use case for a CDN, not an exotic input.
   *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`, `internal/storage/objectstorage-manager.go`
   *Start at the storage layer:* `ObjectStorageManager.ListObjects` hardcodes `Recursive: true` and drains the channel into a full slice, which makes pagination impossible for every caller above it. S3 `ListObjectsV2` is natively paginated (`MaxKeys` + continuation token); minio-go already exposes it.
   *Order:* #49 has no listing contract yet — agreeing this one first means #49 adopts it instead of inventing a second.
   *Also:* `GetFiles` uses the raw prefix with no version resolution, so `pkg@5` lists every version's files mixed together with no indication of which version each belongs to.
+  *Settled while implementing — the pagination contract, which #49 adopts:* keyset only, `?limit=N` (default 50, clamped to [1, 500]) and `?after=<last raw object key>`. Offset and numbered page links were considered and rejected: S3 has no offset, so `?page=100` would re-drain 10 000 keys — it reintroduces the defect on the later pages. `Link` carries `rel="first"` and `rel="next"`; `rel="prev"` and `rel="last"` are **not** derivable from a keyset cursor and are deliberately absent, so the browser's Back button is the Previous. GitLab's keyset mode makes the same two omissions.
+  *The cursor is `StartAfter`, not a continuation token.* Verified in minio-go v7.3.0: `ListObjects` and `ListObjectsIter` are the only public listing methods and neither exposes `NextContinuationToken`, even though `ListBucketV2Result` parses it. `StartAfter` is the whole of the available cursor.
+  ⚠️ *There is no total, and no amount of API archaeology produces one.* `ListBucketV2Result` in v7.3.0 has no `KeyCount` field at all; S3's own `KeyCount` counts the page, not the prefix. Object counts live in the MinIO admin API (`madmin`, not a dependency) and Garage's admin API — both bucket-level, both needing admin credentials. S3 Inventory is an async manifest job Garage does not implement. So `total` is reported exactly in the one case where it is free — the whole listing fitted in a single page — and is `null` otherwise. Do not add a counting pass in #49.
+  *JSON rides the existing route* under `Accept: application/json`, negotiated with `c.NegotiateFormat(gin.MIMEHTML, gin.MIMEJSON)` so a browser's `Accept` and a bare `*/*` both still get HTML. A dedicated `GET /packages/:package/files` was rejected — it would be a third listing route for #49 to reconcile.
+  *Version resolution landed here, and it is what #85 reuses.* `ListCommonPrefixes` does a non-recursive list on `pkg@`: minio sets delimiter `/` and yields each common prefix as `ObjectInfo{Key: prefix}`, so ~10 entries come back instead of 31 843. ⚠️ *Cheap in scaling, not cheap per call.* Measured against Garage v1.3.1 with the real `@mui/icons-material@5.15.21` loaded, read from the service's own `gimme_s3_operation_duration_seconds` histogram: `ListCommonPrefixes` costs 12.9 ms alone but **234 ms at concurrency 20**, against 44.5 ms for `ListObjectsPage` — roughly 2.5x a paged list, and that one extra call per request is what makes a partial-version listing 48 req/s where a pinned one does 213. The cost is **constant in package size** — the same call on a 6-object package measured 239 ms, indistinguishable — so the primitive does what it was chosen for, but budget it as a real round trip rather than a free lookup. The listing prefix is now `pkg@<resolved>/` **with the trailing slash** — its absence is what let `mui@5` reach `mui@50.1.0`, and it also let `mui@1.0.0` reach `mui@1.0.0-beta`. The partial-match predicate settled in #45 + #46 was extracted from `filterArray` into `versionMatches` and is shared, so the two resolution paths cannot drift.
+  ⚠️ *Two defects that only exist once there are pages, both caught in review with a failing test each:* a `.br`/`.gz` variant is hidden by looking up its identity sibling in the set of listed keys, so a page opening on `app.js.gz` whose sibling `app.js` fell on the previous page showed the variant as a file — the cursor's own identity sibling has to be seeded into that set. And `HasMore` computed from raw keys advertised a `Next` link to a page holding nothing but filtered-out variants, i.e. a 404 on a link just rendered — so the page is only advertised once a *visible* file is known to be on it, by collecting `limit + 1` and resuming from the raw key preceding the extra one.
+  *Filtering shrinks a page,* so the loop keeps fetching raw pages until it holds `limit` visible files: with brotli and gzip variants for every entry, one raw page of 100 keys renders ~33 rows. Cost stays proportional to the page, not to the package.
+  *`getLatestPackagePath` was left untouched* — same file, same 31 843-object drain, but it is #85's subject and folding it in here would have made one diff out of two reviewable ones.
 
 - [ ] **#85 — Partial-version requests pay a full recursive listing** *(after #45 + #46)*
   `getLatestPackagePath` calls `ListObjects` on every partial-version file request, so serving one 489 B file drains all 31 843 objects. Measured: **0.023 s pinned vs 0.810 s partial — 35x**, cache disabled. Cost scales with the file count of the package, not the size of the file served. This is the asset-serving hot path, not the browse UI.
   *Files:* `internal/content/content-service.go`, `internal/storage/objectstorage-manager.go`
   *Approach:* resolve from the version list, not the object list — a delimited (non-recursive) list on the `pkg@` prefix returns one common prefix per version instead of one entry per file, then build the path directly as the pinned branch already does.
+  *The primitive already exists:* #84 added `ObjectStorageManager.ListCommonPrefixes` and the shared `versionMatches` predicate for exactly this. Reuse them — do not write a second resolution.
   *Order:* same function as #45 + #46, which rewrite the resolution. Land after them or fold in — doing it first means writing the resolution tests twice.
+  *Measured under load while validating #84,* same file, same package, only the version form differing — Garage v1.3.1, concurrency 5:
+
+  | Package | pinned | partial |
+  |---|---|---|
+  | 6 objects | 80.8 req/s | 52.6 req/s (1.5x slower) |
+  | 31 843 objects | 1540 req/s, p50 2 ms | **1.4 req/s, p50 3.46 s** |
+
+  A thousandfold on the asset-serving hot path, and it tracks the object count exactly as the drain predicts.
   *Note:* the cache mitigates repeat hits but is optional and does nothing for the cold path, so it does not close this.
+  ⚠️ *Budget the replacement honestly:* `ListCommonPrefixes` is constant in package size but still a ~234 ms round trip at concurrency 20 on this rig (see #84). It replaces an O(objects) drain with an O(1) call — a large win here — but it is not free, so the cache stays worth having rather than being made redundant by it.
 
 - [ ] **#49 — Browse: `GET /packages` and version listing**
   Independent of everything else. Good candidate if a visible win is wanted early. See #84 — the pagination contract should be settled first, or in the same pass.
+
+- [ ] **#122 — Browse a package by folder, not one flat list** *(filed mid-flight during #84; after #84)*
+  The listing renders one row per object labelled with the full object key, and there is no way to descend. #84 bounded the response (105 130 B for 50 rows on `@mui/icons-material@5.15.21`) but a bound is not a shape — the two directories that package actually has stay invisible while `mui-icons@5.15.21/` is repeated on all fifty lines.
+  *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`
+  ⚠️ *A folder view alone does not fix it, and assuming otherwise is the trap here.* That package holds 21 229 files directly at its root, so a delimited listing of the root still returns 21 231 entries — counted from jsDelivr's data API, whose own folder view for this package is exactly as long. Folder view for shape, #84's keyset pagination for bound, applied **within** a level. Not alternatives.
+  *No storage work:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child. A folder browse is that same call on a deeper prefix. The work is routing, rendering and the listing contract.
+  *Order:* settle with #49 — same browse surface, same contract, and agreeing it twice is how two of them get invented.
 
 - [ ] **#51 — `@latest`**
   Depends on #45: it shares the resolution path.
