@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -21,6 +22,8 @@ import (
 )
 
 const uploadRollbackTimeout = 30 * time.Second
+
+var packageNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 type ContentService struct {
 	objectStorageManager storage.ObjectStorageManager
@@ -120,6 +123,17 @@ func (svc *ContentService) resolveVersion(ctx context.Context, pkg string, versi
 
 // CreatePackage create package
 func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
+	if !packageNamePattern.MatchString(name) {
+		err := fmt.Errorf("invalid package name %q: only letters, digits, '.', '_' and '-' are allowed", name)
+		logrus.Errorf("[ContentService] CreatePackage - %v", err)
+		return errors.NewBusinessError(errors.BadRequest, err)
+	}
+	if !isFullSemver(version) {
+		err := fmt.Errorf("invalid package version %q: a full semver version is required (e.g. 1.0.0)", version)
+		logrus.Errorf("[ContentService] CreatePackage - %v", err)
+		return errors.NewBusinessError(errors.BadRequest, err)
+	}
+
 	if svc.uploadLimits.MaxSize > 0 && fileSize > svc.uploadLimits.MaxSize {
 		return errors.NewBusinessError(errors.PayloadTooLarge, fmt.Errorf("upload exceeds the maximum request size of %d bytes (upload.max_size)", svc.uploadLimits.MaxSize))
 	}
@@ -213,6 +227,12 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	return nil
 }
 
+func isFullSemver(version string) bool {
+	base := strings.SplitN(version, "-", 2)[0]
+	base = strings.SplitN(base, "+", 2)[0]
+	return len(strings.Split(base, ".")) == 3 && semver.IsValid("v"+version)
+}
+
 func (svc *ContentService) rollbackPartialUpload(ctx context.Context, folderName string, uploadErr error) *errors.GimmeError {
 	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), uploadRollbackTimeout)
 	defer cancel()
@@ -231,19 +251,10 @@ func (svc *ContentService) rollbackPartialUpload(ctx context.Context, folderName
 // immutable and can be cached indefinitely.
 // Partial versions ("1.0", "1") and pre-release versions ("1.0.0-rc.1") return false.
 func IsPinnedVersion(version string) bool {
-	// Require exactly 3 dot-separated numeric parts in the original string
-	// before any pre-release/build suffix.
-	base := strings.SplitN(version, "-", 2)[0]
-	base = strings.SplitN(base, "+", 2)[0]
-	parts := strings.Split(base, ".")
-	if len(parts) != 3 {
+	if !isFullSemver(version) {
 		return false
 	}
-	// Validate the full version as semver and ensure no pre-release.
 	v := "v" + version
-	if !semver.IsValid(v) {
-		return false
-	}
 	return semver.Prerelease(v) == ""
 }
 
