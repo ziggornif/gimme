@@ -350,6 +350,7 @@ In `oidc` mode, authenticate via the admin UI at `/admin` and use the token mana
 ### 2. Upload a package
 
 A package is a ZIP archive. The `name` and `version` fields identify it in the CDN.
+Names may contain only letters, digits, `.`, `_`, and `-`. Versions must be full semver versions such as `1.0.0`; prerelease and build metadata are accepted.
 
 ```bash
 curl -s -X POST http://localhost:8080/packages \

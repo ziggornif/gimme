@@ -1103,3 +1103,46 @@ func TestContentService_GetFiles_AdvertisedNextPageIsNeverEmpty(t *testing.T) {
 	require.Nil(t, err)
 	assert.NotEmpty(t, second.Files, "the Next cursor was advertised, so its page must not be empty (the controller 404s on an empty listing)")
 }
+
+func TestContentService_CreatePackage_ValidatesNameAndVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		pkgName     string
+		version     string
+		rejectField string
+	}{
+		{"name with at sign", "a@b", "1.0.0", "name"},
+		{"name with slash", "foo/bar", "1.0.0", "name"},
+		{"empty name", "", "1.0.0", "name"},
+		{"name with space", "a b", "1.0.0", "name"},
+		{"name with question mark", "a?b", "1.0.0", "name"},
+		{"version tag", "pkg", "latest", "version"},
+		{"version with v prefix", "pkg", "v1.0.0", "version"},
+		{"major version", "pkg", "1", "version"},
+		{"minor version", "pkg", "1.0", "version"},
+		{"empty version", "pkg", "", "version"},
+		{"plain name", "awesome-lib", "1.0.0", ""},
+		{"mixed case name", "Awesome_Lib.2", "1.0.0", ""},
+		{"prerelease version", "pkg", "1.0.0-rc.1", ""},
+		{"build metadata version", "pkg", "1.0.0+build.1", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &mocks.MockOSManager{}
+			reader, size := buildArchiveWithEntries(t, archiveEntry{"index.js", "const x = 1"})
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+
+			err := service.CreatePackage(context.Background(), tt.pkgName, tt.version, reader, size)
+
+			if tt.rejectField == "" {
+				assert.Nil(t, err)
+				return
+			}
+			require.NotNil(t, err)
+			assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+			assert.Contains(t, err.Error(), tt.rejectField)
+			assert.Empty(t, manager.AddObjectKeys)
+			assert.Empty(t, manager.AddBytesKeys)
+		})
+	}
+}

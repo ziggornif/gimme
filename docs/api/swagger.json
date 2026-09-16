@@ -178,7 +178,7 @@
             "description": "Package uploaded successfully"
           },
           "400": {
-            "description": "Bad request (missing or invalid fields, or invalid ZIP archive)",
+            "description": "Bad request (missing fields, invalid package name or version, or invalid ZIP archive). Names may contain only letters, digits, `.`, `_` and `-`; versions must be full semver versions such as `1.0.0`.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -543,12 +543,14 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Package name",
+            "description": "Package name containing only letters, digits, `.`, `_` and `-`",
+            "pattern": "^[A-Za-z0-9._-]+$",
             "example": "awesome-lib"
           },
           "version": {
             "type": "string",
-            "description": "Semver version string",
+            "description": "Full semver version string with three numeric components; prerelease and build metadata are allowed",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
             "example": "1.0.0"
           },
           "file": {

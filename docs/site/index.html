@@ -1736,6 +1736,12 @@ helm uninstall gimme --namespace gimme</code></pre>
                     <pre><code class="language-json">{"id": "550e8400-...", "name": "my-token", "token": "gim_4a7b9c2d1e3f...", "createdAt": "...", "expiresAt": "..."}</code></pre>
 
                     <h3>Upload a package</h3>
+                    <p>
+                        Package names may contain only letters, digits,
+                        <code>.</code>, <code>_</code>, and <code>-</code>.
+                        Versions must be full semver versions such as
+                        <code>1.0.0</code>; prerelease and build metadata are accepted.
+                    </p>
                     <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@my-lib.zip" \

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -351,6 +352,24 @@ func TestPackageControllerCreate(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, resp.Code)
 
 	_ = service.DeletePackage(context.Background(), "awesome-lib", "1.0.0") //nolint:errcheck
+}
+
+func TestPackageControllerCreateRejectsInvalidName(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), "a@b", "1.0.0") })
+
+	resp := createPackage(t, router, "a@b", "1.0.0", "../test/test.zip", rawToken)
+	require.Equal(t, http.StatusBadRequest, resp.Code)
+	var body struct {
+		Error string `json:"error"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
+	assert.Contains(t, body.Error, "name")
 }
 
 func TestPackageControllerGet(t *testing.T) {

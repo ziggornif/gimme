@@ -199,6 +199,12 @@ Before touching application code, so the lint inventory is known in advance.
   *The prefix carries a trailing slash*, unlike `DeletePackage`: rolling back `pkg@1.0.0` without it would also delete `pkg@1.0.0-beta`. `ObjectExists` already appends the slash for that exact reason. **`DeletePackage` still omits it** — pre-existing, out of scope here, worth its own issue.
   *What it does not cover:* `kill -9`, OOM, a node that dies — nothing runs, so nothing is rolled back. A graceful `SIGTERM` is covered as long as the rollback fits in the 60 s shutdown grace of `application.go`. Closing the `kill -9` hole needs a persistent "upload in progress" marker read at startup — another issue, not this one.
 
+- [x] **#136 — Upload accepts a name and version it can never serve** *(filed mid-flight, while analysing #49)*
+  `POST /packages` validates neither field; the object prefix is `name@version`. `a@b` is read back as package `a` version `b@1.0.0`, `foo/bar` is routed as package `foo` → `400`, an empty name → `400`, `version=latest` → `400` from `GetFile`'s semver check. Each upload answers `201` and is unreachable.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, `api/package-controller_integration_test.go`, `docs/api/swagger.json`, `docs/site/index.html`, `README.md`
+  *Prove it:* table test `TestContentService_CreatePackage_ValidatesNameAndVersion` against `CreatePackage` with `MockOSManager`. Red output: all ten "reject" rows fail with `Expected value not to be nil`, the four "accept" rows pass.
+  *Settled:* **reject, never sanitise** — rewriting `foo/bar` to `foo-bar` publishes under a URL the uploader does not know. Name `^[A-Za-z0-9._-]+$`, uppercase allowed. Version a full semver: `1.0.0-rc.1` and `1.0.0+build.1` pass, `1`, `1.0`, `v1.0.0` fail — a partial version is a resolution request on the read path. Validated in `CreatePackage`, before the archive is opened, so every caller of the service is covered. No length limit here.
+
 ---
 
 ## Phase 4 — Features
@@ -360,15 +366,19 @@ Before touching application code, so the lint inventory is known in advance.
   ⚠️ *Budget the replacement honestly:* `ListCommonPrefixes` is constant in package size but still a ~234 ms round trip at concurrency 20 on this rig (see #84). It replaces an O(objects) drain with an O(1) call — a large win here — but it is not free, so the cache stays worth having rather than being made redundant by it.
   *Settled while implementing — a partial version serves the file from the highest matching release, whatever files it holds.* The recursive drain let resolution skip a version that lacked the requested file and fall back to an older one; a version listing cannot see files, so that fallback is gone and `pkg@1/x.js` answers 404 when the highest 1.x has no `x.js`. This is the rule `GET /gimme/pkg@1` already applied since #84, so the listing and the served file can no longer name two different versions, and it is what jsDelivr and unpkg do. Rejected: walking versions downwards with a stat each until the file turns up — one extra round trip per skipped version, and the listing/file disagreement comes back. `GetFile` and `GetFiles` share one `resolveVersion`; `filterArray`, `getLatestVersion` and `getVersion` are gone with the drain.
 
-- [ ] **#49 — Browse: `GET /packages` and version listing**
-  Independent of everything else. Good candidate if a visible win is wanted early. See #84 — the pagination contract should be settled first, or in the same pass.
+- [ ] **#49 — Browse: list the versions of a package**
+  `GET /gimme/:name` (no `@`) answers `400` today; it lists the package's versions instead, HTML or JSON by negotiation, semver descending, unknown package `404`.
+  *Files:* `api/package-controller.go`, `internal/content/content-service.go`, `templates/`, `api/package-controller_integration_test.go`
+  *Rescoped:* the global index (`GET /packages`) is dropped. Neither public CDN has one — `unpkg.com/browse/` reads `browse` as a package name and `data.jsdelivr.com/v1/packages/npm` answers `400` — while both list a package's versions, which is what stays.
+  *Not paginated:* semver order is not S3's lexicographic order, so a keyset cursor over prefixes cannot produce it, and `resolveVersion` already drains `ListCommonPrefixes(name+"@")` on every partial-version request.
+  *Changes an existing test:* `TestPackageControllerGETInvalidUrlErr` expects `400` on `/gimme/file.js`, which now means the versions of package `file.js` → `404`.
 
 - [ ] **#122 — Browse a package by folder, not one flat list** *(filed mid-flight during #84; after #84)*
   The listing renders one row per object labelled with the full object key, and there is no way to descend. #84 bounded the response (105 130 B for 50 rows on `@mui/icons-material@5.15.21`) but a bound is not a shape — the two directories that package actually has stay invisible while `mui-icons@5.15.21/` is repeated on all fifty lines.
   *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`
   ⚠️ *A folder view alone does not fix it, and assuming otherwise is the trap here.* That package holds 21 229 files directly at its root, so a delimited listing of the root still returns 21 231 entries — counted from jsDelivr's data API, whose own folder view for this package is exactly as long. Folder view for shape, #84's keyset pagination for bound, applied **within** a level. Not alternatives.
-  *No storage work:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child. A folder browse is that same call on a deeper prefix. The work is routing, rendering and the listing contract.
-  *Order:* settle with #49 — same browse surface, same contract, and agreeing it twice is how two of them get invented.
+  *Storage work after all:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child — but it drains the whole level, with no `StartAfter` and no limit. Paginating within a level needs a paged delimited variant alongside `ListObjectsPage`.
+  *Order:* after #49 — same browse surface; reuse its version-list rendering rather than inventing a second one.
 
 - [ ] **#51 — `@latest`**
   Depends on #45: it shares the resolution path.
@@ -398,12 +408,13 @@ Single release covering everything above.
 
 **Target: v3.0.0.**
 
-Two items change behaviour in breaking ways:
+Three items change behaviour in breaking ways:
 
 | Issue | Breaks on upgrade |
 |---|---|
 | #42 + #43 | Archives that previously uploaded are now rejected: `..` escapes, absolute paths, empty entry names, and any archive whose entries collide on the same target key. Archives with no root folder, or with several top-level folders, now upload correctly instead of being flattened — so the object keys they produce **change**, and URLs written against the old flattened layout break. |
 | #45 | `pkg@1` serves different content than before |
+| #136 | Uploads with a name outside `A-Z a-z 0-9 . _ -` or a version that is not a full semver (`latest`, `v1.0.0`, `1.0`) are now rejected with `400`. They answered `201` before but could never be served. |
 
 Not breaking, despite touching sensitive ground: #59 and #60 change shipped template files rather than the behaviour of a running instance; #57 is documentation. #65 makes an unworkable Helm configuration fail to render, which only affects deployments that were already misbehaving.
 
