@@ -166,6 +166,53 @@ func TestPackageControllerListingContentNegotiation(t *testing.T) {
 	}
 }
 
+func TestPackageControllerVersionListing(t *testing.T) {
+	newRouter := func(t *testing.T) *gin.Engine {
+		t.Helper()
+		router := gin.New()
+		router.SetFuncMap(TemplateFuncs())
+		router.LoadHTMLGlob("../templates/*.tmpl")
+		authManager := auth.NewAuthManager(newPackageTestStore(t))
+		service := content.NewContentService(&mocks.MockOSManager{}, nil, 0, content.UploadLimits{})
+		NewPackageController(router, authManager, service)
+		return router
+	}
+
+	expectedJSON := `{"package":"test","versions":["10.0.0","2.0.0-rc.1","1.11.0","1.10.0","1.9.9","1.1.1","1.1.0","1.0.0"]}`
+	for _, path := range []string{"/gimme/test", "/gimme/test/"} {
+		t.Run(path+" json", func(t *testing.T) {
+			response := utils.PerformRequest(newRouter(t), http.MethodGet, path, nil,
+				utils.Header{Key: "Accept", Value: gin.MIMEJSON})
+			assert.Equal(t, http.StatusOK, response.Code)
+			assert.JSONEq(t, expectedJSON, response.Body.String())
+		})
+	}
+
+	for _, accept := range []string{"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "*/*"} {
+		t.Run(accept, func(t *testing.T) {
+			response := utils.PerformRequest(newRouter(t), http.MethodGet, "/gimme/test", nil,
+				utils.Header{Key: "Accept", Value: accept})
+			assert.Equal(t, http.StatusOK, response.Code)
+			assert.Contains(t, response.Header().Get("Content-Type"), gin.MIMEHTML)
+			for _, version := range []string{"10.0.0", "2.0.0-rc.1", "1.10.0"} {
+				assert.Contains(t, response.Body.String(), `/gimme/test@`+version)
+			}
+		})
+	}
+
+	unknown := utils.PerformRequest(newRouter(t), http.MethodGet, "/gimme/unknown", nil)
+	assert.Equal(t, http.StatusNotFound, unknown.Code)
+	assert.Empty(t, unknown.Body.String())
+
+	invalidFile := utils.PerformRequest(newRouter(t), http.MethodGet, "/gimme/foo/bar.js", nil)
+	assert.Equal(t, http.StatusBadRequest, invalidFile.Code)
+
+	head := utils.PerformRequest(newRouter(t), http.MethodHead, "/gimme/test/", nil)
+	assert.Equal(t, http.StatusOK, head.Code)
+	assert.Equal(t, "text/html; charset=utf-8", head.Header().Get("Content-Type"))
+	assert.Empty(t, head.Body.String())
+}
+
 // countingReader counts the bytes actually consumed from a request body.
 type countingReader struct {
 	reader io.Reader

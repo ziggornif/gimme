@@ -255,42 +255,47 @@
       "get": {
         "tags": ["package"],
         "summary": "Browse package contents",
-        "description": "Returns a keyset-paginated HTML or JSON listing of files available in the given package version. Supports partial semver: `awesome-lib@1.0` resolves to the latest `1.0.x`.",
+        "description": "Returns an HTML or JSON list of a package's versions when `package` is a name, or a keyset-paginated listing of files when it is `name@version`. Partial semver such as `awesome-lib@1.0` resolves to the latest `1.0.x`. The `limit` and `after` parameters apply only to file listings.",
         "operationId": "getPackage",
         "parameters": [
           {
             "name": "package",
             "in": "path",
-            "description": "Package identifier in the form `name@version` (e.g. `awesome-lib@1.0.0` or `awesome-lib@1.0`)",
+            "description": "Package name (e.g. `awesome-lib`) for a versions list, or `name@version` (e.g. `awesome-lib@1.0.0` or `awesome-lib@1.0`) for a file listing",
             "required": true,
             "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           },
           {
             "name": "limit",
             "in": "query",
-            "description": "Maximum number of visible files to return (default 50, clamped to 1–500)",
+            "description": "Maximum number of visible files to return (default 50, clamped to 1–500); applies only to file listings",
             "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 }
           },
           {
             "name": "after",
             "in": "query",
-            "description": "Opaque keyset cursor returned as pagination.next by the previous page",
+            "description": "Opaque keyset cursor returned as pagination.next by the previous page; applies only to file listings",
             "schema": { "type": "string" }
           }
         ],
         "responses": {
           "200": {
-            "description": "Paginated listing of package files",
+            "description": "Package versions or a paginated listing of package files",
             "headers": {
               "Link": {
-                "description": "RFC 8288 first and, when available, next page links for JSON responses",
+                "description": "RFC 8288 first and, when available, next page links for JSON file-listing responses",
                 "schema": { "type": "string" }
               }
             },
             "content": {
               "text/html": {},
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/PackageListing" }
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/PackageVersions" },
+                    { "$ref": "#/components/schemas/PackageListing" }
+                  ]
+                }
               }
             }
           },
@@ -586,6 +591,18 @@
               "has_more": { "type": "boolean", "example": true },
               "total": { "type": "integer", "nullable": true, "description": "Exact only when the complete listing fits on the first page" }
             }
+          }
+        }
+      },
+      "PackageVersions": {
+        "type": "object",
+        "required": ["package", "versions"],
+        "properties": {
+          "package": { "type": "string", "example": "awesome-lib" },
+          "versions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["1.10.0", "1.9.0", "1.2.0"]
           }
         }
       },

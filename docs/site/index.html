@@ -1659,7 +1659,11 @@ helm uninstall gimme --namespace gimme</code></pre>
                                     <td><span class="method get">GET</span></td>
                                     <td><code>/gimme/:package</code></td>
                                     <td>—</td>
-                                    <td>List files in a package (HTML)</td>
+                                    <td>
+                                        List a package's versions
+                                        (<code>name</code>) or a version's files
+                                        (<code>name@version</code>), HTML or JSON
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><span class="method get">GET</span></td>
@@ -1758,6 +1762,9 @@ curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js
 
 # Read the SHA-384 SRI token without downloading the body
 curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
+                    <h3>Browse</h3>
+                    <pre><code class="language-bash">curl -H 'Accept: application/json' http://localhost:8080/gimme/my-lib</code></pre>
+                    <pre><code class="language-json">{"package":"my-lib","versions":["1.10.0","1.9.0","1.2.0"]}</code></pre>
                     <p>
                         Newly uploaded files expose their Subresource Integrity
                         token through <code>Gimme-Integrity</code>. The package

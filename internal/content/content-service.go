@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -119,6 +120,28 @@ func (svc *ContentService) resolveVersion(ctx context.Context, pkg string, versi
 	}
 	semver.Sort(versions)
 	return strings.TrimPrefix(versions[len(versions)-1], "v"), true
+}
+
+// ListVersions returns the package's full semver versions in descending order.
+func (svc *ContentService) ListVersions(ctx context.Context, pkg string) []string {
+	if !packageNamePattern.MatchString(pkg) {
+		return nil
+	}
+
+	packagePrefix := pkg + "@"
+	var versions []string
+	for _, commonPrefix := range svc.objectStorageManager.ListCommonPrefixes(ctx, packagePrefix) {
+		version := strings.TrimSuffix(strings.TrimPrefix(commonPrefix, packagePrefix), "/")
+		if isFullSemver(version) {
+			versions = append(versions, "v"+version)
+		}
+	}
+	semver.Sort(versions)
+	slices.Reverse(versions)
+	for index := range versions {
+		versions[index] = strings.TrimPrefix(versions[index], "v")
+	}
+	return versions
 }
 
 // CreatePackage create package

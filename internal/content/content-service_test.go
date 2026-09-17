@@ -600,7 +600,8 @@ func TestContentService_CreatePackage_Compression(t *testing.T) {
 
 type listingOSManager struct {
 	*mocks.MockOSManager
-	objects []minio.ObjectInfo
+	objects                 []minio.ObjectInfo
+	listCommonPrefixesCalls int
 }
 
 func (manager *listingOSManager) ListObjects(context.Context, string) []minio.ObjectInfo {
@@ -622,6 +623,7 @@ func (manager *listingOSManager) ListObjectsPage(_ context.Context, prefix strin
 }
 
 func (manager *listingOSManager) ListCommonPrefixes(_ context.Context, prefix string) []string {
+	manager.listCommonPrefixesCalls++
 	seen := map[string]struct{}{}
 	var prefixes []string
 	for _, object := range manager.objects {
@@ -637,6 +639,39 @@ func (manager *listingOSManager) ListCommonPrefixes(_ context.Context, prefix st
 		}
 	}
 	return prefixes
+}
+
+func TestContentService_ListVersions(t *testing.T) {
+	tests := []struct {
+		name          string
+		pkg           string
+		objects       []minio.ObjectInfo
+		expected      []string
+		expectedCalls int
+	}{
+		{
+			name: "semver descending",
+			pkg:  "pkg",
+			objects: []minio.ObjectInfo{
+				{Key: "pkg@1.2.0/file.js"}, {Key: "pkg@1.10.0/file.js"},
+				{Key: "pkg@1.9.0/file.js"}, {Key: "pkg@2.0.0-rc.1/file.js"},
+				{Key: "pkg@1.0/file.js"}, {Key: "pkg@latest/file.js"},
+			},
+			expected:      []string{"2.0.0-rc.1", "1.10.0", "1.9.0", "1.2.0"},
+			expectedCalls: 1,
+		},
+		{name: "unknown package", pkg: "unknown", expected: nil, expectedCalls: 1},
+		{name: "invalid name", pkg: "a b", expected: nil, expectedCalls: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &listingOSManager{MockOSManager: &mocks.MockOSManager{}, objects: tt.objects}
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+			assert.Equal(t, tt.expected, service.ListVersions(context.Background(), tt.pkg))
+			assert.Equal(t, tt.expectedCalls, manager.listCommonPrefixesCalls)
+		})
+	}
 }
 
 func TestContentService_GetFiles_HidesGeneratedVariants(t *testing.T) {
