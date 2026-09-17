@@ -163,6 +163,57 @@ func TestContentService_DeletePackage(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+type removeObjectsRecorder struct {
+	*mocks.MockOSManager
+	removedPrefixes []string
+}
+
+func (manager *removeObjectsRecorder) RemoveObjects(ctx context.Context, prefix string) *errors.GimmeError {
+	manager.removedPrefixes = append(manager.removedPrefixes, prefix)
+	return manager.MockOSManager.RemoveObjects(ctx, prefix)
+}
+
+func TestContentService_DeletePackage_RemovesOnlyThatVersion(t *testing.T) {
+	manager := &removeObjectsRecorder{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+
+	err := service.DeletePackage(context.Background(), "lib", "1.0.1")
+
+	require.Nil(t, err)
+	assert.Equal(t, []string{"lib@1.0.1/"}, manager.removedPrefixes)
+}
+
+func TestContentService_DeletePackage_ValidatesNameAndVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		pkgName     string
+		version     string
+		rejectField string
+	}{
+		{"name with at sign", "a@b", "1.0.0", "name"},
+		{"name with slash", "foo/bar", "1.0.0", "name"},
+		{"empty name", "", "1.0.0", "name"},
+		{"major version", "lib", "2", "version"},
+		{"minor version", "lib", "2.0", "version"},
+		{"version tag", "lib", "latest", "version"},
+		{"version with v prefix", "lib", "v1.0.0", "version"},
+		{"empty version", "lib", "", "version"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &removeObjectsRecorder{MockOSManager: &mocks.MockOSManager{}}
+			service := NewContentService(manager, nil, 0, UploadLimits{})
+
+			err := service.DeletePackage(context.Background(), tt.pkgName, tt.version)
+
+			require.NotNil(t, err)
+			assert.Equal(t, errors.ErrorKindEnum(errors.BadRequest), err.Kind)
+			assert.Contains(t, err.Error(), tt.rejectField)
+			assert.Empty(t, manager.removedPrefixes)
+		})
+	}
+}
+
 func TestContentService_DeletePackageErr(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManagerErr{}, nil, 0, UploadLimits{})
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")

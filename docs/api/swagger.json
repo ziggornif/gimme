@@ -219,7 +219,7 @@
       "delete": {
         "tags": ["package"],
         "summary": "Delete a package",
-        "description": "Deletes all objects stored under `<name>@<version>` from the S3 backend. The `package` parameter must be in the form `name@version` (e.g. `awesome-lib@1.0.0`).",
+        "description": "Deletes only the exact version by removing objects stored under `<name>@<version>/` from the S3 backend. The name may contain only letters, digits, `.`, `_` and `-`. The version must be a full semver version such as `1.0.0`; prerelease and build metadata are accepted, while partial versions such as `1` or `1.0` are rejected.",
         "operationId": "deletePackage",
         "security": [
           { "bearerAuth": [] }
@@ -238,7 +238,7 @@
             "description": "Package deleted"
           },
           "400": {
-            "description": "Invalid package identifier format",
+            "description": "Invalid package identifier: not in the form `name@version`, invalid name, or a version that is not a full semver version",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }

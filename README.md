@@ -470,6 +470,8 @@ curl -s -X DELETE http://localhost:8080/packages/awesome-lib@1.0.0 \
   -H 'Authorization: Bearer <token>'
 ```
 
+Only that exact version is deleted. Versions must be full semver; a partial or invalid version returns `400 Bad Request`.
+
 Response: `204 No Content`
 
 ### API routes summary

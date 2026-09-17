@@ -1778,6 +1778,11 @@ curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
                     <pre><code class="language-bash">curl -X DELETE http://localhost:8080/packages/my-lib@1.0.0 \
   -H "Authorization: Bearer $TOKEN"
 # → 204 No Content</code></pre>
+                    <p>
+                        Only that exact version is deleted. Versions must be full
+                        semver; a partial or invalid version returns
+                        <code>400 Bad Request</code>.
+                    </p>
                 </section>
 
                 <!-- CACHING -->

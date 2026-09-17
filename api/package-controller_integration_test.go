@@ -588,6 +588,46 @@ func TestPackageControllerDelete(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
+func TestPackageControllerDeleteLeavesVersionsSharingItsPrefix(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+	authorization := utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", rawToken)}
+
+	for _, version := range []string{"1.0.1", "1.0.10", "1.0.1-rc.1"} {
+		t.Cleanup(func() { _ = objectStorageManager.RemoveObjects(context.Background(), "prefix-lib@"+version+"/") })
+		require.Equal(t, http.StatusCreated, createPackage(t, router, "prefix-lib", version, "../test/test.zip", rawToken).Code)
+	}
+
+	w := utils.PerformRequest(router, "DELETE", "/packages/prefix-lib@1.0.1", nil, authorization)
+	require.Equal(t, http.StatusNoContent, w.Code)
+
+	assert.Equal(t, http.StatusNotFound, utils.PerformRequest(router, "GET", "/gimme/prefix-lib@1.0.1/awesome-lib.min.js", nil).Code)
+	assert.Equal(t, http.StatusOK, utils.PerformRequest(router, "GET", "/gimme/prefix-lib@1.0.10/awesome-lib.min.js", nil).Code)
+	assert.Equal(t, http.StatusOK, utils.PerformRequest(router, "GET", "/gimme/prefix-lib@1.0.1-rc.1/awesome-lib.min.js", nil).Code)
+}
+
+func TestPackageControllerDeleteRejectsPartialVersion(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+	authorization := utils.Header{Key: "Authorization", Value: fmt.Sprintf("Bearer %s", rawToken)}
+
+	t.Cleanup(func() { _ = objectStorageManager.RemoveObjects(context.Background(), "range-lib@2.0.0/") })
+	require.Equal(t, http.StatusCreated, createPackage(t, router, "range-lib", "2.0.0", "../test/test.zip", rawToken).Code)
+
+	w := utils.PerformRequest(router, "DELETE", "/packages/range-lib@2", nil, authorization)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusOK, utils.PerformRequest(router, "GET", "/gimme/range-lib@2.0.0/awesome-lib.min.js", nil).Code)
+}
+
 func TestPackageControllerCreateFailureRollsBack(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	failing := &mocks.MockOSManagerFailAfter{OSManager: objectStorageManager, FailAt: 2}

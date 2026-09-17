@@ -123,13 +123,7 @@ func (svc *ContentService) resolveVersion(ctx context.Context, pkg string, versi
 
 // CreatePackage create package
 func (svc *ContentService) CreatePackage(ctx context.Context, name string, version string, file io.ReaderAt, fileSize int64) *errors.GimmeError {
-	if !packageNamePattern.MatchString(name) {
-		err := fmt.Errorf("invalid package name %q: only letters, digits, '.', '_' and '-' are allowed", name)
-		logrus.Errorf("[ContentService] CreatePackage - %v", err)
-		return errors.NewBusinessError(errors.BadRequest, err)
-	}
-	if !isFullSemver(version) {
-		err := fmt.Errorf("invalid package version %q: a full semver version is required (e.g. 1.0.0)", version)
+	if err := validatePackageIdentity(name, version); err != nil {
 		logrus.Errorf("[ContentService] CreatePackage - %v", err)
 		return errors.NewBusinessError(errors.BadRequest, err)
 	}
@@ -224,6 +218,16 @@ func (svc *ContentService) CreatePackage(ctx context.Context, name string, versi
 	}
 
 	metrics.PackagesUploadedTotal.Inc()
+	return nil
+}
+
+func validatePackageIdentity(name string, version string) error {
+	if !packageNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid package name %q: only letters, digits, '.', '_' and '-' are allowed", name)
+	}
+	if !isFullSemver(version) {
+		return fmt.Errorf("invalid package version %q: a full semver version is required (e.g. 1.0.0)", version)
+	}
 	return nil
 }
 
@@ -463,9 +467,14 @@ func isEncodedVariant(key string, keys map[string]struct{}) bool {
 
 // DeletePackage delete package
 func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, version string) *errors.GimmeError {
+	if err := validatePackageIdentity(pkg, version); err != nil {
+		logrus.Errorf("[ContentService] DeletePackage - %v", err)
+		return errors.NewBusinessError(errors.BadRequest, err)
+	}
+
 	prefix := fmt.Sprintf("%s@%s", pkg, version)
 
-	err := svc.objectStorageManager.RemoveObjects(ctx, prefix)
+	err := svc.objectStorageManager.RemoveObjects(ctx, prefix+"/")
 	if err != nil {
 		return err
 	}

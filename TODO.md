@@ -205,6 +205,13 @@ Before touching application code, so the lint inventory is known in advance.
   *Prove it:* table test `TestContentService_CreatePackage_ValidatesNameAndVersion` against `CreatePackage` with `MockOSManager`. Red output: all ten "reject" rows fail with `Expected value not to be nil`, the four "accept" rows pass.
   *Settled:* **reject, never sanitise** — rewriting `foo/bar` to `foo-bar` publishes under a URL the uploader does not know. Name `^[A-Za-z0-9._-]+$`, uppercase allowed. Version a full semver: `1.0.0-rc.1` and `1.0.0+build.1` pass, `1`, `1.0`, `v1.0.0` fail — a partial version is a resolution request on the read path. Validated in `CreatePackage`, before the archive is opened, so every caller of the service is covered. No length limit here.
 
+- [x] **#138 — Deleting a package version also deletes every version it prefixes** *(filed mid-flight, flagged under #114)*
+  `DeletePackage` handed `RemoveObjects` the prefix `name@version` with no trailing slash, and `RemoveObjects` removes everything listed under it: `DELETE lib@1.0.1` also removed `lib@1.0.10`, `lib@1.0.11` and `lib@1.0.1-rc.1`, and answered `204`. `DELETE` validated nothing either, so `lib@2` removed every `2.x.y` **and** every `20.x.y`. Silent, irreversible data loss on an ordinary operation.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, `api/package-controller_integration_test.go`, `docs/api/swagger.json`, `docs/site/index.html`, `README.md`
+  *Prove it:* unit test `TestContentService_DeletePackage_RemovesOnlyThatVersion` with a recording storage mock — red output: `expected: []string{"lib@1.0.1/"}` / `actual: []string{"lib@1.0.1"}` — and `TestContentService_DeletePackage_ValidatesNameAndVersion`, all eight rows red with `Expected value not to be nil`. Integration against Garage: `TestPackageControllerDeleteLeavesVersionsSharingItsPrefix` red with `404` on both `1.0.10` and `1.0.1-rc.1`; `TestPackageControllerDeleteRejectsPartialVersion` red with `204` instead of `400`, and `2.0.0` gone.
+  *Settled:* **both the slash and the validation, in one change** — the slash alone turns `DELETE lib@2` into a silent `204` no-op, validation alone leaves `lib@1.0.1` deleting `lib@1.0.10`. Validation reuses #136's rules (name pattern, full semver) and runs in `DeletePackage` before `RemoveObjects`, so every caller is covered. **Fixed in `DeletePackage`, not `RemoveObjects`** — it is a prefix primitive and the #114 rollback already passes a slashed prefix.
+  *Left as is:* cache invalidation keeps the unslashed prefix — over-invalidation costs a cache miss, not data. Deleting a version that does not exist still answers `204`; whether it should be `404` is a separate API decision.
+
 ---
 
 ## Phase 4 — Features
@@ -408,25 +415,27 @@ Single release covering everything above.
 
 **Target: v3.0.0.**
 
-Three items change behaviour in breaking ways:
+Four items change behaviour in breaking ways:
 
 | Issue | Breaks on upgrade |
 |---|---|
 | #42 + #43 | Archives that previously uploaded are now rejected: `..` escapes, absolute paths, empty entry names, and any archive whose entries collide on the same target key. Archives with no root folder, or with several top-level folders, now upload correctly instead of being flattened — so the object keys they produce **change**, and URLs written against the old flattened layout break. |
 | #45 | `pkg@1` serves different content than before |
 | #136 | Uploads with a name outside `A-Z a-z 0-9 . _ -` or a version that is not a full semver (`latest`, `v1.0.0`, `1.0`) are now rejected with `400`. They answered `201` before but could never be served. |
+| #138 | `DELETE /packages/<name>@<version>` with a partial or non-semver version (`lib@2`, `lib@1.0`, `lib@latest`) now answers `400`. It answered `204` before and deleted every version sharing that prefix. |
 
 Not breaking, despite touching sensitive ground: #59 and #60 change shipped template files rather than the behaviour of a running instance; #57 is documentation. #65 makes an unworkable Helm configuration fail to render, which only affects deployments that were already misbehaving.
 
 A major bump is consistent with this project's own precedent: v2 was the major for replacing JWT tokens with opaque tokens — the same kind of breaking change.
 
-Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand-written preamble for this one** listing the three breaking changes and their upgrade actions — PR titles alone will not tell an operator that their `helm upgrade` will fail, that an archive their pipeline has always uploaded is now rejected, or that a `@1` URL now serves different content.
+Release notes are auto-generated from PR titles in GitHub Releases. **Add a hand-written preamble for this one** listing the four breaking changes and their upgrade actions — PR titles alone will not tell an operator that their `helm upgrade` will fail, that an archive their pipeline has always uploaded is now rejected, or that a `@1` URL now serves different content.
 
 **The preamble opens with the upgrade actions, in bold, above everything else** — not at the bottom, where nobody reads them. First line: this release fixes bugs in version resolution and in how archive entries become object keys, and **it does not repair content already stored**. The fixes apply at upload and at resolution time only.
 
-There is no index to rebuild — gimme keeps none. `ListObjects` is called against S3 on every request (`internal/content/content-service.go`), so S3 is the only source of truth. The two actions are therefore:
+There is no index to rebuild — gimme keeps none. `ListObjects` is called against S3 on every request (`internal/content/content-service.go`), so S3 is the only source of truth. The upgrade actions are therefore:
 
 - **Re-upload the affected packages.** #42 + #43 change the object keys produced *at upload*; they rewrite nothing already in the bucket. A package uploaded from an archive without a single root folder stays flattened where it is (`img/logo.svg` stored as `pkg@1.0.0/logo.svg`), and root-level files stay orphaned outside the `<pkg>@<version>/` namespace — `DeletePackage` lists on that prefix and cannot reach them, so they survive a package deletion and need an S3 client to remove. Already-published URLs keep resolving; what stays wrong is the layout, until the package is uploaded again. Re-uploading is also what produces the brotli and gzip variants from #47 — a package stored before that change is served uncompressed, and costs one extra S3 round trip per compressible file until it is uploaded again.
+- **Check for versions lost to #138.** Before this release, deleting `pkg@1.0.1` also deleted `pkg@1.0.10`, `pkg@1.0.1-rc.1` and any other version starting with the same string, and deleting `pkg@2` deleted every `2.x.y` and `20.x.y`. Nothing can recover them — they must be re-uploaded from their source archives.
 - **Flush the Redis cache if it is enabled** (off by default). `GetFile` caches the resolution of partial versions — key `pkg@1/app.js` → resolved object path. Entries written before the upgrade encode the #45 bug (`@1` → `10.0.0`) and keep serving it until the TTL expires (3600 s by default). Pinned versions never go through the cache, so they are unaffected.
 
 ---
