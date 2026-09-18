@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/andybalholm/brotli"
 	"github.com/gin-gonic/gin"
@@ -304,7 +305,7 @@ func newTestAuthManager(t *testing.T) *auth.AuthManager {
 	return auth.NewAuthManager(store)
 }
 
-func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
+func TestPackageControllerGETVersionsUnknownPackage(t *testing.T) {
 	objectStorageManager := initObjectStorage()
 	router := gin.New()
 	authManager := newTestAuthManager(t)
@@ -313,7 +314,42 @@ func TestPackageControllerGETInvalidUrlErr(t *testing.T) {
 
 	w := utils.PerformRequest(router, "GET", "/gimme/file.js", nil)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPackageControllerGETVersions(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	router.SetFuncMap(TemplateFuncs())
+	router.LoadHTMLGlob("../templates/*.tmpl")
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	name := fmt.Sprintf("versions-%d", time.Now().UnixNano())
+	for _, version := range []string{"1.2.0", "1.10.0", "1.9.0"} {
+		response := createPackage(t, router, name, version, "../test/test.zip", rawToken)
+		require.Equal(t, http.StatusCreated, response.Code)
+		currentVersion := version
+		t.Cleanup(func() { _ = service.DeletePackage(context.Background(), name, currentVersion) })
+	}
+
+	jsonResponse := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name, nil,
+		utils.Header{Key: "Accept", Value: gin.MIMEJSON})
+	require.Equal(t, http.StatusOK, jsonResponse.Code)
+	assert.JSONEq(t, fmt.Sprintf(`{"package":%q,"versions":["1.10.0","1.9.0","1.2.0"]}`, name), jsonResponse.Body.String())
+
+	htmlResponse := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name, nil,
+		utils.Header{Key: "Accept", Value: gin.MIMEHTML})
+	require.Equal(t, http.StatusOK, htmlResponse.Code)
+	for _, version := range []string{"1.10.0", "1.9.0", "1.2.0"} {
+		assert.Contains(t, htmlResponse.Body.String(), "/gimme/"+name+"@"+version)
+	}
+
+	filesResponse := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@1.10.0", nil)
+	assert.Equal(t, http.StatusOK, filesResponse.Code)
+	assert.Contains(t, filesResponse.Body.String(), "Package files")
 }
 
 func TestPackageControllerGETInvalidUrlAlterErr(t *testing.T) {

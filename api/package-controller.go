@@ -51,6 +51,16 @@ type packageListingResponse struct {
 	Pagination paginationResponse `json:"pagination"`
 }
 
+type packageVersionsResponse struct {
+	Package  string   `json:"package"`
+	Versions []string `json:"versions"`
+}
+
+type packageVersionLink struct {
+	Version string
+	URL     string
+}
+
 func (ctrl *PackageController) getSlice(pkg string) (*packageSlice, *errors.GimmeError) {
 	const invalidURLMsg = "invalid URL (valid format: /gimme/<package>@<version>/<file>)"
 
@@ -125,6 +135,39 @@ func (ctrl *PackageController) getHTMLPackage(c *gin.Context, pkg string, name s
 		"totalKnown":      listing.TotalKnown,
 		"hasMore":         listing.HasMore,
 		"nextURL":         nextURL,
+	})
+}
+
+func (ctrl *PackageController) getPackageVersions(c *gin.Context, name string) {
+	versions := ctrl.contentService.ListVersions(c.Request.Context(), name)
+	if len(versions) == 0 {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	if c.Request.Method == http.MethodHead {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.Status(http.StatusOK)
+		return
+	}
+
+	if c.NegotiateFormat(gin.MIMEHTML, gin.MIMEJSON) == gin.MIMEJSON {
+		c.JSON(http.StatusOK, packageVersionsResponse{Package: name, Versions: versions})
+		return
+	}
+
+	links := make([]packageVersionLink, 0, len(versions))
+	for _, version := range versions {
+		links = append(links, packageVersionLink{
+			Version: version,
+			URL:     "/gimme/" + url.PathEscape(name+"@"+version),
+		})
+	}
+	c.HTML(http.StatusOK, "package.tmpl", gin.H{
+		"view":         "versions",
+		"packageName":  name,
+		"versions":     links,
+		"versionCount": len(versions),
 	})
 }
 
@@ -211,8 +254,13 @@ func (ctrl *PackageController) createPackage(c *gin.Context) {
 
 func (ctrl *PackageController) getPackage(c *gin.Context) {
 	file := c.Param("file")
+	packageParam := c.Param("package")
+	if !strings.Contains(packageParam, "@") && file == "/" {
+		ctrl.getPackageVersions(c, packageParam)
+		return
+	}
 
-	pkg, err := ctrl.getSlice(c.Param("package"))
+	pkg, err := ctrl.getSlice(packageParam)
 	if err != nil {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
 		return
@@ -289,6 +337,10 @@ func (ctrl *PackageController) getPackage(c *gin.Context) {
 }
 
 func (ctrl *PackageController) getPackageFolder(c *gin.Context) {
+	if !strings.Contains(c.Param("package"), "@") {
+		ctrl.getPackageVersions(c, c.Param("package"))
+		return
+	}
 	pkg, err := ctrl.getSlice(c.Param("package"))
 	if err != nil {
 		c.JSON(err.GetHTTPCode(), gin.H{"error": err.Error()})
