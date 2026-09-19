@@ -345,8 +345,10 @@ curl -X POST https://cdn.example.com/packages \
                             <h3>Semver aliases</h3>
                             <p>
                                 <code>pkg@1.0</code> resolves to the latest
-                                <code>1.0.x</code> at request time. Pin with
-                                <code>pkg@1.0.3</code> for immutability.
+                                stable <code>1.0.x</code>, while
+                                <code>pkg@latest</code> resolves to the highest
+                                stable version. Pin with <code>pkg@1.0.3</code>
+                                for immutability.
                             </p>
                         </li>
                         <li class="feature-card">
@@ -629,10 +631,12 @@ my-lib@2.1.1/my-lib.min.js   ← next patch</code></pre>
                     <p>
                         A request for <code>my-lib@2.1/file.js</code> lists the
                         package's versions in S3 (one entry per version, not per
-                        file) and serves the file from the highest matching
-                        version. If that version does not contain the file, the
-                        request returns 404. With Redis enabled, the resolved
-                        path is cached — S3 is only hit on a cache miss.
+                        file) and serves the file from the highest matching stable
+                        version. <code>my-lib@latest/file.js</code> uses the same
+                        path to resolve the highest stable version. If that
+                        version does not contain the file, the request returns
+                        404. With Redis enabled, the resolved path is cached — S3
+                        is only hit on a cache miss.
                     </p>
                 </section>
 
@@ -1759,6 +1763,9 @@ curl http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js
 
 # Partial alias — resolves to latest 1.0.x, cached 5 minutes
 curl http://localhost:8080/gimme/my-lib@1.0/my-lib.min.js
+
+# Latest alias — resolves to highest stable version, cached 5 minutes
+curl http://localhost:8080/gimme/my-lib@latest/my-lib.min.js
 
 # Read the SHA-384 SRI token without downloading the body
 curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>

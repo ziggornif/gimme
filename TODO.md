@@ -387,8 +387,14 @@ Before touching application code, so the lint inventory is known in advance.
   *Storage work after all:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child — but it drains the whole level, with no `StartAfter` and no limit. Paginating within a level needs a paged delimited variant alongside `ListObjectsPage`.
   *Order:* after #49 — same browse surface; reuse its version-list rendering rather than inventing a second one.
 
-- [ ] **#51 — `@latest`**
-  Depends on #45: it shares the resolution path.
+- [x] **#51 — `@latest`** *(after #45, landed)*
+  `pkg@latest` becomes a third version form beside pinned and partial, resolved through the same `resolveVersion` path: highest **stable** version, `Cache-Control: public, max-age=300`, never `immutable`.
+  *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, `api/package-controller_integration_test.go`, `README.md`, `docs/site/index.html`, `docs/api/swagger.json`
+  *Three touch points, no new resolution:* `versionMatches` accepts `latest` against any stable candidate; `GetFile`'s `semver.IsValid` guard needs a carve-out, since `vlatest` is not valid semver; `partialVersionPrefixes` must also yield `pkg@latest`, or deleting the highest version leaves the alias pointing at deleted objects until the cache TTL expires.
+  *Scope:* `latest` alone. Named dist-tags (`@next`, `@beta`) need a write API and a persistence backend — a separate feature, not a bigger version of this one.
+  ⚠️ *The alias must not reach upload or delete.* #136 rejects a non-semver version at `POST /packages` and #138 at `DELETE /packages/:package`; both stay `400`. An alias is not a storable identity, and the carve-out belongs to the read path only.
+  *Settled:* literal lowercase `latest` — `LATEST` keeps answering `400`. Pre-releases excluded, so a package holding only pre-releases has no `latest` → `404`. No file-level fallback: the highest stable version is resolved first, and a missing file there is a `404`, as for partial versions since #45.
+  *Rejected:* a `latest` pointer object in S3 — an extra write per upload and a second source of truth that can disagree with the version list, for a resolution already O(1) in package size since #84.
 
 - [ ] **#55 — GitHub Action + upload CLI**
   Depends on #42: the archive layout must be settled first. The tool building the ZIP is what structurally prevents #42 from recurring.

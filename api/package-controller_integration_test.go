@@ -691,3 +691,79 @@ func TestPackageControllerCreateFailureRollsBack(t *testing.T) {
 	retry := createPackage(t, healthyRouter, "rollback-lib", "1.0.0", "../test/test.zip", rawToken)
 	assert.Equal(t, http.StatusCreated, retry.Code)
 }
+
+func TestPackageControllerGetLatestServesHighestStableRelease(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	router.SetFuncMap(TemplateFuncs())
+	router.LoadHTMLGlob("../templates/*.tmpl")
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	name := fmt.Sprintf("latest-%d", time.Now().UnixNano())
+	archives := map[string][]byte{"1.0.0": []byte("older"), "1.1.0": []byte("newer"), "2.0.0-rc.1": []byte("unstable")}
+	for version, body := range archives {
+		archive := archiveWithEntries(t, map[string][]byte{"app.js": body})
+		require.Equal(t, http.StatusCreated, createPackage(t, router, name, version, archive, rawToken).Code)
+		currentVersion := version
+		t.Cleanup(func() { _ = service.DeletePackage(context.Background(), name, currentVersion) })
+	}
+
+	served := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@latest/app.js", nil)
+	require.Equal(t, http.StatusOK, served.Code)
+	assert.Equal(t, "newer", served.Body.String())
+	assert.Equal(t, "public, max-age=300", served.Header().Get("Cache-Control"))
+
+	listing := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@latest", nil,
+		utils.Header{Key: "Accept", Value: gin.MIMEJSON})
+	require.Equal(t, http.StatusOK, listing.Code)
+	assert.Contains(t, listing.Body.String(), `"version":"1.1.0"`)
+}
+
+func TestPackageControllerGetLatestUnknownPackage(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	w := utils.PerformRequest(router, http.MethodGet, "/gimme/unknown@latest/app.js", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPackageControllerGetLatestPrereleaseOnlyPackage(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	name := fmt.Sprintf("prerelease-%d", time.Now().UnixNano())
+	archive := archiveWithEntries(t, map[string][]byte{"app.js": []byte("unstable")})
+	require.Equal(t, http.StatusCreated, createPackage(t, router, name, "1.0.0-rc.1", archive, rawToken).Code)
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), name, "1.0.0-rc.1") })
+
+	w := utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@latest/app.js", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestPackageControllerLatestRejectedAtUploadAndDelete(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+
+	upload := createPackage(t, router, "alias", "latest", "../test/test.zip", rawToken)
+	assert.Equal(t, http.StatusBadRequest, upload.Code)
+
+	deletion := utils.PerformRequest(router, http.MethodDelete, "/packages/alias@latest", nil,
+		utils.Header{Key: "Authorization", Value: "Bearer " + rawToken})
+	assert.Equal(t, http.StatusBadRequest, deletion.Code)
+}

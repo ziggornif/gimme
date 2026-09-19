@@ -22,7 +22,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const uploadRollbackTimeout = 30 * time.Second
+const (
+	uploadRollbackTimeout = 30 * time.Second
+	latestVersionAlias    = "latest"
+)
 
 var packageNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
@@ -88,6 +91,9 @@ func versionMatches(candidateVersion string, requestedVersion string) bool {
 	candidateSemver := "v" + candidateVersion
 	if !semver.IsValid(candidateSemver) {
 		return false
+	}
+	if requestedVersion == latestVersionAlias {
+		return semver.Prerelease(candidateSemver) == ""
 	}
 	if candidateVersion == requestedVersion {
 		return true
@@ -287,7 +293,7 @@ func IsPinnedVersion(version string) bool {
 
 // GetFile get package file
 func (svc *ContentService) GetFile(ctx context.Context, pkg string, version string, fileName string, accepted []Encoding) (*minio.Object, Encoding, *errors.GimmeError) {
-	valid := semver.IsValid(fmt.Sprintf("v%v", version))
+	valid := version == latestVersionAlias || semver.IsValid(fmt.Sprintf("v%v", version))
 	if !valid {
 		return nil, "", errors.NewBusinessError(errors.BadRequest, fmt.Errorf("invalid version (asked version must be semver compatible)"))
 	}
@@ -510,13 +516,11 @@ func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, versio
 			logrus.Debugf("[ContentService] DeletePackage - Invalidated cache entries for prefix %s", prefix)
 		}
 
-		// Also invalidate partial version entries that may have resolved to this
-		// version (e.g. "pkg@1.0" or "pkg@1" caching a path that pointed to "pkg@1.0.3").
-		for _, partialPrefix := range partialVersionPrefixes(pkg, version) {
-			if cacheErr := svc.cacheManager.DeleteByPrefix(ctx, partialPrefix); cacheErr != nil {
-				logrus.Warnf("[ContentService] DeletePackage - Could not invalidate partial cache for prefix %s: %v", partialPrefix, cacheErr)
+		for _, aliasPrefix := range mutableAliasPrefixes(pkg, version) {
+			if cacheErr := svc.cacheManager.DeleteByPrefix(ctx, aliasPrefix); cacheErr != nil {
+				logrus.Warnf("[ContentService] DeletePackage - Could not invalidate mutable alias cache for prefix %s: %v", aliasPrefix, cacheErr)
 			} else {
-				logrus.Debugf("[ContentService] DeletePackage - Invalidated partial cache entries for prefix %s", partialPrefix)
+				logrus.Debugf("[ContentService] DeletePackage - Invalidated mutable alias cache entries for prefix %s", aliasPrefix)
 			}
 		}
 	}
@@ -525,19 +529,19 @@ func (svc *ContentService) DeletePackage(ctx context.Context, pkg string, versio
 	return nil
 }
 
-// partialVersionPrefixes returns the cache key prefixes for partial versions of a package.
-// For example, deleting "pkg@1.0.3" should also invalidate "pkg@1.0" and "pkg@1"
-// since those partial-version cache entries may have resolved to the deleted version.
+// mutableAliasPrefixes returns the cache key prefixes for mutable aliases of a package.
+// For example, deleting "pkg@1.0.3" should also invalidate "pkg@1.0", "pkg@1",
+// and "pkg@latest" since those cache entries may have resolved to the deleted version.
 // Pre-release and build-metadata suffixes are stripped before computing the partial
 // prefixes so that "1.0.0-rc.1" generates the same partial prefixes as "1.0.0".
-func partialVersionPrefixes(pkg, version string) []string {
+func mutableAliasPrefixes(pkg, version string) []string {
 	// Strip pre-release suffix (e.g. "1.0.0-rc.1" → "1.0.0")
 	base := strings.SplitN(version, "-", 2)[0]
 	// Strip build metadata (e.g. "1.0.0+build.1" → "1.0.0")
 	base = strings.SplitN(base, "+", 2)[0]
 
 	parts := strings.Split(base, ".")
-	var prefixes []string
+	prefixes := []string{fmt.Sprintf("%s@%s", pkg, latestVersionAlias)}
 	// Build prefixes for each level shorter than the full version: major, major.minor, etc.
 	for i := 1; i < len(parts); i++ {
 		partial := strings.Join(parts[:i], ".")
