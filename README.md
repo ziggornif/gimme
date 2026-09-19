@@ -436,7 +436,7 @@ HEAD /gimme/<package>@<version>/<file>
 curl http://localhost:8080/gimme/awesome-lib@1.0.0/awesome-lib.min.js
 ```
 
-**Semver partial versions are supported** — `awesome-lib@1.0` serves the file from the latest `1.0.x` available, or returns 404 if that version does not contain the file.
+**Semver aliases are supported** — `awesome-lib@1.0` serves the file from the highest stable `1.0.x` available, while `awesome-lib@latest` serves it from the highest stable version. If the resolved version does not contain the file, the request returns 404; aliases never fall back to a lower version.
 
 > **CORS:** CORS is configurable via `cors.allowed_origins` in `gimme.yml`. If left empty (the default), all origins are allowed (`*`) — suitable for a public CDN. Set it to a list of trusted origins to restrict cross-origin access.
 
@@ -539,11 +539,12 @@ Gimme automatically emits `Cache-Control` headers on every file response, allowi
 |---|---|---|
 | Pinned (3-part semver) | `pkg@1.0.0` | `public, max-age=31536000, immutable` |
 | Partial | `pkg@1.0` or `pkg@1` | `public, max-age=300` |
+| Latest stable | `pkg@latest` | `public, max-age=300` |
 | Not found (404) | any | `no-store` |
 
 **Pinned versions** (`pkg@1.0.0`) are immutable by design — the same URL always resolves to exactly the same files. Browsers and proxies can cache them for up to 1 year with no revalidation.
 
-**Partial versions** (`pkg@1.0`) resolve to the latest matching patch at request time, so they are only cached for 5 minutes.
+**Mutable aliases** (`pkg@1.0` and `pkg@latest`) resolve to the highest matching stable version at request time, so they are only cached for 5 minutes and are never marked `immutable`.
 
 **404 responses** are never cached, to avoid propagating transient misses.
 

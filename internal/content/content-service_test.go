@@ -280,8 +280,8 @@ func TestContentService_DeletePackage_InvalidatesCache(t *testing.T) {
 	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour, UploadLimits{})
 	err := service.DeletePackage(context.Background(), "test", "1.1.1")
 	require.Nil(t, err)
-	// 1 exact prefix (test@1.1.1) + 2 partial prefixes (test@1.1, test@1)
-	assert.Equal(t, 3, cm.DeleteByPrefixCalls)
+	// 1 exact prefix (test@1.1.1) + 2 partial prefixes (test@1.1, test@1) + latest
+	assert.Equal(t, 4, cm.DeleteByPrefixCalls)
 	// Exact version entries must be gone
 	_, ok1 := cm.Get(context.Background(), "test@1.1.1/file.js")
 	_, ok2 := cm.Get(context.Background(), "test@1.1.1/file.css")
@@ -1231,4 +1231,70 @@ func TestContentService_CreatePackage_ValidatesNameAndVersion(t *testing.T) {
 			assert.Empty(t, manager.AddBytesKeys)
 		})
 	}
+}
+
+// --- @latest alias tests (#51) ---
+
+func TestVersionMatches_Latest(t *testing.T) {
+	assert.True(t, versionMatches("1.0.0", "latest"))
+	assert.True(t, versionMatches("10.0.0", "latest"))
+	assert.False(t, versionMatches("2.0.0-rc.1", "latest"))
+	assert.False(t, versionMatches("not-a-version", "latest"))
+}
+
+func TestContentService_GetFile_LatestResolvesHighestStableVersion(t *testing.T) {
+	osm := &mocks.MockOSManager{}
+	service := NewContentService(osm, nil, 0, UploadLimits{})
+	file, _, err := service.GetFile(context.Background(), "test", "latest", "/test.js", nil)
+	assert.NotNil(t, file)
+	assert.Nil(t, err)
+	assert.Equal(t, "test@10.0.0/test.js", osm.LastGetObjectPath())
+}
+
+func TestContentService_GetFile_RejectsLatestNearMisses(t *testing.T) {
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
+	for _, version := range []string{"LATEST", "Latest", "lates", "latest.1"} {
+		_, _, err := service.GetFile(context.Background(), "test", version, "/test.js", nil)
+		require.NotNil(t, err, version)
+		assert.Equal(t, "invalid version (asked version must be semver compatible)", err.Error(), version)
+	}
+}
+
+type prereleaseOnlyManager struct {
+	*mocks.MockOSManager
+}
+
+func (manager *prereleaseOnlyManager) ListCommonPrefixes(_ context.Context, prefix string) []string {
+	return []string{prefix + "1.0.0-rc.1/", prefix + "1.0.0-rc.2/"}
+}
+
+func TestContentService_GetFile_LatestLeavesPrereleaseOnlyPackageUnresolved(t *testing.T) {
+	manager := &prereleaseOnlyManager{MockOSManager: &mocks.MockOSManager{}}
+	service := NewContentService(manager, nil, 0, UploadLimits{})
+	_, _, err := service.GetFile(context.Background(), "beta", "latest", "/test.js", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "beta@latest/test.js", manager.LastGetObjectPath())
+}
+
+func TestContentService_GetFiles_Latest(t *testing.T) {
+	service := NewContentService(&mocks.MockOSManager{}, nil, 0, UploadLimits{})
+	listing, err := service.GetFiles(context.Background(), "test", "latest", "", 100)
+	assert.Nil(t, err)
+	assert.Equal(t, "10.0.0", listing.Version)
+}
+
+func TestContentService_DeletePackage_InvalidatesLatestCache(t *testing.T) {
+	cm := mocks.NewMockCacheManager()
+	cm.Seed("test@latest/file.js", &cache.CacheEntry{ObjectPath: "test@1.1.1/file.js"})
+
+	service := NewContentService(&mocks.MockOSManager{}, cm, 1*time.Hour, UploadLimits{})
+	err := service.DeletePackage(context.Background(), "test", "1.1.1")
+	require.Nil(t, err)
+
+	_, found := cm.Get(context.Background(), "test@latest/file.js")
+	assert.False(t, found)
+}
+
+func TestIsPinnedVersion_Latest(t *testing.T) {
+	assert.False(t, IsPinnedVersion("latest"))
 }

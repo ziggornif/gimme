@@ -255,13 +255,13 @@
       "get": {
         "tags": ["package"],
         "summary": "Browse package contents",
-        "description": "Returns an HTML or JSON list of a package's versions when `package` is a name, or a keyset-paginated listing of files when it is `name@version`. Partial semver such as `awesome-lib@1.0` resolves to the latest `1.0.x`. The `limit` and `after` parameters apply only to file listings.",
+        "description": "Returns an HTML or JSON list of a package's versions when `package` is a name, or a keyset-paginated listing of files when it is `name@version`. Partial semver such as `awesome-lib@1.0` resolves to the highest stable `1.0.x`; `awesome-lib@latest` resolves to the highest stable version. The `limit` and `after` parameters apply only to file listings.",
         "operationId": "getPackage",
         "parameters": [
           {
             "name": "package",
             "in": "path",
-            "description": "Package name (e.g. `awesome-lib`) for a versions list, or `name@version` (e.g. `awesome-lib@1.0.0` or `awesome-lib@1.0`) for a file listing",
+            "description": "Package name (e.g. `awesome-lib`) for a versions list, or `name@version` (e.g. `awesome-lib@1.0.0`, `awesome-lib@1.0`, or `awesome-lib@latest`) for a file listing",
             "required": true,
             "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           },
@@ -312,13 +312,13 @@
       "get": {
         "tags": ["package"],
         "summary": "Serve a file",
-        "description": "Streams a file from the CDN. The `Content-Type` is inferred from the file extension. Supports partial semver for the version part of `package`.",
+        "description": "Streams a file from the CDN. The `Content-Type` is inferred from the file extension. Supports pinned semver, partial semver resolving to the highest matching stable version, and `latest` resolving to the highest stable version.",
         "operationId": "getPackageFile",
         "parameters": [
           {
             "name": "package",
             "in": "path",
-            "description": "Package identifier in the form `name@version`",
+            "description": "Package identifier in the form `name@version`, where version is a full semver, a partial semver, or `latest`",
             "required": true,
             "schema": { "type": "string", "example": "awesome-lib@1.0.0" }
           },
