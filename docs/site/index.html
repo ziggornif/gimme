@@ -163,7 +163,7 @@
                     <div class="hero-eyebrow">
                         <span class="badge">Open source</span>
                         <span class="badge badge-outline"
-                            >v1 · Go · S3-compatible</span
+                            >v2 · Go · S3-compatible</span
                         >
                     </div>
                     <h1 id="hero-title" class="hero-title">
@@ -240,6 +240,7 @@ curl -X POST https://cdn.example.com/tokens \
   -d '{"name": "ci", "expirationDate": "2027-12-31"}'
 
 # 2. Upload your library
+# A lone top-level folder in the ZIP is stripped — see the API reference
 curl -X POST https://cdn.example.com/packages \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@my-lib.zip" \
@@ -840,7 +841,8 @@ make build && ./gimme</code></pre>
                             <div class="step-number" aria-hidden="true">2</div>
                             <div class="step-body">
                                 <h4>Upload a ZIP package</h4>
-                                <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
+                                <pre><code class="language-bash"># A lone top-level folder in the ZIP is stripped — see the API reference
+curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@my-lib.zip" \
   -F "name=my-lib" \
@@ -942,7 +944,7 @@ metrics: true            # expose /metrics (Prometheus)
                                 <tr>
                                     <td><code>secret</code></td>
                                     <td>
-                                        Token signing secret (<strong
+                                        Master secret (<strong
                                             >min 32 bytes</strong
                                         >)
                                     </td>
@@ -1749,6 +1751,25 @@ helm uninstall gimme --namespace gimme</code></pre>
                         <code>.</code>, <code>_</code>, and <code>-</code>.
                         Versions must be full semver versions such as
                         <code>1.0.0</code>; prerelease and build metadata are accepted.
+                    </p>
+                    <p>
+                        The paths inside the archive become the URLs, with one
+                        exception: a <strong>single</strong> top-level folder is
+                        stripped. So <code>zip -r my-lib.zip my-lib/</code> and
+                        <code>cd my-lib &amp;&amp; zip -r ../my-lib.zip .</code>
+                        produce the same URLs. Several top-level folders are
+                        kept as they are, so
+                        <code>zip -r my-lib.zip dist/ src/</code> serves
+                        <code>/gimme/my-lib@1.0.0/dist/...</code> — rarely what
+                        you want. Files can also be excluded from the archive
+                        with a <code>.gimmeignore</code>; see the
+                        <a
+                            href="https://github.com/ziggornif/gimme#archive-layout"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >README</a
+                        >
+                        for the full rules.
                     </p>
                     <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
