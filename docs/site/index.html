@@ -1137,6 +1137,45 @@ metrics: true            # expose /metrics (Prometheus)
                                     </td>
                                     <td><code>[]</code> (all origins)</td>
                                 </tr>
+                                <tr>
+                                    <td><code>upload.max_size</code></td>
+                                    <td>
+                                        Maximum upload request body size;
+                                        accepts bytes or a size such as
+                                        <code>100MB</code> (base 1024)
+                                    </td>
+                                    <td><code>100MB</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>upload.max_entries</code></td>
+                                    <td>
+                                        Maximum number of file entries in a
+                                        ZIP archive
+                                    </td>
+                                    <td><code>10000</code></td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>upload.max_uncompressed_size</code>
+                                    </td>
+                                    <td>
+                                        Maximum cumulative declared
+                                        decompressed size; accepts bytes or a
+                                        size such as <code>500MB</code> (base
+                                        1024)
+                                    </td>
+                                    <td><code>500MB</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>token_file</code></td>
+                                    <td>
+                                        Path of the encrypted token file, used
+                                        only when
+                                        <code>tokenStore.mode</code> is
+                                        <code>file</code>
+                                    </td>
+                                    <td><code>/tmp/gimme-tokens.enc</code></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -1761,15 +1800,7 @@ helm uninstall gimme --namespace gimme</code></pre>
                         kept as they are, so
                         <code>zip -r my-lib.zip dist/ src/</code> serves
                         <code>/gimme/my-lib@1.0.0/dist/...</code> — rarely what
-                        you want. Files can also be excluded from the archive
-                        with a <code>.gimmeignore</code>; see the
-                        <a
-                            href="https://github.com/ziggornif/gimme#archive-layout"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            >README</a
-                        >
-                        for the full rules.
+                        you want.
                     </p>
                     <pre><code class="language-bash">curl -X POST http://localhost:8080/packages \
   -H "Authorization: Bearer $TOKEN" \
@@ -1777,6 +1808,93 @@ helm uninstall gimme --namespace gimme</code></pre>
   -F "name=my-lib" \
   -F "version=1.0.0"
 # → 201 Created</code></pre>
+                    <p>
+                        Uploads are bounded by request body size, ZIP entry
+                        count, and cumulative declared decompressed size,
+                        configured by the three <code>upload.*</code> keys
+                        above. Exceeding any configured limit answers
+                        <code>413 Payload Too Large</code> with an error naming
+                        the limit that was exceeded.
+                    </p>
+                    <p>
+                        A <code>name@version</code> that already exists answers
+                        <code>409 Conflict</code>; gimme never overwrites a
+                        published version. Delete it first if you mean to
+                        replace it.
+                    </p>
+                    <p>
+                        A failed upload is rolled back — the package either
+                        lands entirely or leaves nothing behind, so the same
+                        <code>name@version</code> can be retried immediately. If
+                        the rollback itself fails, the <code>500</code> says so
+                        and names the
+                        <code>DELETE /packages/&lt;pkg&gt;@&lt;version&gt;</code>
+                        you should run before retrying. A server killed outright
+                        (<code>kill -9</code>, OOM) gets no chance to roll back
+                        and leaves a partial package that answers
+                        <code>409</code> on retry; remove it with the same
+                        <code>DELETE</code>.
+                    </p>
+                    <p>
+                        macOS metadata is never published: everything under a
+                        top-level <code>__MACOSX/</code>, and any
+                        <code>.DS_Store</code> at any depth. Neither counts when
+                        gimme looks for the wrapper folder, so an archive zipped
+                        from the Finder behaves like any other. Entry names are
+                        normalised to Unicode NFC — macOS stores accented names
+                        decomposed while browsers request them composed, so
+                        without this a file like <code>café.js</code> would be
+                        stored under a key no URL could reach. Two entries
+                        differing only by that encoding are reported as the
+                        collision they are.
+                    </p>
+                    <p>
+                        An archive is rejected entirely, with nothing uploaded,
+                        when an entry escapes the package namespace
+                        (<code>../</code>, absolute paths, empty names) or when
+                        two entries map to the same URL.
+                    </p>
+
+                    <h3>Excluding files with .gimmeignore</h3>
+                    <p>
+                        Put a <code>.gimmeignore</code> in the archive to keep
+                        files out of the package. It uses
+                        <code>.gitignore</code> syntax and is looked up in
+                        exactly two places: the archive root, or — when the
+                        archive wraps everything in a single top-level folder —
+                        inside that folder. Both ways of building the archive
+                        therefore work:
+                    </p>
+                    <pre><code class="language-bash">cd dist &amp;&amp; zip -r ../pkg.zip .   # .gimmeignore at the archive root
+zip -r pkg.zip dist              # .gimmeignore at dist/.gimmeignore</code></pre>
+                    <p>
+                        Patterns are written against the contents of your
+                        package, not against the archive, so the same file works
+                        either way.
+                    </p>
+                    <pre><code class="language-gitignore">*.map
+node_modules/
+/internal-notes.md
+!keep/important.js</code></pre>
+                    <p>
+                        The <code>.gimmeignore</code> itself is not published.
+                        One found anywhere else in the tree is an ordinary file
+                        — uploaded, with no effect. An excluded file does not
+                        count when gimme looks for the wrapper folder, which is
+                        how you publish a <code>dist/</code> folder alongside
+                        files you do not want served.
+                    </p>
+                    <p>
+                        A <code>.gitignore</code> is <strong>not</strong>
+                        honoured, deliberately: it usually lists
+                        <code>dist/</code>, so applying it would drop the very
+                        files you meant to publish.
+                    </p>
+                    <p>
+                        An archive whose entries are all excluded is rejected,
+                        like an empty one. Exclusions do not relax the upload
+                        limits — those apply to the archive as sent.
+                    </p>
 
                     <h3>Serve a file</h3>
                     <pre><code class="language-bash"># Exact version — cached for 1 year
@@ -1793,6 +1911,49 @@ curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
                     <h3>Browse</h3>
                     <pre><code class="language-bash">curl -H 'Accept: application/json' http://localhost:8080/gimme/my-lib</code></pre>
                     <pre><code class="language-json">{"package":"my-lib","versions":["1.10.0","1.9.0","1.2.0"]}</code></pre>
+                    <p>
+                        Versions are returned in semver descending order, newest
+                        first. The same URL returns HTML to a browser and JSON
+                        under <code>Accept: application/json</code>. An unknown
+                        package answers <code>404</code>.
+                    </p>
+                    <p>
+                        Add a version to list its files. Listings use keyset
+                        pagination: <code>?limit=N</code> defaults to 50 and is
+                        clamped to the range 1–500; an absent or non-numeric
+                        value falls back to 50. The
+                        <code>?after=&lt;raw object key&gt;</code> cursor is the full
+                        S3 object key of the last item on the previous page.
+                    </p>
+                    <pre><code class="language-bash">curl -i -H 'Accept: application/json' \
+  'http://localhost:8080/gimme/my-lib@1.0.0?limit=50'</code></pre>
+                    <pre><code class="language-http">Link: &lt;/gimme/my-lib@1.0.0?limit=50&gt;; rel="first", &lt;/gimme/my-lib@1.0.0?limit=50&amp;after=my-lib%401.0.0%2Fapp.js&gt;; rel="next"</code></pre>
+                    <pre><code class="language-json">{
+  "package": "my-lib",
+  "version": "1.0.0",
+  "files": [
+    {"name": "my-lib@1.0.0/app.js", "size": 1234}
+  ],
+  "pagination": {"limit": 50, "next": "my-lib@1.0.0/app.js", "has_more": true, "total": null}
+}</code></pre>
+                    <p>
+                        The <code>Link</code> response header carries
+                        <code>rel="first"</code> and, when another page exists,
+                        <code>rel="next"</code>. The deliberate absence of
+                        <code>rel="prev"</code> and <code>rel="last"</code> is a
+                        property of keyset pagination: neither is derivable from
+                        its cursor, so the browser's Back button is Previous.
+                        A browser's <code>Accept</code>, and a bare
+                        <code>*/*</code>, still receive HTML.
+                    </p>
+                    <p>
+                        Each file's <code>name</code> is its full object key.
+                        <code>total</code> is the count when the whole listing
+                        fits on one page and <code>null</code> otherwise. S3
+                        exposes no object count for a prefix; a counting pass
+                        would re-drain the listing that pagination exists to
+                        avoid.
+                    </p>
                     <p>
                         Newly uploaded files expose their Subresource Integrity
                         token through <code>Gimme-Integrity</code>. The package
@@ -1867,9 +2028,19 @@ curl -I http://localhost:8080/gimme/my-lib@1.0.0/my-lib.min.js</code></pre>
                     <p>
                         Compressible files are stored with Brotli and gzip variants during upload.
                         Requests negotiate them with <code>Accept-Encoding</code>, and responses emit
+                        <code>Content-Encoding: br</code> or
+                        <code>Content-Encoding: gzip</code> alongside
                         <code>Vary: Accept-Encoding</code> so browsers and intermediate caches keep
                         each representation separate. Missing variants fall back to the identity object;
                         older packages must be re-uploaded to gain compressed variants.
+                    </p>
+                    <p>
+                        If a client refuses the identity encoding and no stored
+                        variant matches an encoding it accepts, gimme answers
+                        <code>406 Not Acceptable</code> with
+                        <code>no acceptable content coding available for this file</code>.
+                        This is the correct HTTP response, not an error condition
+                        to work around.
                     </p>
                     <div class="table-wrapper">
                         <table

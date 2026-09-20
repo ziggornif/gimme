@@ -461,7 +461,24 @@ GET /gimme/<package>@<version>
 
 Returns an HTML page listing the files in the package, 50 at a time. `?limit=` raises the page size up to 500, and the `Next` link carries a `?after=` cursor. Sending `Accept: application/json` returns the same listing as JSON, with the pagination cursor in a `Link` header.
 
-Without `@<version>`, the same route lists the package's versions instead, newest first.
+`?limit=N` defaults to 50 and is clamped to `[1, 500]`; an absent or non-numeric value falls back to 50. `?after=<raw object key>` is the keyset cursor: the full S3 object key of the last item on the previous page, such as `my-lib@1.0.0/dist/app.js`.
+
+The `Link` response header carries `rel="first"` and, when another page exists, `rel="next"`. The omission of `rel="prev"` and `rel="last"` is deliberate: neither is derivable from a keyset cursor, so the browser's Back button is Previous.
+
+```json
+{
+  "package": "my-lib",
+  "version": "1.0.0",
+  "files": [
+    {"name": "my-lib@1.0.0/app.js", "size": 1234}
+  ],
+  "pagination": {"limit": 50, "next": "my-lib@1.0.0/app.js", "has_more": true, "total": null}
+}
+```
+
+In the JSON response, `name` is the full object key. `total` is `null` unless the whole listing fits in a single page, in which case it is the count. S3 exposes no object count for a prefix, and adding a counting pass would re-drain the listing that pagination exists to avoid.
+
+Without `@<version>`, the same route lists the package's versions in semver descending order, newest first. A browser's `Accept`, and a bare `*/*`, return HTML; an unknown package answers `404`.
 
 ```bash
 curl http://localhost:8080/gimme/awesome-lib@1.0.0
@@ -525,7 +542,9 @@ docker run -p 8080:8080 \
 
 With `compression.enabled: true`, gimme generates sibling `.br` and `.gz` objects while uploading compressible files between 1 KiB and 8 MiB. A variant is kept only when it is at most 80% of the identity size. Existing archive entries such as `app.js.gz` are preserved and take precedence over generated variants.
 
-File responses negotiate Brotli and gzip through `Accept-Encoding` and include `Vary: Accept-Encoding`. When a requested variant is unavailable, gimme serves the identity object. Packages uploaded before compression support was enabled must be re-uploaded to gain precompressed variants.
+File responses negotiate Brotli and gzip through `Accept-Encoding`. A precompressed response includes `Content-Encoding: br` or `Content-Encoding: gzip` alongside `Vary: Accept-Encoding`. When a requested variant is unavailable, gimme serves the identity object. Packages uploaded before compression support was enabled must be re-uploaded to gain precompressed variants.
+
+If a client refuses the identity encoding — for example with `Accept-Encoding: br;q=1, identity;q=0` — and no stored variant matches an encoding it accepts, gimme answers `406 Not Acceptable` with `no acceptable content coding available for this file`. This is the correct HTTP response, not an error condition to work around.
 
 ## Caching Strategy
 
