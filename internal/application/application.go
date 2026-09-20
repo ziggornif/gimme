@@ -93,9 +93,8 @@ func (app *Application) configureAuthProvider() {
 	case "oidc":
 		oidcCtx, oidcCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer oidcCancel()
-		// Derive a domain-separated signing secret for OIDC session cookies so that
-		// API tokens (signed with app.config.Secret) cannot be replayed as session
-		// cookies and vice versa.
+		// Domain-separate the OIDC session cookie key from the file token store's
+		// AES key, which is derived from the same master secret.
 		oidcSigningSecret := deriveSecret(app.config.Secret, "oidc-session")
 		oidcProvider, oidcErr := auth.NewOIDCProvider(
 			oidcCtx,

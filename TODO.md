@@ -408,8 +408,23 @@ Before touching application code, so the lint inventory is known in advance.
   `fail` in the chart when `mode: file` meets `replicaCount > 1` or `hpa.enabled`, so the unworkable combination cannot be rendered. Land after #57 so the guard message and the README agree.
   *Files:* `scripts/helm/gimme/templates/_helpers.tpl`, helm-unittest tests
 
-- [ ] **#56 + #63 — README and docs site narrative** ⚠️ *one pass*
-  Both share an angle: lead with the use case, not the definition. #63 also carries the `v1` badge fix and the missing ZIP layout instruction.
+- [x] **#63 — Docs site: badge, ZIP layout, factual corrections**
+  The `v1` badge became `v2`, the site gained the archive-layout rule it never carried, and the false statements found alongside were corrected: the README's "all files" on a paginated route, its `GET /gimme/:package` row, `CLAUDE.md`'s pre-v2 JWT tokens, `secret` described as a "token signing secret" in three places, and a comment in `internal/application/application.go` justifying the OIDC key derivation with a replay risk that does not exist.
+  ⚠️ *#63 prescribed the opposite of the current behaviour.* It asked for "files must live inside a root folder"; #42 + #43 made a lone top-level folder stripped instead, so the site documents the real rule — one folder is stripped, several are kept.
+  *The hero was left as it was.* Item 3 of #63 belonged to #56, which was closed: its premise — that semver partial resolution "is the whole product" — does not hold.
+
+- [ ] **#143 — Publish a reproducible benchmark for the README**
+  #56 asked the README to carry a number — "holds N req/s on a single instance" — and it ships without one. The only measurements that exist are the #84 and #85 comparisons recorded above: one developer machine, Garage v1.3.1 in Docker, concurrency 5 and 20, taken to compare two code paths against each other rather than to characterise the product. Publishing them as product performance would be an extrapolation from a laptop to a claim.
+  *Scope:* a script in the repository someone else can run, the rig stated in full (CPU, memory, Go version, Garage version, concurrency, duration), the axes that matter for a CDN (pinned vs partial version, file size, cache on/off, compression on/off), and p50/p95/p99 rather than a mean. The numbers are published with the rig beside them, never alone.
+  *Out of scope:* comparing gimme to nginx, unpkg or jsDelivr — different systems on different hardware, and a side-by-side needs its own methodology.
+
+- [ ] **#144 — Document the pagination contract, `.gimmeignore` on the site, and the versions listing**
+  Three features landed without their documentation section. Unlike the inaccuracies #63 fixed, these mislead nobody — the docs simply say nothing, so the feature is invisible to whoever reads them.
+  *The pagination contract is the largest and is documented nowhere* — `limit=`, `after=` and `rel="next"` each appear **0 times** in `README.md` and in `docs/site/index.html`. #63 added one corrective sentence to the README because the old text claimed the route returned "all files", which was false; one true sentence is not a reference section. Missing: the `[1, 500]` clamp, the `Link` header, the JSON body shape, why `rel="prev"` and `rel="last"` are **deliberately** absent (not derivable from a keyset cursor — GitLab omits the same two), and why `total` is `null` unless the listing fitted in one page.
+  *`.gimmeignore` has 7 mentions in the README and 0 on the site.* #63 added a pointer link from the upload section; a reader who stays on the site still never learns the feature exists.
+  *The versions listing (#49) has no section on either side* — only the route-summary row, which #63 corrected. Nothing states the semver-descending order, the HTML/JSON negotiation, or the `404` on an unknown package.
+  *Checked and already covered, do not redo:* SRI (`README.md` documents `Gimme-Integrity`, the copy button and `curl -I`; the site covers it too), brotli/gzip, ETag/`304` and `@latest`.
+  ⚠️ *This is the rule below being broken.* #84 and #49 shipped without their docs-site update. Worth re-reading that blockquote before the next feature PR rather than filing a third catch-up issue.
 
 > **Reference sections drift as features land.** Update the relevant docs-site section **in the PR of the feature itself**, not in a separate documentation pass. Affected: Semver resolution (#45, #51), Caching (#47, #48), API Reference (#49), Quickstart (#55).
 

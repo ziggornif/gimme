@@ -36,9 +36,9 @@ gimme/
 
 ### Key Data Flow
 
-1. **Upload**: `POST /packages` (Bearer JWT) → `archive_validator` → `content.CreatePackage` → unzip → `storage.AddObject` (S3, parallel goroutines via `errgroup`)
+1. **Upload**: `POST /packages` (Bearer token) → `archive_validator` → `content.CreatePackage` → unzip → `storage.AddObject` (S3, parallel goroutines via `errgroup`)
 2. **Serve**: `GET /gimme/<package>@<version>/<file>` → `content.GetFile` → `storage.GetObject` → stream response
-3. **Auth**: `POST /tokens` (admin auth via `authProvider`) → `auth.CreateToken` → signed JWT (HS256)
+3. **Auth**: `POST /tokens` (admin auth via `authProvider`) → `auth.CreateToken` → opaque `gim_<hex>` token, stored as a SHA-256 hash
 4. **Health**: `GET /healthz` → liveness (process alive) / `GET /readyz` → readiness (S3 bucket reachable)
 
 ### Package Naming Convention
@@ -67,7 +67,7 @@ Config is read from `gimme.yml` (local dir or `/config/` for Docker) via **Viper
 
 | Key                   | Description                                             | Default  |
 |-----------------------|---------------------------------------------------------|----------|
-| `secret`              | JWT signing secret                                      | required |
+| `secret`              | Master secret (token store encryption, OIDC cookies)    | required |
 | `admin.user`          | Basic auth admin username                               | required |
 | `admin.password`      | Basic auth admin password                               | required |
 | `port`                | HTTP server port                                        | `8080`   |
@@ -95,10 +95,10 @@ nginx limits request bodies to 1 MB by default. When gimme runs behind nginx, se
 |----------|------------------------------|---------------|--------------------------------------|
 | `GET`    | `/`                          | None          | HTML homepage                        |
 | `GET`    | `/admin`                     | Admin auth    | Admin UI (token management)          |
-| `POST`   | `/tokens`                    | Admin auth    | Create JWT access token              |
+| `POST`   | `/tokens`                    | Admin auth    | Create an opaque access token        |
 | `DELETE` | `/tokens/:id`                | Admin auth    | Revoke an access token               |
-| `POST`   | `/packages`                  | Bearer JWT    | Upload a ZIP package                 |
-| `DELETE` | `/packages/:package`         | Bearer JWT    | Delete a package (`name@version`)    |
+| `POST`   | `/packages`                  | Bearer token  | Upload a ZIP package                 |
+| `DELETE` | `/packages/:package`         | Bearer token  | Delete a package (`name@version`)    |
 | `GET`    | `/gimme/:package`            | None          | Package versions (`name`) or paginated package files (`name@version`), HTML or JSON |
 | `GET`    | `/gimme/:package/*file`      | None          | Serve a specific file from a package |
 | `GET`    | `/metrics`                   | None          | OpenMetrics/Prometheus endpoint      |
@@ -142,7 +142,7 @@ go test $(go list ./... | grep -v 'github.com/ziggornif/gimme/api') -coverprofil
 | Package                         | Role                                      |
 |---------------------------------|-------------------------------------------|
 | `gin-gonic/gin`                 | HTTP framework                            |
-| `golang-jwt/jwt/v4`             | JWT token creation and validation         |
+| `golang-jwt/jwt/v4`             | OIDC session cookie signing (HS256)       |
 | `minio/minio-go/v7`             | S3-compatible object storage client       |
 | `spf13/viper`                   | Configuration management                  |
 | `sirupsen/logrus`               | Structured logging                        |

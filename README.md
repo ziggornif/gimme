@@ -185,7 +185,7 @@ s3:
 
 | Key               | Description                              | Default  |
 |-------------------|------------------------------------------|----------|
-| `secret`          | Token signing secret (**min 32 chars**)  | required |
+| `secret`          | Master secret (**min 32 chars**)         | required |
 | `admin.user`      | Admin username (Basic Auth)              | required |
 | `admin.password`  | Admin password (Basic Auth)              | required |
 | `port`            | HTTP server port                         | `8080`   |
@@ -214,6 +214,8 @@ s3:
 | `upload.max_size` | Maximum upload request body size; accepts bytes or a size such as `100MB` (base 1024) | `100MB` |
 | `upload.max_entries` | Maximum number of file entries in a ZIP archive | `10000` |
 | `upload.max_uncompressed_size` | Maximum cumulative declared decompressed size; accepts bytes or a size such as `500MB` (base 1024) | `500MB` |
+
+**The `secret`.** It signs no API token — those are opaque and stored as hashes. It is the master key two things are derived from: the AES key encrypting the `file` token store, and the signing key for OIDC session cookies. Changing it invalidates both.
 
 **Reverse proxies.** nginx limits request bodies to 1 MB by default. If gimme is behind nginx, set `client_max_body_size` high enough for `upload.max_size`; otherwise nginx returns 413 before the request reaches gimme.
 
@@ -457,7 +459,9 @@ Objects uploaded by older gimme versions remain available but do not include thi
 GET /gimme/<package>@<version>
 ```
 
-Returns an HTML page listing all files in the package.
+Returns an HTML page listing the files in the package, 50 at a time. `?limit=` raises the page size up to 500, and the `Next` link carries a `?after=` cursor. Sending `Accept: application/json` returns the same listing as JSON, with the pagination cursor in a `Link` header.
+
+Without `@<version>`, the same route lists the package's versions instead, newest first.
 
 ```bash
 curl http://localhost:8080/gimme/awesome-lib@1.0.0
@@ -484,7 +488,7 @@ Response: `204 No Content`
 | `DELETE` | `/tokens/:id`                | Admin auth   | Revoke an access token               |
 | `POST`   | `/packages`                  | Bearer token | Upload a ZIP package                 |
 | `DELETE` | `/packages/:package`         | Bearer token | Delete a package (`name@version`)    |
-| `GET`    | `/gimme/:package`            | —            | List files in a package (HTML)       |
+| `GET`    | `/gimme/:package`            | —            | List a package's versions (`name`), or its files paginated (`name@version`) — HTML or JSON |
 | `GET`    | `/gimme/:package/*file`      | —            | Serve a file from a package          |
 | `HEAD`   | `/gimme/:package/*file`      | —            | Read file headers without its body   |
 | `GET`    | `/metrics`                   | —            | Prometheus / OpenMetrics endpoint    |
