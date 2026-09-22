@@ -68,3 +68,12 @@ Return the container image tag (appVersion if tag is empty)
 {{- define "gimme.imageTag" -}}
 {{- .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
+
+{{/*
+Validate the token store configuration
+*/}}
+{{- define "gimme.validateTokenStore" -}}
+{{- if and (eq .Values.tokenStore.mode "file") (or (gt (int .Values.replicaCount) 1) .Values.hpa.enabled) }}
+{{- fail "tokenStore.mode=file keeps API tokens in a per-pod volume and cannot be shared across replicas. Set tokenStore.mode to redis or postgres, or keep replicaCount=1 with hpa.enabled=false." }}
+{{- end }}
+{{- end }}

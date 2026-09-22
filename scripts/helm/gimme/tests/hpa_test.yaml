@@ -8,6 +8,7 @@ set:
   credentials.admin.password: "x"
   credentials.s3.key: "x"
   credentials.s3.secret: "x"
+  tokenStore.mode: redis
 tests:
   - it: should not create an HPA by default
     asserts:
