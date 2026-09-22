@@ -150,7 +150,9 @@ cache:
 
 Horizontal scaling requires a shared token store. Everything else in gimme already
 scales — but in the default `file` mode, tokens live in a per-pod volume, so a token
-issued by one pod is unknown to the others.
+issued by one pod is unknown to the others. The chart therefore refuses to render
+`file` mode with `replicaCount` above 1 or `hpa.enabled: true`: `helm install` and
+`helm upgrade` stop with an error instead of deploying pods that answer `401` at random.
 
 Set `tokenStore.mode` to `redis` or `postgres` before adding replicas:
 

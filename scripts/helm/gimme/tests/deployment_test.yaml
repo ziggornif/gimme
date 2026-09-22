@@ -274,3 +274,41 @@ tests:
       - exists:
           path: spec.template.metadata.annotations["checksum/secret"]
         template: templates/deployment.yaml
+
+  - it: should refuse file token store with several replicas
+    set:
+      tokenStore.mode: file
+      replicaCount: 2
+    asserts:
+      - failedTemplate:
+          errorMessage: "tokenStore.mode=file keeps API tokens in a per-pod volume and cannot be shared across replicas. Set tokenStore.mode to redis or postgres, or keep replicaCount=1 with hpa.enabled=false."
+        template: templates/deployment.yaml
+
+  - it: should refuse file token store with the HPA enabled
+    set:
+      tokenStore.mode: file
+      hpa.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "tokenStore.mode=file keeps API tokens in a per-pod volume and cannot be shared across replicas. Set tokenStore.mode to redis or postgres, or keep replicaCount=1 with hpa.enabled=false."
+        template: templates/deployment.yaml
+
+  - it: should accept file token store with a single replica
+    set:
+      tokenStore.mode: file
+      replicaCount: 1
+    asserts:
+      - isKind:
+          of: Deployment
+        template: templates/deployment.yaml
+
+  - it: should accept redis token store with several replicas
+    set:
+      tokenStore.mode: redis
+      replicaCount: 3
+      hpa.enabled: true
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+        template: templates/deployment.yaml

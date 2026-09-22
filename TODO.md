@@ -404,8 +404,9 @@ Before touching application code, so the lint inventory is known in advance.
   *Files:* `scripts/helm/gimme/README.md` — **documentation only, no template change**
   *Note:* the token store is the *only* thing blocking horizontal scaling. OIDC sessions already scale — the signing key is derived deterministically from the shared `GIMME_SECRET`, so any pod validates any pod's cookie.
 
-- [ ] **#65 — Helm: guard against `file` + multiple replicas** *(after #57)*
+- [x] **#65 — Helm: guard against `file` + multiple replicas** *(after #57)*
   `fail` in the chart when `mode: file` meets `replicaCount > 1` or `hpa.enabled`, so the unworkable combination cannot be rendered. Land after #57 so the guard message and the README agree.
+  ⚠️ *The issue's placement did not work.* A bare `{{ if }}{{ fail }}` at the top level of `_helpers.tpl` never runs — Helm does not execute partials, and `helm template --set replicaCount=2` exited `0` with it in place. The check is a named template, `gimme.validateTokenStore`, included from `deployment.yaml`, which always renders.
   *Files:* `scripts/helm/gimme/templates/_helpers.tpl`, helm-unittest tests
 
 - [x] **#63 — Docs site: badge, ZIP layout, factual corrections**
