@@ -3,7 +3,7 @@ module github.com/ziggornif/gimme
 go 1.26.0
 
 require (
-	github.com/gin-contrib/cors v1.7.8
+	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/minio/minio-go/v7 v7.3.0
