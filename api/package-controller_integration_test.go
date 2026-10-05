@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/ziggornif/gimme/internal/auth"
 	"github.com/ziggornif/gimme/internal/content"
+	"github.com/ziggornif/gimme/internal/publish"
 	"github.com/ziggornif/gimme/test/mocks"
 	"github.com/ziggornif/gimme/test/utils"
 )
@@ -766,4 +768,29 @@ func TestPackageControllerLatestRejectedAtUploadAndDelete(t *testing.T) {
 	deletion := utils.PerformRequest(router, http.MethodDelete, "/packages/alias@latest", nil,
 		utils.Header{Key: "Authorization", Value: "Bearer " + rawToken})
 	assert.Equal(t, http.StatusBadRequest, deletion.Code)
+}
+
+func TestPackageControllerPublishClient(t *testing.T) {
+	objectStorageManager := initObjectStorage()
+	router := gin.New()
+	authManager := newTestAuthManager(t)
+	_, rawToken, _ := authManager.CreateToken(context.Background(), "test", "")
+	service := content.NewContentService(objectStorageManager, nil, 0, content.UploadLimits{})
+	NewPackageController(router, authManager, service)
+	name := fmt.Sprintf("publish-client-%d", time.Now().UnixNano())
+	t.Cleanup(func() { _ = service.DeletePackage(context.Background(), name, "1.0.0") })
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "css"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "app.js"), []byte("app"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "css", "style.css"), []byte("css"), 0o644))
+	archive, err := publish.Archive(dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(archive) })
+	server := httptest.NewServer(router)
+	defer server.Close()
+	opts := publish.Options{URL: server.URL, Token: rawToken, Name: name, Version: "1.0.0", ArchivePath: archive}
+	require.NoError(t, publish.Push(context.Background(), server.Client(), opts))
+	assert.Equal(t, "app", utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@1.0.0/app.js", nil).Body.String())
+	assert.Equal(t, "css", utils.PerformRequest(router, http.MethodGet, "/gimme/"+name+"@1.0.0/css/style.css", nil).Body.String())
+	assert.ErrorContains(t, publish.Push(context.Background(), server.Client(), opts), "versions are immutable")
 }

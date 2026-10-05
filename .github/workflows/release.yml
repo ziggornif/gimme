@@ -28,6 +28,31 @@ jobs:
         goversion: go.mod
         project_path: ./cmd/server
         extra_files: LICENSE README.md gimme.yml templates docs
+  cli-releases-matrix:
+    name: Release gimme-cli
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: ["386", amd64, arm64]
+        exclude:
+          - goarch: "386"
+            goos: darwin
+          - goarch: arm64
+            goos: windows
+    steps:
+    - uses: actions/checkout@v7
+    - uses: wangyoucao577/go-release-action@v1.55
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: ${{ matrix.goos }}
+        goarch: ${{ matrix.goarch }}
+        goversion: go.mod
+        project_path: ./cmd/gimme-cli
+        binary_name: gimme-cli
+        asset_name: gimme-cli-${{ matrix.goos }}-${{ matrix.goarch }}
+        ldflags: -X main.version=${{ github.ref_name }}
+        extra_files: LICENSE
   release-docker:
     runs-on: ubuntu-latest
     env:

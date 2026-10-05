@@ -10,9 +10,16 @@ lint:
 fmt:
 	go fmt ./...
 
-.PHONY: build
-build:
+.PHONY: build build-cli
+build: build-cli
 	go build -ldflags "-w -s" -o dist/gimme ./cmd/server/main.go
+
+build-cli:
+	go build -ldflags "-w -s" -o dist/gimme-cli ./cmd/gimme-cli
+
+.PHONY: upload-action-sim
+upload-action-sim:
+	scripts/upload-action-sim.sh
 
 # GOOS/GOARCH can be overridden on the command line or via environment variables.
 # When invoked from the Dockerfile, they are set via ARG/ENV so the build

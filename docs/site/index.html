@@ -848,6 +848,48 @@ curl -X POST http://localhost:8080/packages \
   -F "name=my-lib" \
   -F "version=1.0.0"
 # → 201 Created</code></pre>
+                                <h4>Or publish from CI</h4>
+                                <p>
+                                    The upload Action downloads <code>gimme-cli</code>,
+                                    archives the contents of the selected directory, and
+                                    publishes them. Thus <code>dist/app.js</code> becomes
+                                    <code>app.js</code>, not <code>dist/app.js</code>.
+                                </p>
+                                <pre><code class="language-yaml">- uses: ziggornif/gimme/upload-action@v3
+  with:
+    url: https://cdn.example.com
+    token: ${{ secrets.GIMME_TOKEN }}
+    path: dist
+    name: awesome-lib
+    version: ${{ github.ref_name }} # optional
+    cli-version: latest            # optional</code></pre>
+                                <p>
+                                    For direct use, install <code>gimme-cli</code> from the
+                                    platform assets attached to a GitHub Release. The token
+                                    environment variable is recommended because a token
+                                    flag is visible in the process list.
+                                </p>
+                                <pre><code class="language-bash">export GIMME_URL=https://cdn.example.com
+export GIMME_TOKEN=...
+gimme-cli push ./dist --name awesome-lib --version 1.2.0</code></pre>
+                                <p>
+                                    Without <code>--version</code>, the CLI checks the
+                                    current directory's <code>package.json</code>, a GitHub
+                                    Actions tag, then the exact Git tag at
+                                    <code>HEAD</code>. One leading <code>v</code> is removed.
+                                    <code>gimme-cli</code> is attached to releases from
+                                    v3.0.0 on.
+                                </p>
+                                <p>
+                                    Inputs are <code>url</code>, <code>token</code>,
+                                    <code>path</code>, and <code>name</code> (required),
+                                    plus <code>version</code> (automatic when empty),
+                                    <code>cli-version</code> (default
+                                    <code>latest</code>), and
+                                    <code>download-base-url</code> (testing only).
+                                    The Action runs on Linux and macOS runners; on
+                                    Windows, use <code>gimme-cli</code> directly.
+                                </p>
                             </div>
                         </div>
                         <div class="step">

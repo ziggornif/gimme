@@ -14,7 +14,8 @@
 
 ```text
 gimme/
-├── cmd/server/main.go          # Entrypoint
+├── cmd/server/main.go          # Server entrypoint
+├── cmd/gimme-cli/main.go       # Upload CLI entrypoint
 ├── api/                        # HTTP controllers (Gin)
 │   ├── root.go                 # GET /
 │   ├── admin-controller.go     # GET /admin, POST|DELETE /tokens
@@ -26,11 +27,13 @@ gimme/
 │   ├── content/                # Business logic: create/get/delete packages
 │   ├── storage/                # S3 client and manager (Minio SDK)
 │   ├── archive_validator/      # ZIP file validation
-│   └── errors/                 # Custom GimmeError type
+│   ├── errors/                 # Custom GimmeError type
+│   └── publish/                # CLI archive, version, and upload logic
 ├── configs/                    # Config loading via Viper (gimme.yml)
 ├── pkg/
 │   └── file-utils/             # Utility: file content-type detection
 ├── templates/                  # HTML templates (Gin, .tmpl)
+├── upload-action/              # Composite GitHub upload action
 └── docs/                       # Static docs (swagger.json) served at /docs
 ```
 
@@ -53,6 +56,8 @@ Semver partial versions are supported (e.g., `awesome-lib@1.0` resolves to the l
 
 ```bash
 make build              # Build Linux amd64 binary + dist/
+make build-cli          # Build the gimme-cli upload binary
+make upload-action-sim  # Simulate the Action download and upload path
 make test               # Start Garage, run all tests (unit + integration), stop Garage
 make coverage           # View coverage report (requires make test first)
 make watch              # Live reload (requires air)
