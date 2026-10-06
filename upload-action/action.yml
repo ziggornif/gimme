@@ -1,0 +1,40 @@
+name: Upload to gimme
+description: Archive and publish a directory to gimme
+inputs:
+  url:
+    description: Gimme server URL
+    required: true
+  token:
+    description: Gimme upload token
+    required: true
+  path:
+    description: Directory whose contents will be published
+    required: true
+  name:
+    description: Package name
+    required: true
+  version:
+    description: Package version; empty uses automatic resolution
+    required: false
+    default: ""
+  cli-version:
+    description: gimme-cli release tag or latest
+    required: false
+    default: latest
+  download-base-url:
+    description: Release download base URL (for testing only)
+    required: false
+    default: https://github.com/ziggornif/gimme/releases
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GIMME_URL: ${{ inputs.url }}
+        GIMME_TOKEN: ${{ inputs.token }}
+        GIMME_PATH: ${{ inputs.path }}
+        GIMME_NAME: ${{ inputs.name }}
+        GIMME_VERSION: ${{ inputs.version }}
+        GIMME_CLI_VERSION: ${{ inputs.cli-version }}
+        GIMME_DOWNLOAD_BASE_URL: ${{ inputs.download-base-url }}
+      run: "$GITHUB_ACTION_PATH/run.sh"

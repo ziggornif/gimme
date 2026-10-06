@@ -368,6 +368,33 @@ Uploads are limited by request size, ZIP file-entry count, and cumulative declar
 
 A failed upload is rolled back: the package either lands entirely or leaves nothing behind, so the same `name@version` can be retried immediately. If the rollback itself fails, the `500 Internal Server Error` says so and directs you to remove the partial package with `DELETE /packages/<pkg>@<version>` before retrying. A server killed outright (`kill -9`, OOM) has no chance to roll anything back and leaves a partial package that answers `409 Conflict` on retry; remove it with the same `DELETE /packages/<pkg>@<version>` request.
 
+#### Publishing from CI
+
+The upload Action downloads `gimme-cli`, archives the contents of the chosen directory, and publishes them. For example, `dist/app.js` becomes the archive entry `app.js` rather than `dist/app.js`:
+
+```yaml
+- uses: ziggornif/gimme/upload-action@v3
+  with:
+    url: https://cdn.example.com
+    token: ${{ secrets.GIMME_TOKEN }}
+    path: dist
+    name: awesome-lib
+    version: ${{ github.ref_name }} # optional
+    cli-version: latest            # optional
+```
+
+For direct use, install `gimme-cli` from the platform assets attached to a GitHub Release, then keep the token out of the process list:
+
+```bash
+export GIMME_URL=https://cdn.example.com
+export GIMME_TOKEN=...
+gimme-cli push ./dist --name awesome-lib --version 1.2.0
+```
+
+When `--version` is omitted, the CLI uses the first value available from the current directory's `package.json`, a GitHub Actions tag, or the exact Git tag at `HEAD`. One leading `v` is removed. `gimme-cli` is attached to releases from v3.0.0 on.
+
+Action inputs are `url`, `token`, `path`, and `name` (required), plus `version` (automatic when empty), `cli-version` (defaults to `latest`), and `download-base-url` (testing only; defaults to this repository's Releases URL). The Action runs on Linux and macOS runners; on Windows, use `gimme-cli` directly.
+
 #### Archive layout
 
 The paths inside the archive become the URLs, with one exception: when the archive wraps everything in a **single top-level folder**, that folder is stripped.
