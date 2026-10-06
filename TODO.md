@@ -380,13 +380,6 @@ Before touching application code, so the lint inventory is known in advance.
   *Not paginated:* semver order is not S3's lexicographic order, so a keyset cursor over prefixes cannot produce it, and `resolveVersion` already drains `ListCommonPrefixes(name+"@")` on every partial-version request.
   *Changes an existing test:* `TestPackageControllerGETInvalidUrlErr` expects `400` on `/gimme/file.js`, which now means the versions of package `file.js` → `404`.
 
-- [ ] **#122 — Browse a package by folder, not one flat list** *(filed mid-flight during #84; after #84)*
-  The listing renders one row per object labelled with the full object key, and there is no way to descend. #84 bounded the response (105 130 B for 50 rows on `@mui/icons-material@5.15.21`) but a bound is not a shape — the two directories that package actually has stay invisible while `mui-icons@5.15.21/` is repeated on all fifty lines.
-  *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`
-  ⚠️ *A folder view alone does not fix it, and assuming otherwise is the trap here.* That package holds 21 229 files directly at its root, so a delimited listing of the root still returns 21 231 entries — counted from jsDelivr's data API, whose own folder view for this package is exactly as long. Folder view for shape, #84's keyset pagination for bound, applied **within** a level. Not alternatives.
-  *Storage work after all:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child — but it drains the whole level, with no `StartAfter` and no limit. Paginating within a level needs a paged delimited variant alongside `ListObjectsPage`.
-  *Order:* after #49 — same browse surface; reuse its version-list rendering rather than inventing a second one.
-
 - [x] **#51 — `@latest`** *(after #45, landed)*
   `pkg@latest` becomes a third version form beside pinned and partial, resolved through the same `resolveVersion` path: highest **stable** version, `Cache-Control: public, max-age=300`, never `immutable`.
   *Files:* `internal/content/content-service.go`, `internal/content/content-service_test.go`, `api/package-controller_integration_test.go`, `README.md`, `docs/site/index.html`, `docs/api/swagger.json`
@@ -419,11 +412,6 @@ Before touching application code, so the lint inventory is known in advance.
   ⚠️ *#63 prescribed the opposite of the current behaviour.* It asked for "files must live inside a root folder"; #42 + #43 made a lone top-level folder stripped instead, so the site documents the real rule — one folder is stripped, several are kept.
   *The hero was left as it was.* Item 3 of #63 belonged to #56, which was closed: its premise — that semver partial resolution "is the whole product" — does not hold.
 
-- [ ] **#143 — Publish a reproducible benchmark for the README**
-  #56 asked the README to carry a number — "holds N req/s on a single instance" — and it ships without one. The only measurements that exist are the #84 and #85 comparisons recorded above: one developer machine, Garage v1.3.1 in Docker, concurrency 5 and 20, taken to compare two code paths against each other rather than to characterise the product. Publishing them as product performance would be an extrapolation from a laptop to a claim.
-  *Scope:* a script in the repository someone else can run, the rig stated in full (CPU, memory, Go version, Garage version, concurrency, duration), the axes that matter for a CDN (pinned vs partial version, file size, cache on/off, compression on/off), and p50/p95/p99 rather than a mean. The numbers are published with the rig beside them, never alone.
-  *Out of scope:* comparing gimme to nginx, unpkg or jsDelivr — different systems on different hardware, and a side-by-side needs its own methodology.
-
 - [x] **#144 — Docs site is missing what the README documents** *(plus `406` and `Content-Encoding`, absent from both)*
   Filed for three gaps, then widened by an audit: every config key, route, response header, status code and metric the code exposes was enumerated and grepped against both documents, then re-checked in prose to rule out false negatives. Most of it is a **parity** problem — the README documents the feature, `docs/site/index.html` does not.
   *Absent from the site, present in the README:* the three `upload.*` limits and the `413` they produce, the `409` on an existing version, the partial-upload rollback, `__MACOSX` / `.DS_Store` / NFC normalisation, `GET /auth/login` and `GET /auth/callback`, `token_file`, and `.gimmeignore` beyond the pointer link #63 added. OIDC itself is covered on the site (13 mentions) — it is the two routes that are missing, not the concept.
@@ -439,7 +427,7 @@ Before touching application code, so the lint inventory is known in advance.
 
 ## Phase 5 — Release
 
-Single release covering everything above.
+Single release covering everything above, minus the two items deferred to **Post-v3**.
 
 **Target: v3.0.0.**
 
@@ -465,6 +453,29 @@ There is no index to rebuild — gimme keeps none. `ListObjects` is called again
 - **Re-upload the affected packages.** #42 + #43 change the object keys produced *at upload*; they rewrite nothing already in the bucket. A package uploaded from an archive without a single root folder stays flattened where it is (`img/logo.svg` stored as `pkg@1.0.0/logo.svg`), and root-level files stay orphaned outside the `<pkg>@<version>/` namespace — `DeletePackage` lists on that prefix and cannot reach them, so they survive a package deletion and need an S3 client to remove. Already-published URLs keep resolving; what stays wrong is the layout, until the package is uploaded again. Re-uploading is also what produces the brotli and gzip variants from #47 — a package stored before that change is served uncompressed, and costs one extra S3 round trip per compressible file until it is uploaded again.
 - **Check for versions lost to #138.** Before this release, deleting `pkg@1.0.1` also deleted `pkg@1.0.10`, `pkg@1.0.1-rc.1` and any other version starting with the same string, and deleting `pkg@2` deleted every `2.x.y` and `20.x.y`. Nothing can recover them — they must be re-uploaded from their source archives.
 - **Flush the Redis cache if it is enabled** (off by default). `GetFile` caches the resolution of partial versions — key `pkg@1/app.js` → resolved object path. Entries written before the upgrade encode the #45 bug (`@1` → `10.0.0`) and keep serving it until the TTL expires (3600 s by default). Pinned versions never go through the cache, so they are unaffected.
+
+### Release checklist
+
+- [ ] **Create the floating `v3` tag.** `README.md` and `docs/site/index.html` both document the Action as `ziggornif/gimme/upload-action@v3`, and `.github/workflows/release.yml` creates no major alias — nothing in the release produces that ref today. Without it every workflow copied from the documentation fails to resolve the action. The tag moves forward across `v3.x`.
+- [x] **Bump the docs-site hero badge** — `v2 · Go · S3-compatible` became `v3`. The badge publishes on merge to `main`, not on the tag.
+
+---
+
+## Post-v3 — deferred to a minor
+
+Both were Phase 4 items, left out of v3.0.0 deliberately: neither touches a breaking change nor an upgrade action, so neither is worth holding the tag for. They ship in v3.1.
+
+- [ ] **#122 — Browse a package by folder, not one flat list** *(filed mid-flight during #84; after #84)*
+  The listing renders one row per object labelled with the full object key, and there is no way to descend. #84 bounded the response (105 130 B for 50 rows on `@mui/icons-material@5.15.21`) but a bound is not a shape — the two directories that package actually has stay invisible while `mui-icons@5.15.21/` is repeated on all fifty lines.
+  *Files:* `templates/package.tmpl`, `api/package-controller.go`, `internal/content/content-service.go`
+  ⚠️ *A folder view alone does not fix it, and assuming otherwise is the trap here.* That package holds 21 229 files directly at its root, so a delimited listing of the root still returns 21 231 entries — counted from jsDelivr's data API, whose own folder view for this package is exactly as long. Folder view for shape, #84's keyset pagination for bound, applied **within** a level. Not alternatives.
+  *Storage work after all:* #84 added `ListCommonPrefixes`, a delimited list returning one common prefix per immediate child — but it drains the whole level, with no `StartAfter` and no limit. Paginating within a level needs a paged delimited variant alongside `ListObjectsPage`.
+  *Order:* after #49 — same browse surface; reuse its version-list rendering rather than inventing a second one.
+
+- [ ] **#143 — Publish a reproducible benchmark for the README**
+  #56 asked the README to carry a number — "holds N req/s on a single instance" — and it ships without one. The only measurements that exist are the #84 and #85 comparisons recorded in Phase 4: one developer machine, Garage v1.3.1 in Docker, concurrency 5 and 20, taken to compare two code paths against each other rather than to characterise the product. Publishing them as product performance would be an extrapolation from a laptop to a claim.
+  *Scope:* a script in the repository someone else can run, the rig stated in full (CPU, memory, Go version, Garage version, concurrency, duration), the axes that matter for a CDN (pinned vs partial version, file size, cache on/off, compression on/off), and p50/p95/p99 rather than a mean. The numbers are published with the rig beside them, never alone.
+  *Out of scope:* comparing gimme to nginx, unpkg or jsDelivr — different systems on different hardware, and a side-by-side needs its own methodology.
 
 ---
 
