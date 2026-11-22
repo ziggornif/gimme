@@ -2,10 +2,15 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: read
+
 jobs:
   releases-matrix:
     name: Release Go Binary
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload release assets
     strategy:
       matrix:
         # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
@@ -31,6 +36,8 @@ jobs:
   cli-releases-matrix:
     name: Release gimme-cli
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload release assets
     strategy:
       matrix:
         goos: [linux, windows, darwin]
