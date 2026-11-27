@@ -17,7 +17,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.13.0
-	github.com/pashagolub/pgxmock/v6 v6.0.0-beta2
+	github.com/pashagolub/pgxmock/v6 v6.0.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/spf13/viper v1.21.0
