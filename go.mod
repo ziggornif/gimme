@@ -19,7 +19,7 @@ require (
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pashagolub/pgxmock/v6 v6.0.0
 	github.com/prometheus/client_golang v1.25.0
-	github.com/redis/go-redis/v9 v9.23.0
+	github.com/redis/go-redis/v9 v9.24.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.59.0
