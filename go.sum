@@ -100,8 +100,8 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/pashagolub/pgxmock/v6 v6.0.0-beta2 h1:8nEQJ9gukk/4OcECNO+QKzJRhbzTeqCpn5MiuLSiGlc=
-github.com/pashagolub/pgxmock/v6 v6.0.0-beta2/go.mod h1:LyMChJBEOGR/xYF1K7LeUvlwddjX5V4FhhcF+YFoG+E=
+github.com/pashagolub/pgxmock/v6 v6.0.0 h1:sQtYoJfon6BfGM/cK18qJxMTqHovbkiCxYnzV5ilKKU=
+github.com/pashagolub/pgxmock/v6 v6.0.0/go.mod h1:1UbBpLvVjpzy/+5ulpteheJ22KP8bd8pXRSJ8ax7p7g=
 github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdDPYVpY=
 github.com/pelletier/go-toml/v2 v2.4.3/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
